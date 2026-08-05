@@ -4,11 +4,11 @@ Each phase exits only when its documented acceptance criteria pass. Dates are in
 
 ## 1. Documentation baseline — current
 
-Deliver product/domain/architecture/API/deployment/test/UI documentation, six ADRs and pinned UI skills. Initialize local Git. Exit: links and lock file validate; no business code exists.
+Deliver product/domain/architecture/API/deployment/test/UI documentation, seven ADRs and pinned UI skills. Initialize local Git. Exit: links and lock file validate; no business code exists.
 
 ## 2. Design proof
 
-Use `prototype` for real switchable Home and Study prototypes at 390/768/1440. Confirm tokens, learner navigation, card/reveal/rating states and accessibility. Run the approved Impeccable and Web Guidelines workflow. Exit: human-approved direction and updated screenshot/decision notes.
+Use `prototype` for real switchable Home, Study, weekly challenge board and focused quiz prototypes at 390/768/1440. Confirm tokens, learner navigation, card/reveal/rating and quiz-feedback states and accessibility. Run the approved Impeccable and Web Guidelines workflow. Exit: human-approved direction and updated screenshot/decision notes.
 
 ## 3. Platform foundation
 
@@ -28,7 +28,7 @@ Four-format import, stored originals, validation, Wiktionary adapter, DeepSeek a
 
 ## 7. Motivation and operations
 
-Versioned game rules, XP, levels, tasks, streak/protection, badges, weekly leaderboard and minimal operational metrics. Exit: boundary/timezone/idempotency tests and read performance pass.
+Versioned game rules, routine XP, levels, tasks, streak/protection, badges, objective challenge attempts/scores/settlement, weekly challenge board and minimal operational metrics. Exit: Beijing-boundary, quiz/idempotency, settlement/adjustment and read-performance tests pass.
 
 ## 8. Quality pass
 

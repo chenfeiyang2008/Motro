@@ -8,7 +8,9 @@ Read the matching brief before designing, prototyping or implementing a surface.
 - [Courses](courses.md)
 - [Study session](study.md)
 - [Session result](result.md)
-- [Weekly leaderboard](leaderboard.md)
+- [Weekly challenge board](leaderboard.md)
+- [Challenge quiz](challenge-quiz.md)
+- [Challenge quiz result](challenge-result.md)
 - [Profile and settings](profile.md)
 
 ## Administration

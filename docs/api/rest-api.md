@@ -82,16 +82,29 @@ Response includes `reviewEventId`, authoritative next-due/memory summary, `xpAwa
 
 The client may cache the current rendered item for transient recovery but v1 has no offline queue or background synchronization guarantee.
 
-## 6. Game and profile
+## 6. Game, weekly challenge and profile
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `GET` | `/game/summary` | Level, XP, streak, active tasks and recent badges |
-| `GET` | `/game/leaderboard/weekly` | Ranks, viewer row, week/cutoff and tie rule |
-| `GET` | `/profile` | Profile and preference values |
-| `PATCH` | `/profile` | Update display name, timezone or daily budget |
+| `GET` | `/game/summary` | Level, daily-study XP, streak, active tasks and recent badges; not a rank source |
+| `GET` | `/game/leaderboard/weekly` | Public challenge points, rank, time current score was reached, Beijing week boundary/cutoff and participation state |
+| `GET` | `/game/challenge/weekly` | Viewer challenge points, distinct score-eligible words, estimated weekly growth XP, countdown and unlock/start state |
+| `POST` | `/game/challenge/attempts` | Idempotently create or recover one 10-question, five-minute challenge attempt |
+| `GET` | `/game/challenge/attempts/{id}` | Current question and remaining time; never pre-reveals answers |
+| `POST` | `/game/challenge/attempts/{id}/responses` | Idempotently submit exactly one response and receive immediate grading/score/rank summary |
+| `GET` | `/game/challenge/attempts/{id}/result` | Correct count, new challenge points and scored/review question breakdown |
+| `GET` | `/profile` | Profile and preference values including public-board participation |
+| `PATCH` | `/profile` | Update display name, timezone, daily budget or public challenge-board participation |
 
-Timezone changes are validated/rate-limited and affect future calculations; response explains effective time.
+`GET /game/leaderboard/weekly` returns only challenge points for ranking, never routine-study XP. It includes `weekStartsAt`, `weekEndsAt`, `startClosedAt`, `tieBreak: first_reached_current_score_then_user_id`, a viewer row even when opted out, and only public users in the displayed list.
+
+Attempt creation requires an idempotency key, at least 10 distinct exposed lexical entries, and a time before Sunday 23:55 `Asia/Shanghai`. It returns or resumes the active attempt and `maxPotentialPoints`; no second active attempt is created. Question snapshots always contain 10 distinct lexical entries, five directions each way, with source course and score-eligibility displayed but no answer exposed.
+
+A response body contains `questionId`, answer value and `clientResponseId`. The response validates the fixed week/expiry and snapshot, locks the question, stores the immutable response, grades it, then inserts the unique first-correct score fact if eligible. It returns `correct`, `correctAnswer`, `awardedChallengePoints` (`0|5`), updated personal points and a small rank summary. Retry with the same key/body returns the original result; changed semantics return `409`.
+
+Chinese→English spelling comparison uses Unicode normalization, lowercase and outer-trim only. Internal required spaces/hyphens remain exact. The accepted set is the snapshot's canonical spelling plus administrator-approved aliases; no fuzzy or AI evaluation occurs. Timeout ends the attempt and later writes return its final state.
+
+Timezone changes are validated/rate-limited and affect future personal calculations; challenge-week time is always Beijing time and does not change with profile timezone.
 
 ## 7. Admin accounts
 
@@ -133,6 +146,7 @@ Uploads enforce configured byte/row limits and do not trust browser MIME. Long w
 | `POST` | `/admin/courses/{id}/draft/reorder` | Accessible deterministic reorder command |
 | `POST` | `/admin/courses/{id}/validate` | Publish readiness and diff |
 | `POST` | `/admin/courses/{id}/releases` | Create immutable release |
+| `POST` | `/admin/game/challenge-score-adjustments` | Append audited challenge-score void or compensation; never edit a total |
 | `GET` | `/admin/courses/{id}/releases` | Version history |
 | `PUT` | `/admin/courses/{id}/current-release` | Move current pointer to an existing release |
 

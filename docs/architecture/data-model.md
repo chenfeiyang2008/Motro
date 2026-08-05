@@ -111,7 +111,42 @@ Immutable ledger: user, amount, reason, unique eligible `review_event_id`, rule-
 - `quest_instances` and `quest_progress_events`: assigned rule version, period and progress facts.
 - `badge_awards`: unique user + badge key + qualifying scope, rule version and awarded time.
 
-The leaderboard is a query/read model over XP entries within a defined week; do not persist rank as authority.
+The weekly challenge board is a query/read model over challenge score events and adjustments within a fixed ChallengeWeek; daily XP is never an input to rank and rank itself is not authoritative.
+
+
+## 6.1 Challenge measurement facts
+
+### `learning_exposures`
+
+Immutable first-view fact: `id`, `user_id`, `course_item_id`, `lexical_entry_id`, released-content reference, first displayed at and request correlation. Unique `(user_id, course_item_id)`; the candidate-pool read model deduplicates to distinct lexical entries. It is created only when the learning face was actually served.
+
+### `challenge_weeks`
+
+`id`, `starts_at`, `ends_at`, `start_local_date`, timezone fixed to `Asia/Shanghai`, status (`open|start_closed|settling|settled`). Unique start boundary. The start gate closes at the final Sunday 23:55; open attempts expire at `ends_at`.
+
+### `quiz_attempts`
+
+`id`, `user_id`, `challenge_week_id`, `started_at`, `expires_at`, `completed_at`, status (`active|completed|expired|abandoned`), `max_potential_points`, question count and an idempotency key unique per user/create operation. At most one active attempt per user/week; creation returns it for a retry rather than creating another set.
+
+### `quiz_question_snapshots`
+
+Attempt, position, `course_item_id`, `lexical_entry_id`, course/release source label, direction, type (`english_to_chinese_choice|chinese_to_english_spelling`), prompt/choices and accepted-answer snapshot, `is_score_eligible_at_start`. Unique `(attempt_id, position)` and unique `(attempt_id, lexical_entry_id)`. The snapshot is the only grading source after start.
+
+### `quiz_responses`
+
+Immutable response: attempt/question, submitted answer, correctness, answered-at, client idempotency key and display-safe correct-answer snapshot. Unique `(attempt_id, question_id)` and `(attempt_id, client_response_id)`. Different payloads for a claimed idempotency key conflict.
+
+### `challenge_score_events`
+
+Immutable 5-point fact for a first correct answer: user, challenge week, lexical entry, direction, source response, occurred time and rule-set version. Unique `(user_id, challenge_week_id, lexical_entry_id, direction)`. This is the cross-course deduplication authority, not a cache.
+
+### `challenge_score_adjustments`
+
+Immutable administrator audit fact: target score event or user/week scope, signed delta/void disposition, mandatory reason, actor, created-at and audit-event reference. It never modifies the response or original score event. A read model sums valid events plus adjustments.
+
+### `weekly_challenge_rewards`
+
+Idempotent settlement ledger: user, week, source score snapshot/hash, calculated points, XP amount, cap/rule-set version, settlement time and optional compensating XP-entry reference. Unique `(user_id, challenge_week_id, reward_kind)`; later score adjustments append a compensation entry rather than rewrite the first ledger entry.
 
 ## 7. Imports and jobs
 
@@ -130,6 +165,7 @@ Graphile Worker owns queue tables. Application tables store durable operation re
 ## 8. Essential indexes and retention
 
 - `learning_cards(user_id, due_at)` filtered to planning-eligible cards.
+- `learning_exposures(user_id, lexical_entry_id)` and challenge-score uniqueness indexes described below.
 - `review_events(card_id, reviewed_at desc)` and unique idempotency index.
 - released items by `release_id, unit_position, item_position` and stable item ID.
 - XP by user/time; import rows by batch/status; enrichment drafts by review status/time.

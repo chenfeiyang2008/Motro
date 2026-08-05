@@ -11,13 +11,20 @@ Test irreversible domain facts and contracts most deeply. Time, randomness, sche
 - Stability: both intervals `>= 21 days`; boundary and regression below threshold.
 - Unit unlock: every item completes both initial reviews; empty/removed/new-version cases.
 - Daily planning: overdue before due before new, locked-unit exclusion, time-budget fill and no-work result.
-- Game rules: 5 XP eligibility, no rating multiplier, dedupe, level/quest/badge versions, timezone streak, weekly boundary, tie-break and protection earn/consume.
+- Game rules: 5 routine-study XP eligibility, no rating multiplier, level/quest/badge versions, timezone streak and protection earn/consume.
+- Challenge rules: fixed Beijing week/cutoff, 10 distinct lexical entries, five directions each way, 7 score-eligible / 3 review target and pool fallback, primary-course source preference, and no same-word opposite-direction leak.
+- Challenge score: one 5-point fact per user/week/global-entry/direction across courses; wrong-then-later-correct awards once; already-scored review awards zero; first-reached-current-score tie-break and stable user ID fallback.
+- Challenge grading: outer-space/case normalization, exact required spaces/hyphens, administrator aliases only, no fuzzy or AI acceptance.
+- Challenge settlement: `floor(points/10)`, 200 XP cap, idempotent rerun, opt-out still rewards, and audited void/compensation produces adjustment plus XP compensation.
 
 ## Integration tests with PostgreSQL
 
 - Concurrent duplicate `ReviewEvent` submissions produce one event, one card transition and at most one XP entry.
 - Same idempotency key with changed payload returns conflict.
 - Review transaction rolls back all effects on failure.
+- Challenge response transaction validates week/expiry, locks the snapshot, makes repeated responses idempotent and records at most one score event under concurrent submits.
+- Attempt recovery, five-minute expiry, Sunday 23:55 start denial and Monday boundary behavior are deterministic under injected Beijing clocks.
+- Score adjustments preserve responses and original score facts; board read model excludes daily XP and hidden users while personal read models retain both.
 - Published release rows reject mutation; publish is atomic and stable course-item IDs preserve history.
 - Draft optimistic version conflicts are visible.
 - Graphile tasks tolerate at-least-once execution, retry supplier errors and never duplicate applied results.
@@ -45,15 +52,16 @@ Playwright runs Chromium and WebKit:
 2. browse and select primary course;
 3. create/resume session, learn new item, two initial directions and due review;
 4. refresh before/after submit and verify no duplicate XP;
-5. view result, profile and weekly leaderboard;
-6. admin create account;
-7. import each format, inspect errors, enrichment review;
-8. compose, validate and publish a course; learner sees correct release;
-9. failed job inspection and idempotent retry.
+5. view result, profile and weekly challenge board;
+6. unlock/start a challenge, submit choice and spelling answers, receive immediate feedback, refresh/retry safely, expire, view result and opt out/in;
+7. admin create account;
+8. import each format, inspect errors, enrichment review;
+9. compose, validate and publish a course; learner sees correct release;
+10. failed job inspection and idempotent retry.
 
 ## UI and accessibility
 
-- Screenshot baselines for critical states at 390, 768 and 1440px.
+- Screenshot baselines for critical states at 390, 768 and 1440px, including leaderboard → quiz → immediate feedback → result and locked/cutoff states.
 - Automated axe checks plus manual keyboard, focus restoration, zoom 200%, screen-reader spot checks and reduced-motion checks.
 - Enforce no horizontal overflow, 44px mobile targets, logical headings/landmarks and AA contrast.
 - Human review rejects decorative gradients, glassmorphism, nested cards, Emoji icons, unfamiliar navigation, meaningless dialogs and competing primary actions.

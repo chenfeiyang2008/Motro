@@ -60,7 +60,7 @@ This is a target layout, not authorization to scaffold code during the documenta
 
 - PostgreSQL is the source of truth for content, identity, learning, rewards, audit and background jobs.
 - Drizzle provides typed access; explicit ordered SQL migrations are the deployment contract.
-- Constraints enforce uniqueness, immutability and idempotency. Transactions cover review+schedule+XP, publish snapshot creation and job enqueueing.
+- Constraints enforce uniqueness, immutability and idempotency. Transactions cover review+schedule+XP, quiz-response+challenge-score, publish snapshot creation and job enqueueing.
 - Application tables use UTC `timestamptz`; user-local dates are derived with an IANA timezone and persisted only when they are business facts such as a streak day.
 
 ### Worker
@@ -83,7 +83,7 @@ This is a target layout, not authorization to scaffold code during the documenta
 | `auth` | users, credentials, sessions, roles | audit |
 | `catalog` | lexical entries, courses, releases, enrollment | audit, jobs |
 | `study` | daily plans, sessions, cards, review events, FSRS state | catalog read model, game command |
-| `game` | XP ledger, levels, streaks, quests, badges, leaderboard | study event facts, rulesets |
+| `game` | XP ledger, challenge weeks/attempts/scores, levels, streaks, quests, badges, weekly challenge board | study exposure facts, rulesets |
 | `admin` | account/content use cases and review decisions | auth, catalog, operations |
 | `operations` | imports, enrichment, job status, files, audit | catalog commands, external adapters |
 
@@ -131,3 +131,13 @@ Upload creates a durable batch and file record first. Parsing and supplier calls
 - [Graphile Worker documentation](https://worker.graphile.org/docs)
 - [NestJS OpenAPI documentation](https://docs.nestjs.com/openapi/introduction)
 - [Architecture decision records](../adr/README.md)
+
+## 9. Challenge consistency boundaries
+
+### Challenge answer submission
+
+One database transaction: validate fixed Beijing week and 5-minute expiry → lock snapshot question → claim response idempotency key → append immutable `QuizResponse` → grade against snapshot → attempt insert of the unique `ChallengeScoreEvent` when correct → rebuild/update the user-week read model including adjustments → commit. A uniqueness conflict means the answer remains correct but awards 0 because that word direction was already scored this week.
+
+### Weekly settlement and correction
+
+The worker closes the Beijing week, snapshots each user's adjusted challenge points, and idempotently appends `floor(points / 10)` growth XP capped at 200. A later audited void/compensation never alters historical responses or totals in place; it appends a challenge adjustment and the required XP compensation ledger fact. Rank queries use points and the first time the current point total was reached, then user ID; they never inspect routine-study XP.

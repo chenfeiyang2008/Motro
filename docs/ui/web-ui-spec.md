@@ -8,7 +8,7 @@ This document makes [`DESIGN.md`](../../DESIGN.md) implementable for the respons
 
 1. **One job per page.** A learner should understand the page purpose and next action without scanning a dashboard.
 2. **Learning before decoration.** Vocabulary, prompt, answer and progress have stronger hierarchy than XP, badges or streaks.
-3. **Familiar controls.** Use conventional browser/app patterns and platform language; do not invent interaction primitives.
+3. **Familiar controls.** Use conventional browser/app patterns and platform language; do not invent interaction primitives. A weekly challenge board is separate from daily learning and ranks only server-graded challenge points.
 4. **Calm encouragement.** Feedback is immediate and warm but never noisy, shaming or casino-like.
 5. **Progressive detail.** Show the decision now; put explanations, provenance and advanced settings one level deeper.
 
@@ -50,7 +50,18 @@ Every foreground/background pair must be verified for WCAG 2.2 AA. Semantic colo
 - Use whitespace and borders before shadows. Only overlays and clearly raised interactive surfaces may use a restrained shadow.
 - Never nest framed panels solely to create hierarchy.
 
-### 3.4 Iconography
+### 3.4 Liquid Glass material
+
+Liquid Glass is a functional navigation/control layer, not a translucent treatment for all surfaces. It follows the product-level rules in [`DESIGN.md`](../../DESIGN.md#liquid-glass-材质), which take precedence.
+
+- Use **regular Glass** for the mobile learner Dock, desktop learner sidebar, app/study headers and compact toolbars. It needs a translucent fill, sufficient blur or backdrop adaptation, a subtle edge, and restrained elevation; its labels and focus indicator must remain legible over the actual content beneath it.
+- Use **clear Glass** only above visually rich media. The learner's ordinary light canvas, study cards, course copy, forms, plans and fact panels use standard opaque content surfaces instead. Clear Glass requires a tested dimming layer when the underlying content is bright.
+- Keep one coherent Glass group per navigation region. Do not turn every card, metric, list row or secondary button into Glass. Do not layer Glass panels inside Glass panels.
+- Brand color is reserved for one primary action background and selected navigation labels/icons. Do not tint several Glass controls with brand blue at once.
+- Provide an opaque `bg.surface` fallback for browsers without `backdrop-filter`, `prefers-reduced-transparency: reduce`, and `prefers-contrast: more`. The fallback preserves the same labels, focus ring, layout and 44px target sizes.
+- Test Glass against the resting and scrolling content under it; never accept a material solely because it looks correct on an empty canvas.
+
+### 3.5 Iconography
 
 Use one pinned Lucide version through the project wrapper. Default sizes are 16, 20 and 24px with consistent stroke width. Every icon-only control has an accessible name and tooltip where meaning is not universal. Do not use Emoji or AI-generated icons.
 
@@ -66,9 +77,9 @@ Breakpoints respond to content rather than device names. Test required reference
 
 ### 4.2 Learner navigation
 
-- Mobile bottom navigation has at most five destinations: 首页、课程、排行榜、我的; no empty fifth item.
-- Desktop uses the same information architecture in a stable side rail or top bar. Active destination is indicated by label, icon and color—not color alone.
-- Study sessions replace global navigation with a minimal header: exit/back, session progress and optional pause. Exiting with unsaved local interaction requires confirmation; accepted events never require confirmation.
+- Mobile bottom navigation has at most five destinations: 首页、课程、排行榜、我的; no empty fifth item. It may be a bottom-safe-area-aware, capsule-shaped Liquid Glass Dock when it is one coherent navigation group rather than a floating action button.
+- Desktop uses the same information architecture in a stable, left-edge-attached Liquid Glass side rail or top bar. Active destination is indicated by label, icon and color—not color alone.
+- Study sessions replace global navigation with a minimal header: exit/back, session progress and optional pause. Challenge quizzes use the same focus pattern with exit, `n / 10` and an accessible five-minute countdown. Exiting with unsaved local interaction requires confirmation; accepted events never require confirmation.
 
 ### 4.3 Admin navigation
 
@@ -103,6 +114,7 @@ Use a standard left sidebar grouped as 内容（词条、导入、审核、课�
 ### 5.4 Study card
 
 - The “card” is the central learning object, not a decorative panel hierarchy.
+- The card uses the standard opaque content surface, even when its surrounding navigation uses Liquid Glass.
 - Front shows direction, prompt and one clear “显示答案” action. Back adds the answer and four rating buttons in order Again、Hard、Good、Easy with keyboard shortcuts 1–4.
 - Rating controls remain unavailable until reveal. On submit, lock the controls, optimistically advance only when safe, and reconcile with server response without double submission.
 - Do not use swipe as the only rating method. Do not encode rating solely by green/red; labels remain present.
@@ -115,8 +127,9 @@ Ant Design is allowed only in admin surfaces and must map to Motro tokens. Prefe
 
 - Duration range 120–220ms; easing should settle quickly without bounce.
 - Use opacity and `transform` for reveal, row insertion and navigation state. Avoid parallax, looping decoration, confetti and large-scale page movement.
-- Rating submission can use a short state confirmation; it must not delay the next card.
+- Rating submission can use a short state confirmation; it must not delay the next card. Quiz feedback is immediate and inline; never award speed points or obscure whether a question was score-eligible.
 - Under `prefers-reduced-motion: reduce`, remove non-essential movement and keep immediate state changes.
+- Under `prefers-reduced-transparency: reduce`, `prefers-contrast: more`, or missing backdrop support, replace Glass with opaque surfaces; never merely lower text opacity or remove an edge.
 
 ## 7. Accessibility
 
@@ -146,4 +159,5 @@ For every key surface at 390/768/1440px:
 3. Run keyboard-only and screen-reader spot checks; verify focus and reduced motion.
 4. Run Impeccable `critique`, then `distill` or `quieter`, then `polish`, without enabling `live`, hooks, image generation or external agents.
 5. Run Web Design Guidelines review and resolve findings or document intentional exceptions.
-6. Update screenshot baselines only after a human accepts the intended visual change.
+6. For every Glass region, test resting and scrolling backgrounds, unsupported-backdrop fallback, reduced transparency and increased contrast; verify labels, focus rings and selected states remain AA-compliant.
+7. Update screenshot baselines only after a human accepts the intended visual change.
