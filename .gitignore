@@ -1,0 +1,22 @@
+node_modules/
+.pnpm-store/
+.next/
+dist/
+coverage/
+playwright-report/
+test-results/
+
+.env
+.env.*
+!.env.example
+
+.DS_Store
+*.log
+
+# Runtime data and secrets
+data/
+backups/
+secrets/
+
+# Local UI skill runtime state; installed skill definitions remain tracked.
+.impeccable/
