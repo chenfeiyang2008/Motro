@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f7f9fc" />
+    <title>Motro 学习者原型（Throwaway）</title>
+    <style>
+      :root {
+        --brand: #2f6fed;
+        --brand-hover: #255ed0;
+        --brand-tint: #eaf1ff;
+        --page: #f7f9fc;
+        --surface: #ffffff;
+        --text: #182230;
+        --muted: #5d6b7a;
+        --border: #dce3ec;
+        --success: #23875b;
+        --warning: #c47a16;
+        --danger: #c84545;
+        --radius: 12px;
+        --shadow-soft: 0 12px 28px rgb(24 34 48 / 8%);
+        --shadow-action: 0 8px 18px rgb(47 111 237 / 26%);
+        --glass-fill: rgb(241 247 255 / 22%);
+        --glass-edge: rgb(255 255 255 / 72%);
+        --glass-shadow: 0 16px 36px rgb(39 55 79 / 15%), 0 2px 8px rgb(39 55 79 / 7%);
+        --ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+        --english: "SF Pro Display", Lexend, "Avenir Next", system-ui, sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--page); color: var(--text); font: 16px/1.5 var(--ui); text-rendering: optimizeLegibility; }
+      button, a { font: inherit; touch-action: manipulation; -webkit-tap-highlight-color: rgb(47 111 237 / 12%); }
+      button { cursor: pointer; }
+      button:focus-visible, a:focus-visible { outline: 3px solid var(--brand); outline-offset: 3px; }
+      .skip-link { position: fixed; z-index: 20; top: 8px; left: 8px; padding: 10px 14px; border-radius: 999px; background: var(--text); color: #fff; text-decoration: none; transform: translateY(-160%); transition: transform 160ms ease; }
+      .skip-link:focus { transform: translateY(0); }
+      .shell { min-height: 100vh; padding-bottom: 140px; }
+      .app-header { min-height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; background: rgb(248 251 255 / 68%); border-bottom: 1px solid rgb(255 255 255 / 76%); box-shadow: 0 1px 10px rgb(24 34 48 / 5%), inset 0 -1px 0 rgb(112 133 166 / 9%); backdrop-filter: blur(24px) saturate(170%) contrast(105%); -webkit-backdrop-filter: blur(24px) saturate(170%) contrast(105%); }
+      .desktop-nav { display: none; }
+      .brand { font: 700 24px/1 var(--english); letter-spacing: -.05em; }
+      .page { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 40px; }
+      .date-line, .direction { color: var(--muted); font-size: 14px; line-height: 20px; }
+      h1, h2, h3, p { margin-top: 0; }
+      h1 { margin-bottom: 8px; font-size: 24px; line-height: 32px; letter-spacing: -.035em; text-wrap: balance; }
+      .home-title { display: inline-block; position: relative; min-width: 12ch; white-space: nowrap; font-weight: 700; }
+      .home-title::after { content: "_"; display: inline-block; margin-left: 3px; color: var(--brand); font: 500 .8em/1 var(--english); vertical-align: .05em; animation: caret-blink 700ms steps(1, end) 3; }
+      h2 { margin-bottom: 8px; font-size: 20px; line-height: 28px; }
+      .intro { max-width: 48ch; color: var(--muted); margin-bottom: 24px; }
+      .panel { background: rgb(255 255 255 / 96%); border: 1px solid var(--border); border-radius: var(--radius); }
+      .button { min-height: 48px; border: 1px solid transparent; border-radius: 10px; padding: 0 18px; font-weight: 600; transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease; }
+      .button.primary { background: var(--brand); color: #fff; box-shadow: var(--shadow-action); }
+      .button.primary:hover { background: var(--brand-hover); box-shadow: 0 11px 20px rgb(47 111 237 / 31%); transform: translateY(-1px); }
+      .button.primary:active { transform: translateY(0) scale(.985); box-shadow: 0 3px 8px rgb(47 111 237 / 24%); }
+      .muted { color: var(--muted); }
+
+      /* Selected direction A: the plan is the clear centre of gravity. */
+      .home-layout { display: grid; gap: 24px; }
+      .plan { padding: 24px; box-shadow: var(--shadow-soft); }
+      .plan-top { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+      .plan-context { margin: 0; color: var(--muted); }
+      .plan-number { min-width: 84px; padding: 9px 10px 8px; border: 1px solid var(--border); border-radius: 10px; text-align: center; }
+      .plan-number strong { font: 650 30px/30px var(--english); font-variant-numeric: tabular-nums; letter-spacing: -.06em; }
+      .plan-number span { margin-left: 3px; color: var(--muted); font-size: 14px; }
+      .plan-number small { display: block; margin-top: 1px; color: var(--muted); font-size: 14px; line-height: 20px; }
+      .plan-rule { height: 1px; background: var(--border); margin: 24px 0 20px; }
+      .plan-split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 26px; }
+      .plan-metric { display: flex; align-items: flex-start; gap: 10px; }
+      .metric-marker { width: 8px; height: 8px; margin-top: 8px; flex: 0 0 auto; border-radius: 50%; background: var(--brand); }
+      .plan-metric.new .metric-marker { background: var(--success); }
+      .plan-metric strong { display: block; font: 650 22px/24px var(--english); letter-spacing: -.04em; }
+      .plan-metric strong span { color: var(--muted); font: 400 14px/20px var(--ui); letter-spacing: 0; }
+      .plan-metric p { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
+      .plan .button { width: 100%; }
+      .facts { padding: 0; }
+      .fact { padding: 18px 0; border-bottom: 1px solid var(--border); }
+      .fact:last-child { border-bottom: 0; }
+      .fact-label { display: block; margin-bottom: 5px; color: var(--muted); font-size: 14px; }
+      .fact strong { display: block; font-size: 16px; }
+      .course-detail { display: block; color: var(--muted); }
+      .streak-head { display: flex; align-items: baseline; gap: 6px; }
+      .streak-head strong { font: 650 32px/32px var(--english); font-variant-numeric: tabular-nums; letter-spacing: -.06em; }
+      .streak-head span { font-weight: 600; }
+      .streak-note { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+      .streak-days { display: flex; gap: 4px; margin-top: 12px; }
+      .streak-days span { width: 16px; height: 6px; border-radius: 3px; background: var(--brand-tint); }
+      .streak-days span.filled { background: var(--brand); }
+      .weekly { position: relative; display: flex; justify-content: space-between; align-items: center; margin: 12px 0 0; }
+      .weekly::before { content: ""; position: absolute; z-index: 0; top: 18px; right: 18px; left: 18px; height: 2px; background: rgb(47 111 237 / 13%); }
+      .weekly-run { position: absolute; z-index: 0; top: 17px; left: 18px; width: calc((100% - 36px) / 3); height: 4px; border-radius: 99px; background: var(--brand); box-shadow: 0 1px 3px rgb(47 111 237 / 28%); }
+      .weekly-day { position: relative; z-index: 1; width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid rgb(47 111 237 / 17%); border-radius: 50%; background: rgb(255 255 255 / 74%); color: var(--muted); font-size: 12px; box-shadow: inset 0 1px 0 rgb(255 255 255 / 90%); }
+      .weekly-day.done { border-color: var(--brand); background: var(--brand); color: #fff; font-weight: 700; box-shadow: inset 0 1px 0 rgb(255 255 255 / 28%), 0 3px 8px rgb(47 111 237 / 18%); }
+      .weekly-day.today { border-color: var(--brand); background: var(--brand-tint); color: var(--brand-hover); font-weight: 700; box-shadow: 0 0 0 4px rgb(47 111 237 / 9%), inset 0 1px 0 #fff; }
+
+      .profile-summary { display: flex; align-items: center; gap: 10px; }
+      .avatar { width: 36px; height: 36px; display: grid; place-items: center; flex: 0 0 auto; border: 1px solid #bfd2fb; border-radius: 50%; background: var(--brand-tint); color: var(--brand); font: 650 14px/1 var(--ui); }
+      .profile-copy { display: grid; gap: 1px; }
+      .profile-copy strong { font-size: 14px; line-height: 18px; }
+      .profile-copy span { color: var(--muted); font-size: 12px; line-height: 16px; }
+      .profile-copy .member-tier { display: inline-flex; align-items: center; gap: 4px; width: fit-content; padding: 2px 7px 2px 5px; border: 1px solid rgb(170 119 24 / 25%); border-radius: 999px; background: rgb(255 248 225 / 76%); color: #805909; font-size: 12px; font-weight: 700; line-height: 16px; letter-spacing: .01em; box-shadow: inset 0 1px 0 rgb(255 255 255 / 88%), 0 2px 7px rgb(128 89 9 / 8%); }
+      .member-icon { width: 14px; height: 14px; fill: rgb(209 153 38 / 13%); stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+      .bottom-nav { position: fixed; z-index: 5; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); left: max(16px, env(safe-area-inset-left)); height: 70px; display: flex; padding: 5px; overflow: hidden; border: 1px solid rgb(255 255 255 / 56%); border-radius: 999px; background-color: var(--glass-fill); box-shadow: var(--glass-shadow), inset 0 1px 1px rgb(255 255 255 / 72%), inset 0 -1px 2px rgb(79 99 132 / 12%); backdrop-filter: blur(14px) saturate(190%) contrast(108%) brightness(103%); -webkit-backdrop-filter: blur(14px) saturate(190%) contrast(108%) brightness(103%); isolation: isolate; }
+      .bottom-nav::before { content: ""; position: absolute; z-index: 0; inset: 2px; border: 1px solid rgb(255 255 255 / 32%); border-radius: inherit; box-shadow: inset 0 2px 3px rgb(255 255 255 / 44%), inset 0 -2px 3px rgb(92 112 145 / 8%); pointer-events: none; }
+      .bottom-nav::after { content: ""; position: absolute; z-index: 0; top: 4px; right: 12%; left: 12%; height: 1px; border-radius: 999px; background: rgb(255 255 255 / 68%); box-shadow: 0 1px 4px rgb(255 255 255 / 48%); pointer-events: none; }
+      .nav-item { position: relative; z-index: 1; flex: 1; overflow: hidden; border: 1px solid transparent; border-radius: 999px; background: transparent; color: #526174; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 2px; font-size: 12px; font-weight: 650; transition: background-color 180ms ease, transform 180ms cubic-bezier(.2,.8,.2,1), color 180ms ease, box-shadow 180ms ease; }
+      .nav-item.active { border-color: rgb(255 255 255 / 58%); background: rgb(255 255 255 / 34%); color: var(--brand); box-shadow: 0 7px 16px rgb(41 59 88 / 10%), inset 0 1px 1px rgb(255 255 255 / 72%), inset 0 -1px 2px rgb(72 94 130 / 9%); }
+      .nav-item:hover { background: rgb(255 255 255 / 32%); color: var(--text); }
+      .nav-item.active:hover { background: rgb(255 255 255 / 42%); color: var(--brand-hover); }
+      .nav-item:active { transform: scale(.94); box-shadow: inset 0 2px 5px rgb(37 62 100 / 11%); }
+      .nav-icon { width: 19px; height: 19px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+      /* Study deliberately removes global navigation. */
+      .study-shell { min-height: 100vh; display: flex; flex-direction: column; }
+      .study-header { min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 16px; background: rgb(248 251 255 / 68%); border-bottom: 1px solid rgb(255 255 255 / 76%); box-shadow: 0 1px 10px rgb(24 34 48 / 5%), inset 0 -1px 0 rgb(112 133 166 / 9%); backdrop-filter: blur(24px) saturate(170%) contrast(105%); -webkit-backdrop-filter: blur(24px) saturate(170%) contrast(105%); }
+      .study-exit { min-width: 68px; min-height: 44px; display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; color: var(--muted); font-weight: 600; }
+      .study-exit:hover { color: var(--text); }
+      .study-exit .nav-icon { width: 18px; height: 18px; }
+      .study-progress { width: min(220px, 48vw); }
+      .progress-copy { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; color: var(--muted); font-size: 13px; }
+      .progress-copy strong { color: var(--text); font: 650 15px/20px var(--ui); }
+      .progress-track { width: 100%; height: 6px; margin-top: 8px; border-radius: 99px; background: var(--border); overflow: hidden; }
+      .progress-track span { display: block; width: 100%; height: 100%; transform: scaleX(0); transform-origin: left center; background: var(--brand); transition: transform 160ms ease; }
+      .study-main { width: min(720px, calc(100% - 32px)); margin: 0 auto; padding: 56px 0 52px; }
+      .study-card { min-height: 420px; display: flex; flex-direction: column; justify-content: space-between; padding: 28px 24px 24px; background: var(--surface); box-shadow: 0 16px 34px rgb(24 34 48 / 9%); animation: card-arrival 200ms cubic-bezier(.2,.8,.2,1) both; }
+      .study-card.is-revealed { border-color: #cbd9f6; box-shadow: 0 18px 38px rgb(24 34 48 / 11%), inset 0 1px 0 rgb(255 255 255 / 90%); }
+      .study-card .direction { width: fit-content; margin-bottom: 36px; padding: 5px 9px; border: 1px solid var(--border); border-radius: 999px; background: #fff; color: var(--muted); font-size: 13px; line-height: 18px; }
+      .prompt { max-width: 100%; margin: 0; overflow-wrap: anywhere; font: 500 clamp(38px, 11vw, 52px)/1.08 var(--english); letter-spacing: -.055em; }
+      .new-word .prompt { margin-bottom: 8px; }
+      .translation { font-size: 21px; line-height: 30px; }
+      .hint { color: var(--muted); font-size: 14px; margin-top: 16px; }
+      .answer { border-top: 1px solid var(--border); margin-top: 32px; padding-top: 24px; }
+      .answer h2 { margin-bottom: 6px; font-size: 25px; line-height: 34px; }
+      .answer p { margin: 0; color: var(--muted); }
+      .study-action { margin-top: 32px; }
+      .study-action .button { width: 100%; }
+      .ratings { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 32px; }
+      .rating { min-height: 70px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); text-align: left; transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background-color 160ms ease; }
+      .rating:hover { border-color: var(--brand); box-shadow: 0 8px 16px rgb(24 34 48 / 9%); transform: translateY(-1px); }
+      .rating:active { transform: scale(.985); box-shadow: none; }
+      .rating-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-weight: 650; }
+      .rating-key { min-width: 20px; height: 20px; display: grid; place-items: center; border: 1px solid currentColor; border-radius: 6px; color: var(--muted); font: 600 11px/1 var(--english); }
+      .rating small { display: block; margin-top: 3px; color: var(--muted); font-size: 13px; font-weight: 400; }
+      .rating.again { background: #fffafa; }
+      .rating.hard { background: #fffcf6; }
+      .rating.good { background: #f8fbff; }
+      .rating.easy { background: #f7fcf9; }
+      .complete { text-align: center; align-items: center; justify-content: center; gap: 20px; }
+      .complete h1 { margin-bottom: 0; }
+      .complete .button { width: auto; }
+
+      @keyframes card-arrival { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+      @keyframes caret-blink { 50% { opacity: 0; } }
+
+      @media (min-width: 600px) {
+        .app-header, .study-header { padding: 0 24px; }
+        .page { width: min(1120px, calc(100% - 48px)); padding-top: 40px; }
+        h1 { font-size: 28px; line-height: 36px; }
+        .plan { padding: 32px !important; }
+        .study-main { width: min(720px, calc(100% - 48px)); padding-top: 76px; }
+        .study-card { padding: 40px; min-height: 472px; }
+        .ratings { grid-template-columns: repeat(4, 1fr); }
+      }
+
+      @media (min-width: 1024px) {
+        .shell { padding-bottom: 0; }
+        .app-header { display: none; }
+        .desktop-nav { position: fixed; z-index: 5; top: 0; bottom: 0; left: 0; width: 224px; display: flex; flex-direction: column; padding: 32px 16px 24px; overflow: hidden; border: 0; border-right: 1px solid rgb(255 255 255 / 70%); border-radius: 0 28px 28px 0; background-color: rgb(241 247 255 / 48%); box-shadow: 12px 0 34px rgb(39 55 79 / 10%), inset -1px 0 1px rgb(255 255 255 / 66%); backdrop-filter: blur(28px) saturate(180%) contrast(105%); -webkit-backdrop-filter: blur(28px) saturate(180%) contrast(105%); }
+        .desktop-nav::after { content: ""; position: absolute; top: 28px; right: 1px; bottom: 28px; width: 1px; border-radius: 999px; background: rgb(255 255 255 / 58%); box-shadow: 1px 0 4px rgb(255 255 255 / 36%); pointer-events: none; }
+        .desktop-nav .brand { margin: 4px 12px 36px; }
+        .desktop-nav .nav-item { flex: 0 0 48px; flex-direction: row; justify-content: flex-start; gap: 12px; border-radius: 999px; padding: 0 12px; font-size: 15px; font-weight: 650; }
+        .desktop-nav .nav-icon { color: #4b72c1; }
+        .desktop-nav .nav-item.active { background: rgb(255 255 255 / 46%); }
+        .desktop-nav .nav-item.active .nav-icon { color: var(--brand); }
+        .desktop-nav .profile-summary { margin: auto 12px 8px; }
+        .page { width: min(1120px, calc(100% - 272px)); margin-left: 248px; }
+        .home-layout { grid-template-columns: minmax(0, 1.5fr) minmax(260px, .7fr); gap: 48px; align-items: start; }
+        .bottom-nav { display: none; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+      }
+
+      @media (prefers-contrast: more), (prefers-reduced-transparency: reduce) {
+        .app-header, .study-header, .bottom-nav, .desktop-nav { background: rgb(255 255 255 / 94%); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+        .bottom-nav { border-color: #b8c4d3; }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- THROWAWAY UI PROTOTYPE: selected Motro learner home direction, with real in-memory study states. -->
+    <a class="skip-link" href="#main-content">跳到主要内容</a>
+    <div id="app"></div>
+    <script>
+      (() => {
+        const cards = [
+          { type: "new", word: "velocity", translation: "速度；速率", hint: "名词 · 高中英语必修一" },
+          { type: "card", direction: "英文 → 中文", prompt: "velocity", answer: "速度；速率", hint: "名词 · 表示运动的快慢" },
+          { type: "card", direction: "中文 → 英文", prompt: "速度；速率", answer: "velocity", hint: "名词 · v-e-l-o-c-i-t-y" },
+          { type: "card", direction: "英文 → 中文", prompt: "convey", answer: "传达；传递", hint: "动词 · 高中英语必修一" }
+        ];
+        const state = { page: "home", index: 0, phase: "front", ratings: [] };
+        const app = document.querySelector("#app");
+
+        const icon = (path) => `<svg class="nav-icon" aria-hidden="true" viewBox="0 0 24 24">${path}</svg>`;
+        const memberBadge = () => `<span class="member-tier"><svg class="member-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m4 5 3 11h10l3-11-4.8 4L12 4 8.8 9z"/><path d="M6 20h12"/></svg>尊享会员</span>`;
+        const nav = () => `
+          <nav class="desktop-nav" aria-label="学习者主导航">
+            <div class="brand" translate="no">motro</div>
+            ${navItem("首页", true, '<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21v-7h6v7"/>')}
+            ${navItem("课程", false, '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>')}
+            ${navItem("排行榜", false, '<path d="M8 21V9"/><path d="M16 21V3"/><path d="M12 21v-6"/><path d="M3 21h18"/>')}
+            ${navItem("我的", false, '<path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/>')}
+            <div class="profile-summary" aria-label="账户信息占位：后续替换为真实头像与会员身份"><span class="avatar" aria-hidden="true">陈</span><span class="profile-copy"><strong>陈同学</strong>${memberBadge()}</span></div>
+          </nav>
+          <header class="app-header"><div class="brand" translate="no">motro</div><div class="profile-summary" aria-label="账户信息占位：后续替换为真实头像与会员身份"><span class="avatar" aria-hidden="true">陈</span><span class="profile-copy"><strong>陈同学</strong>${memberBadge()}</span></div></header>
+          <nav class="bottom-nav" aria-label="学习者主导航">
+            ${navItem("首页", true, '<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21v-7h6v7"/>')}
+            ${navItem("课程", false, '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>')}
+            ${navItem("排行榜", false, '<path d="M8 21V9"/><path d="M16 21V3"/><path d="M12 21v-6"/><path d="M3 21h18"/>')}
+            ${navItem("我的", false, '<path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/>')}
+          </nav>`;
+        function navItem(label, active, path) { return `<button class="nav-item ${active ? "active" : ""}" type="button"${active ? ' data-action="home" aria-current="page"' : ' disabled aria-disabled="true"'}>${icon(path)}<span>${label}</span></button>`; }
+
+        function homeA() {
+          return `<main class="page" id="main-content"><p class="date-line">星期三，8 月 5 日</p><h1><span class="home-title" data-title="今天，完成这一小段就好" aria-label="今天，完成这一小段就好">今天，完成这一小段就好</span></h1><p class="intro">约 8 分钟，先复习已到期的卡片，再认识 2 个新词。</p>
+            <div class="home-layout"><section class="panel plan" aria-labelledby="plan-title"><div class="plan-top"><div><h2 id="plan-title">今日计划</h2><p class="plan-context">英语必修一 · Unit 2</p></div><div class="plan-number"><strong>8</strong><span>分钟</span><small>预计投入</small></div></div><div class="plan-rule"></div><div class="plan-split"><div class="plan-metric"><span class="metric-marker" aria-hidden="true"></span><div><strong>6 <span>张</span></strong><p>到期复习</p></div></div><div class="plan-metric new"><span class="metric-marker" aria-hidden="true"></span><div><strong>2 <span>个</span></strong><p>新词</p></div></div></div><button class="button primary" type="button" data-action="start">开始学习</button></section>
+            <aside class="facts" aria-label="今日学习概况"><div class="fact"><span class="fact-label">主课程</span><strong>高中英语必修一</strong><span class="course-detail">Unit 2 · 人与自然</span></div><div class="fact"><span class="fact-label">连续学习</span><div class="streak-head"><strong>12</strong><span>天</span></div><p class="streak-note">已坚持近两周，今天完成后亮起第 13 天。</p><div class="streak-days" aria-label="当前连续学习 12 天"><span class="filled"></span><span class="filled"></span><span class="filled"></span><span class="filled"></span><span class="filled"></span><span class="filled"></span><span class="filled"></span><span class="filled"></span><span class="filled"></span><span class="filled"></span><span class="filled"></span><span class="filled"></span><span></span><span></span></div></div><div class="fact"><span class="fact-label">本周已学习 3 天</span><div class="weekly" role="list" aria-label="周一、周二、周三已学习；今天是周三"><span class="weekly-run" aria-hidden="true"></span><span class="weekly-day done" role="listitem" aria-label="周一，已学习">一</span><span class="weekly-day done" role="listitem" aria-label="周二，已学习">二</span><span class="weekly-day today" role="listitem" aria-label="周三，今天">三</span><span class="weekly-day" role="listitem" aria-label="周四">四</span><span class="weekly-day" role="listitem" aria-label="周五">五</span><span class="weekly-day" role="listitem" aria-label="周六">六</span><span class="weekly-day" role="listitem" aria-label="周日">日</span></div></div></aside></div></main>`;
+        }
+        function home() { return `<div class="shell">${nav()}${homeA()}</div>`; }
+
+        function study() {
+          const current = cards[state.index];
+          const progress = Math.round((state.index / cards.length) * 100);
+          if (!current) return complete();
+          const isNew = current.type === "new";
+          const revealed = state.phase === "revealed";
+          const body = isNew
+            ? `<div class="new-word"><p class="direction">学习新词</p><h1 class="prompt">${current.word}</h1><p class="translation">${current.translation}</p><p class="hint">${current.hint}</p></div><div class="study-action"><button class="button primary" type="button" data-action="begin-card">开始首测</button></div>`
+            : `<div><p class="direction">${current.direction}</p><h1 class="prompt">${current.prompt}</h1>${revealed ? `<div class="answer"><h2>${current.answer}</h2><p>${current.hint}</p></div>` : `<p class="hint">想好后，再显示答案。</p>`}</div>${revealed ? ratings() : `<div class="study-action"><button class="button primary" type="button" data-action="reveal">显示答案</button></div>`}`;
+          return `<div class="study-shell"><header class="study-header"><button class="study-exit" type="button" data-action="exit">${icon('<path d="m15 18-6-6 6-6"/>')}退出</button><div class="study-progress" aria-label="学习进度：第 ${state.index + 1} 张，共 ${cards.length} 张，已完成 ${state.index} 张"><div class="progress-copy"><strong>第 ${state.index + 1} 张</strong><span>共 ${cards.length} 张</span></div><div class="progress-track"><span style="transform:scaleX(${progress / 100})"></span></div></div></header><main class="study-main" id="main-content"><section class="panel study-card ${revealed ? "is-revealed" : ""}" aria-live="polite">${body}</section></main></div>`;
+        }
+        function ratings() { return `<div class="ratings" role="group" aria-label="为这张卡评分"><button class="rating again" type="button" data-rate="Again" aria-keyshortcuts="1"><span class="rating-top"><span>Again</span><span class="rating-key">1</span></span><small>再来一次</small></button><button class="rating hard" type="button" data-rate="Hard" aria-keyshortcuts="2"><span class="rating-top"><span>Hard</span><span class="rating-key">2</span></span><small>有些困难</small></button><button class="rating good" type="button" data-rate="Good" aria-keyshortcuts="3"><span class="rating-top"><span>Good</span><span class="rating-key">3</span></span><small>记得</small></button><button class="rating easy" type="button" data-rate="Easy" aria-keyshortcuts="4"><span class="rating-top"><span>Easy</span><span class="rating-key">4</span></span><small>很轻松</small></button></div>`; }
+        function complete() { return `<div class="study-shell"><header class="study-header"><span class="muted">本次学习</span><div class="study-progress" aria-label="学习进度：已完成"><div class="progress-copy"><strong>已完成</strong><span>${cards.length} 张</span></div><div class="progress-track"><span style="transform:scaleX(1)"></span></div></div></header><main class="study-main" id="main-content"><section class="panel study-card complete" aria-live="polite"><p class="direction">今日计划已完成</p><h1>你完成了 4 张学习卡</h1><p class="muted">本次原型记录：${state.ratings.map(r => r.rate).join(" · ") || "无评分"}</p><button class="button primary" type="button" data-action="home">返回首页</button></section></main></div>`; }
+        let titleTimer;
+        function animateHomeTitle() {
+          const title = document.querySelector(".home-title");
+          if (!title || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+          const finalChars = Array.from(title.dataset.title || title.textContent);
+          const pool = Array.from("完成今天学习计划专注词汇ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789");
+          let frame = 0;
+          const totalFrames = 14;
+          clearTimeout(titleTimer);
+          const tick = () => {
+            const revealed = Math.floor((frame / totalFrames) * finalChars.length);
+            title.textContent = finalChars.map((char, index) => index < revealed ? char : pool[Math.floor(Math.random() * pool.length)]).join("");
+            frame += 1;
+            if (frame <= totalFrames) titleTimer = setTimeout(tick, 64);
+            else title.textContent = finalChars.join("");
+          };
+          tick();
+        }
+        function render(focusSelector) {
+          app.innerHTML = state.page === "home" ? home() : study();
+          if (state.page === "home") animateHomeTitle();
+          if (focusSelector) document.querySelector(focusSelector)?.focus();
+        }
+        function rate(value) { state.ratings.push({ card: state.index, rate: value }); state.index += 1; state.phase = "front"; const next = cards[state.index]; render(next ? (next.type === "new" ? '[data-action="begin-card"]' : '[data-action="reveal"]') : '[data-action="home"]'); }
+        app.addEventListener("click", (event) => {
+          const button = event.target.closest("button[data-action], button[data-rate]"); if (!button) return;
+          const action = button.dataset.action;
+          if (button.dataset.rate) return rate(button.dataset.rate);
+          if (action === "start") { state.page = "study"; render('[data-action="begin-card"]'); }
+          if (action === "begin-card") { state.index += 1; state.phase = "front"; render('[data-action="reveal"]'); }
+          if (action === "reveal") { state.phase = "revealed"; render('[data-rate="Again"]'); }
+          if (action === "exit") { if (state.phase !== "revealed" || window.confirm("答案已显示但尚未评分，确定退出本次学习吗？")) { state.page = "home"; render('[data-action="start"]'); } }
+          if (action === "home") { state.page = "home"; render('[data-action="start"]'); }
+        });
+        window.addEventListener("keydown", (event) => {
+          if (["INPUT", "TEXTAREA"].includes(document.activeElement.tagName) || document.activeElement.isContentEditable) return;
+          if (state.page === "study" && state.phase === "revealed" && /^[1-4]$/.test(event.key)) { event.preventDefault(); rate(["Again", "Hard", "Good", "Easy"][Number(event.key) - 1]); }
+        });
+        render();
+      })();
+    </script>
+  </body>
+</html>
