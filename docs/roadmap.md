@@ -12,7 +12,19 @@ Use `prototype` for real switchable Home, Study, weekly challenge board and focu
 
 ## 3. Platform foundation
 
-Scaffold pnpm monorepo, strict TypeScript, CI, Compose development, Postgres migrations, Nest/Fastify API, Next Web, OpenAPI generation, configuration and authentication. Exit: admin-created user can securely log in through Web in Compose.
+Scaffold pnpm monorepo, strict TypeScript, CI, Compose development, Postgres migrations, Nest/Fastify API, Next Web, OpenAPI generation, configuration and authentication. The implementation work is split into the one-session tickets in [`platform-foundation`](../.scratch/platform-foundation/spec.md):
+
+- [`01-monorepo-toolchain`](../.scratch/platform-foundation/issues/01-monorepo-toolchain.md)
+- [`02-ci-quality-gates`](../.scratch/platform-foundation/issues/02-ci-quality-gates.md)
+- [`03-compose-development`](../.scratch/platform-foundation/issues/03-compose-development.md)
+- [`04-postgres-migrations`](../.scratch/platform-foundation/issues/04-postgres-migrations.md)
+- [`05-configuration-boundary`](../.scratch/platform-foundation/issues/05-configuration-boundary.md)
+- [`06-api-shell-openapi`](../.scratch/platform-foundation/issues/06-api-shell-openapi.md)
+- [`07-web-shell`](../.scratch/platform-foundation/issues/07-web-shell.md)
+- [`08-authentication-backend`](../.scratch/platform-foundation/issues/08-authentication-backend.md)
+- [`09-authentication-web-loop`](../.scratch/platform-foundation/issues/09-authentication-web-loop.md)
+
+Exit: admin-created user can securely log in through Web in Compose; no course, study, FSRS, challenge, XP, import or enrichment business feature is implemented in this phase.
 
 ## 4. Manual content vertical slice
 
