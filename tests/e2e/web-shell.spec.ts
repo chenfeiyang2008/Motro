@@ -8,9 +8,9 @@ test.describe("web shell", () => {
     await expect(page.getByText("学习端占位页")).toBeVisible();
   });
 
-  test("管理端路由渲染占位内容", async ({ page }) => {
+  test("未登录访问管理端路由跳转到登录页", async ({ page }) => {
     await page.goto("/admin");
-    await expect(page.getByRole("heading", { name: "管理端" })).toBeVisible();
+    await expect(page).toHaveURL(/\/login/, { timeout: 15000 });
   });
 
   test("未知路由显示可读的 404 页", async ({ page }) => {

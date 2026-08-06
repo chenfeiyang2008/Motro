@@ -141,6 +141,10 @@ button.primary {
   min-width: 0;
 }
 
+.admin-auth-loading {
+  color: #5d6b7a;
+}
+
 @media (max-width: 599px) {
   .admin-shell {
     flex-direction: column;
