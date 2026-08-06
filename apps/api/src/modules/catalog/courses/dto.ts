@@ -540,3 +540,55 @@ export class CourseValidationResultDto {
   @ApiProperty({ description: "校验令牌：draftVersion.contentHash 前缀，发布须携带精确版本" })
   validationToken!: string;
 }
+
+// ---- 学习者目录（只读 published release） ----
+
+export class CatalogCourseSummaryDto {
+  @ApiProperty()
+  courseId!: string;
+
+  @ApiProperty()
+  title!: string;
+
+  @ApiProperty()
+  level!: string;
+
+  @ApiProperty({ type: String, nullable: true })
+  description!: string | null;
+
+  @ApiProperty({ description: "当前版本 release ID" })
+  releaseId!: string;
+
+  @ApiProperty({ description: "当前版本号" })
+  releaseNumber!: number;
+
+  @ApiProperty({ description: "内容来源：published_release（只读发布快照）" })
+  contentSource!: string;
+
+  @ApiProperty({ description: "学习进度：阶段 4 恒为 not_started" })
+  progressStatus!: string;
+}
+
+export class CatalogUnitSummaryDto {
+  @ApiProperty({ description: "稳定 unit_id" })
+  unitId!: string;
+
+  @ApiProperty({ description: "1 起始的位置" })
+  position!: number;
+
+  @ApiProperty()
+  title!: string;
+
+  @ApiProperty({ type: String, nullable: true })
+  description!: string | null;
+}
+
+export class CatalogCourseDetailDto extends CatalogCourseSummaryDto {
+  @ApiProperty({ type: [CatalogUnitSummaryDto], description: "按 position 升序的单元概要" })
+  units!: CatalogUnitSummaryDto[];
+}
+
+export class CatalogCourseListResponseDto {
+  @ApiProperty({ type: [CatalogCourseSummaryDto] })
+  items!: CatalogCourseSummaryDto[];
+}

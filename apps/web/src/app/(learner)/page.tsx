@@ -1,9 +1,14 @@
-// 学习者首页占位。登录与学习流程在后续票据中实现。
+// 学习者首页占位：进入已发布课程目录。
+import Link from "next/link";
+
 export default function LearnerHomePage() {
   return (
     <section>
       <h1>Motro</h1>
-      <p>学习端占位页。</p>
+      <p>学习端。</p>
+      <p>
+        <Link href="/courses">课程</Link>
+      </p>
     </section>
   );
 }

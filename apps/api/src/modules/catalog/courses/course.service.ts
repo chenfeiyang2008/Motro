@@ -11,6 +11,8 @@ import {
 } from "@nestjs/common";
 import { createHash, randomUUID } from "node:crypto";
 import {
+  buildCatalogDetail,
+  buildCatalogSummary,
   nextReleaseNumber,
   normalizeSlug,
   validateCourseDescription,
@@ -30,6 +32,8 @@ import type { Pool, PoolClient } from "pg";
 import { POOL } from "../../../auth/database.provider.js";
 import type { UserRecord } from "../../../auth/session.service.js";
 import type {
+  CatalogCourseDetailDto,
+  CatalogCourseListResponseDto,
   CourseDraftDetailDto,
   CourseListItemDto,
   CourseValidationResultDto,
@@ -197,6 +201,15 @@ interface ItemRow {
   source_status: string | null;
 }
 
+interface CatalogCourseRow {
+  course_id: string;
+  release_id: string;
+  release_number: number;
+  title: string;
+  level: string;
+  description: string;
+}
+
 interface ValidationRow {
   version: number;
   title: string;
@@ -292,6 +305,69 @@ export class CourseService {
       draftVersion: r.draft_version,
       updatedAt: (r.draft_updated_at ?? r.updated_at).toISOString(),
     }));
+  }
+
+  /** 学习者目录列表：只读可见课程的 current release，不读草稿。 */
+  async listCatalogCourses(): Promise<CatalogCourseListResponseDto> {
+    const result = await this.pool.query<CatalogCourseRow>(
+      `SELECT c.id AS course_id, r.id AS release_id, r.release_number, r.title, r.level, r.description
+       FROM courses c
+       JOIN course_releases r ON r.id = c.current_release_id
+       WHERE c.visibility = 'published' AND c.status = 'active'
+       ORDER BY r.release_number DESC, c.id ASC`,
+    );
+    return {
+      items: result.rows.map((row) =>
+        buildCatalogSummary({
+          courseId: row.course_id,
+          title: row.title,
+          level: row.level,
+          description: row.description,
+          releaseId: row.release_id,
+          releaseNumber: row.release_number,
+        }),
+      ),
+    };
+  }
+
+  /** 学习者目录详情：当前 release + 有序单元概要；无 current release/不可见 → 隐藏资源 404。 */
+  async getCatalogCourse(courseId: string): Promise<CatalogCourseDetailDto> {
+    const result = await this.pool.query<CatalogCourseRow>(
+      `SELECT c.id AS course_id, r.id AS release_id, r.release_number, r.title, r.level, r.description
+       FROM courses c
+       JOIN course_releases r ON r.id = c.current_release_id
+       WHERE c.id = $1 AND c.visibility = 'published' AND c.status = 'active'`,
+      [courseId],
+    );
+    const row = result.rows[0];
+    if (!row) throw new NotFoundException("课程不存在"); // 隐藏资源 404
+
+    const units = await this.pool.query<{
+      unit_id: string;
+      position: number;
+      title: string;
+      description: string;
+    }>(
+      `SELECT unit_id, position, title, description FROM released_units
+       WHERE release_id = $1 ORDER BY position ASC, unit_id ASC`,
+      [row.release_id],
+    );
+    return buildCatalogDetail(
+      {
+        courseId: row.course_id,
+        title: row.title,
+        level: row.level,
+        description: row.description,
+        releaseId: row.release_id,
+        releaseNumber: row.release_number,
+      },
+      units.rows.map((u) => ({
+        unitId: u.unit_id,
+        position: u.position,
+        title: u.title,
+        description: u.description,
+      })),
+    );
   }
 
   async createCourse(
@@ -548,9 +624,9 @@ export class CourseService {
         }
       }
 
-      // 更新 current pointer 与草稿 based-on。
+      // 更新 current pointer、可见性（发布后对学习者可见）与草稿 based-on。
       await client.query(
-        `UPDATE courses SET current_release_id = $2, updated_at = now() WHERE id = $1`,
+        `UPDATE courses SET current_release_id = $2, visibility = 'published', updated_at = now() WHERE id = $1`,
         [courseId, releaseId],
       );
       await client.query(`UPDATE course_drafts SET based_on_release_id = $2 WHERE id = $1`, [

@@ -568,3 +568,81 @@ button.secondary.danger {
   font-size: 14px;
   margin: 4px 0 0;
 }
+
+/* 学习者课程目录 */
+.learner-courses {
+  max-width: 720px;
+}
+
+.course-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.course-card {
+  background: #ffffff;
+  border: 1px solid #dce3ec;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.course-card-link {
+  display: block;
+  padding: 16px 20px;
+  color: #182230;
+  text-decoration: none;
+}
+
+.course-card-link:hover {
+  background: #eaf1ff;
+}
+
+.course-card h2 {
+  margin: 0 0 4px;
+  font-size: 20px;
+}
+
+.course-meta {
+  color: #5d6b7a;
+  font-size: 14px;
+  margin: 0 0 8px;
+}
+
+.course-desc {
+  color: #5d6b7a;
+  margin: 0 0 8px;
+}
+
+.course-status {
+  color: #23875b;
+  margin: 0;
+}
+
+.course-units {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.course-unit {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: #ffffff;
+  border: 1px solid #dce3ec;
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.course-unit-position {
+  font-weight: 600;
+  color: #5d6b7a;
+  min-width: 24px;
+}

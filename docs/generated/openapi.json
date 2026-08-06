@@ -1272,6 +1272,69 @@
           "admin courses"
         ]
       }
+    },
+    "/api/v1/catalog/courses": {
+      "get": {
+        "operationId": "CatalogController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogCourseListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "学习者可见课程列表（只读 current release）",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/v1/catalog/courses/{id}": {
+      "get": {
+        "operationId": "CatalogController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogCourseDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "课程详情：当前 release 与有序单元概要；不可见返回隐藏资源 404",
+        "tags": [
+          "catalog"
+        ]
+      }
     }
   },
   "info": {
@@ -2488,6 +2551,142 @@
             "description": "期望的草稿版本（If-Match 的替代）"
           }
         }
+      },
+      "CatalogCourseSummaryDto": {
+        "type": "object",
+        "properties": {
+          "courseId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "releaseId": {
+            "type": "string",
+            "description": "当前版本 release ID"
+          },
+          "releaseNumber": {
+            "type": "number",
+            "description": "当前版本号"
+          },
+          "contentSource": {
+            "type": "string",
+            "description": "内容来源：published_release（只读发布快照）"
+          },
+          "progressStatus": {
+            "type": "string",
+            "description": "学习进度：阶段 4 恒为 not_started"
+          }
+        },
+        "required": [
+          "courseId",
+          "title",
+          "level",
+          "description",
+          "releaseId",
+          "releaseNumber",
+          "contentSource",
+          "progressStatus"
+        ]
+      },
+      "CatalogCourseListResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogCourseSummaryDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "CatalogUnitSummaryDto": {
+        "type": "object",
+        "properties": {
+          "unitId": {
+            "type": "string",
+            "description": "稳定 unit_id"
+          },
+          "position": {
+            "type": "number",
+            "description": "1 起始的位置"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "unitId",
+          "position",
+          "title",
+          "description"
+        ]
+      },
+      "CatalogCourseDetailDto": {
+        "type": "object",
+        "properties": {
+          "courseId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "releaseId": {
+            "type": "string",
+            "description": "当前版本 release ID"
+          },
+          "releaseNumber": {
+            "type": "number",
+            "description": "当前版本号"
+          },
+          "contentSource": {
+            "type": "string",
+            "description": "内容来源：published_release（只读发布快照）"
+          },
+          "progressStatus": {
+            "type": "string",
+            "description": "学习进度：阶段 4 恒为 not_started"
+          },
+          "units": {
+            "description": "按 position 升序的单元概要",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogUnitSummaryDto"
+            }
+          }
+        },
+        "required": [
+          "courseId",
+          "title",
+          "level",
+          "description",
+          "releaseId",
+          "releaseNumber",
+          "contentSource",
+          "progressStatus",
+          "units"
+        ]
       }
     }
   }

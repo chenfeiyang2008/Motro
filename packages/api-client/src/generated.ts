@@ -402,6 +402,40 @@ export interface paths {
     patch: operations["CourseController_updateItem"];
     trace?: never;
   };
+  "/api/v1/catalog/courses": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 学习者可见课程列表（只读 current release） */
+    get: operations["CatalogController_list"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/catalog/courses/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 课程详情：当前 release 与有序单元概要；不可见返回隐藏资源 404 */
+    get: operations["CatalogController_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -830,6 +864,47 @@ export interface components {
     DeleteItemDto: {
       /** @description 期望的草稿版本（If-Match 的替代） */
       draftVersion?: number;
+    };
+    CatalogCourseSummaryDto: {
+      courseId: string;
+      title: string;
+      level: string;
+      description: string | null;
+      /** @description 当前版本 release ID */
+      releaseId: string;
+      /** @description 当前版本号 */
+      releaseNumber: number;
+      /** @description 内容来源：published_release（只读发布快照） */
+      contentSource: string;
+      /** @description 学习进度：阶段 4 恒为 not_started */
+      progressStatus: string;
+    };
+    CatalogCourseListResponseDto: {
+      items: components["schemas"]["CatalogCourseSummaryDto"][];
+    };
+    CatalogUnitSummaryDto: {
+      /** @description 稳定 unit_id */
+      unitId: string;
+      /** @description 1 起始的位置 */
+      position: number;
+      title: string;
+      description: string | null;
+    };
+    CatalogCourseDetailDto: {
+      courseId: string;
+      title: string;
+      level: string;
+      description: string | null;
+      /** @description 当前版本 release ID */
+      releaseId: string;
+      /** @description 当前版本号 */
+      releaseNumber: number;
+      /** @description 内容来源：published_release（只读发布快照） */
+      contentSource: string;
+      /** @description 学习进度：阶段 4 恒为 not_started */
+      progressStatus: string;
+      /** @description 按 position 升序的单元概要 */
+      units: components["schemas"]["CatalogUnitSummaryDto"][];
     };
   };
   responses: never;
@@ -1649,6 +1724,46 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["DraftVersionConflictEnvelopeDto"];
+        };
+      };
+    };
+  };
+  CatalogController_list: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CatalogCourseListResponseDto"];
+        };
+      };
+    };
+  };
+  CatalogController_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CatalogCourseDetailDto"];
         };
       };
     };

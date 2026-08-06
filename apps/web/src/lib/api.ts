@@ -299,3 +299,18 @@ export function setCourseCurrentRelease(
     { method: "PUT", body: JSON.stringify({ releaseId }) },
   );
 }
+
+// ---- 学习者：已发布课程目录（只读 current release） ----
+
+export type CatalogCourseSummary = components["schemas"]["CatalogCourseSummaryDto"];
+export type CatalogCourseDetail = components["schemas"]["CatalogCourseDetailDto"];
+
+export function listCatalogCourses(): Promise<ApiResult<{ items: CatalogCourseSummary[] }>> {
+  return apiFetch<{ items: CatalogCourseSummary[] }>("/api/v1/catalog/courses", { method: "GET" });
+}
+
+export function getCatalogCourse(courseId: string): Promise<ApiResult<CatalogCourseDetail>> {
+  return apiFetch<CatalogCourseDetail>(`/api/v1/catalog/courses/${encodeURIComponent(courseId)}`, {
+    method: "GET",
+  });
+}
