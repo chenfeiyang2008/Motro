@@ -207,6 +207,41 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/admin/lexical-entries": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 搜索/分页词条（规范化拼写、来源状态、引用次数、更新时间） */
+    get: operations["LexicalEntryController_list"];
+    put?: never;
+    /** 创建手工词条；重复候选返回 409 及候选，不静默落库 */
+    post: operations["LexicalEntryController_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/lexical-entries/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 词条事实与来源摘要 */
+    get: operations["LexicalEntryController_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -237,6 +272,130 @@ export interface components {
        * @enum {string}
        */
       role: "learner" | "admin";
+    };
+    LexicalEntrySummaryDto: {
+      /** @description 词条 ID */
+      id: string;
+      /** @description 规范展示拼写 */
+      canonicalSpelling: string;
+      /** @description 查询/去重用规范化拼写 */
+      normalizedSpelling: string;
+      /** @description 词性（可空） */
+      partOfSpeech: string | null;
+      /** @description 来源状态（当前权威来源类型） */
+      sourceStatus: string;
+      /** @description 课程词项引用次数；课程词项工单落地前恒为 0（预留 lexicalEntryId 查询边界） */
+      referenceCount: number;
+      /** @description 最近更新时间 */
+      updatedAt: string;
+    };
+    PageInfoDto: {
+      /** @description 下一页游标；无更多时 null */
+      cursor: string | null;
+      /** @description 是否还有更多 */
+      hasMore: boolean;
+    };
+    LexicalEntryListResponseDto: {
+      items: components["schemas"]["LexicalEntrySummaryDto"][];
+      page: components["schemas"]["PageInfoDto"];
+    };
+    SenseDto: {
+      /** @description 中文释义 */
+      meaning: string;
+      /** @description 例句 */
+      example?: string;
+    };
+    CreateLexicalEntryDto: {
+      /** @description 规范展示拼写（保留原样，不因小写无条件合并同形异义词） */
+      canonicalSpelling: string;
+      /**
+       * @description 词性
+       * @enum {string}
+       */
+      partOfSpeech?:
+        | "noun"
+        | "verb"
+        | "adjective"
+        | "adverb"
+        | "pronoun"
+        | "preposition"
+        | "conjunction"
+        | "interjection"
+        | "determiner"
+        | "article"
+        | "numeral"
+        | "particle"
+        | "phrase"
+        | "abbreviation"
+        | "prefix"
+        | "suffix";
+      /** @description 发音标注 */
+      pronunciation?: string;
+      /** @description 结构化释义 */
+      senses?: components["schemas"]["SenseDto"][];
+      /** @description 来源说明（不进入审计摘要） */
+      sourceNote?: string;
+      /**
+       * @description 确认允许创建同形异义词条（重复候选提示后）
+       * @default false
+       */
+      confirmDuplicate: boolean;
+    };
+    ProvenanceDto: {
+      /** @description 来源类型 */
+      sourceType: string;
+      /** @description 来源说明 */
+      sourceNote: string | null;
+      /** @description 来源内容哈希 */
+      contentHash: string;
+      /** @description 创建者用户名 */
+      createdByUsername: string | null;
+      /** @description 来源记录时间 */
+      createdAt: string;
+    };
+    AuditSummaryDto: {
+      /** @description 审计动作 */
+      action: string;
+      /** @description 发生时间 */
+      createdAt: string;
+    };
+    LexicalEntryDetailDto: {
+      id: string;
+      canonicalSpelling: string;
+      normalizedSpelling: string;
+      partOfSpeech: string | null;
+      pronunciation: string | null;
+      /** @description 结构化释义 */
+      senses: components["schemas"]["SenseDto"][];
+      /** @description 词条状态 */
+      status: string;
+      /** @description 来源状态（当前权威来源类型） */
+      sourceStatus: string;
+      /** @description 课程词项引用次数（课程词项落地前恒为 0） */
+      referenceCount: number;
+      createdAt: string;
+      updatedAt: string;
+      provenance: components["schemas"]["ProvenanceDto"][];
+      /** @description 最近 10 条针对该词条的审计操作 */
+      recentOperations: components["schemas"]["AuditSummaryDto"][];
+    };
+    DuplicateCandidateDto: {
+      id: string;
+      canonicalSpelling: string;
+      normalizedSpelling: string;
+    };
+    DuplicateWarningErrorDto: {
+      /** @description 错误码：DUPLICATE_WARNING 或 DUPLICATE_ENTRY */
+      code: string;
+      message: string;
+      requestId: string;
+      /** @description 重复候选词条 */
+      duplicateCandidates: components["schemas"]["DuplicateCandidateDto"][];
+      /** @description 是否可重试 */
+      retryable: boolean;
+    };
+    DuplicateErrorEnvelopeDto: {
+      error: components["schemas"]["DuplicateWarningErrorDto"];
     };
   };
   responses: never;
@@ -489,6 +648,85 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+    };
+  };
+  LexicalEntryController_list: {
+    parameters: {
+      query?: {
+        /** @description 按规范化/展示拼写搜索 */
+        q?: string;
+        /** @description 键集分页游标（上次响应返回） */
+        cursor?: string;
+        /** @description 每页数量 */
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LexicalEntryListResponseDto"];
+        };
+      };
+    };
+  };
+  LexicalEntryController_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateLexicalEntryDto"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LexicalEntryDetailDto"];
+        };
+      };
+      /** @description 重复警告/完全相同冲突 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DuplicateErrorEnvelopeDto"];
+        };
+      };
+    };
+  };
+  LexicalEntryController_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LexicalEntryDetailDto"];
+        };
       };
     };
   };

@@ -87,3 +87,205 @@ button.primary {
   color: #c84545;
   margin: 0;
 }
+
+/* 管理端外壳：桌面左侧栏，窄屏折为顶部横向。 */
+.admin-shell {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.admin-sidebar {
+  width: 200px;
+  flex-shrink: 0;
+  background: #ffffff;
+  border: 1px solid #dce3ec;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.admin-nav-group h2 {
+  font-size: 14px;
+  line-height: 20px;
+  color: #5d6b7a;
+  margin: 8px 4px;
+}
+
+.admin-nav-group ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-nav-group a {
+  display: block;
+  min-height: 44px;
+  line-height: 44px;
+  padding: 0 12px;
+  border-radius: 8px;
+  color: #182230;
+  text-decoration: none;
+  font-size: 16px;
+}
+
+.admin-nav-group a[aria-current="page"] {
+  background: #eaf1ff;
+  color: #2f6fed;
+  font-weight: 600;
+}
+
+.admin-content {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 599px) {
+  .admin-shell {
+    flex-direction: column;
+  }
+
+  .admin-sidebar {
+    width: 100%;
+  }
+}
+
+/* 词条页面 */
+.lexicon-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.lexicon-toolbar label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.lexicon-toolbar input,
+.lexicon-form input,
+.lexicon-form select,
+.lexicon-form textarea {
+  min-height: 44px;
+  font-size: 16px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #dce3ec;
+  background: #ffffff;
+  color: #182230;
+  font-family: inherit;
+}
+
+.lexicon-toolbar input {
+  width: 260px;
+}
+
+button.secondary {
+  min-height: 44px;
+  font-size: 16px;
+  padding: 0 16px;
+  border-radius: 8px;
+  border: 1px solid #dce3ec;
+  background: #ffffff;
+  color: #182230;
+  cursor: pointer;
+}
+
+.lexicon-form {
+  background: #ffffff;
+  border: 1px solid #dce3ec;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 640px;
+}
+
+.lexicon-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.lexicon-form .field-error {
+  color: #c84545;
+  font-weight: 400;
+  font-size: 14px;
+}
+
+.sense-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #dce3ec;
+  border-radius: 8px;
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.duplicate-warning {
+  background: #fff7ec;
+  border: 1px solid #e5c39a;
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.duplicate-warning ul {
+  margin: 8px 0;
+}
+
+.lexicon-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #ffffff;
+  border: 1px solid #dce3ec;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.lexicon-table caption {
+  text-align: left;
+  font-weight: 600;
+  padding: 12px 16px;
+}
+
+.lexicon-table th,
+.lexicon-table td {
+  text-align: left;
+  padding: 12px 16px;
+  border-top: 1px solid #dce3ec;
+  vertical-align: top;
+}
+
+.lexicon-table th {
+  background: #f2f6fc;
+}
+
+.lexicon-table td a {
+  color: #2f6fed;
+}
+
+.form-inline-message {
+  margin: 0;
+}
+
+.form-inline-success {
+  color: #23875b;
+}
+
+.form-inline-error {
+  color: #c84545;
+}

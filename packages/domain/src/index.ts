@@ -1,2 +1,3 @@
-// @motro/domain — 纯领域策略与值对象（平台阶段：仅密码策略）。
+// @motro/domain — 纯领域策略与值对象。
 export * from "./password.js";
+export * from "./lexicon/index.js";

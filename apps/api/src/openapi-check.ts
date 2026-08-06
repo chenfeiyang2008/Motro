@@ -9,7 +9,7 @@ async function main(): Promise<void> {
   const app = await createApp();
   const config = new DocumentBuilder()
     .setTitle("Motro API")
-    .setDescription("Motro v1 版本化 REST API（平台基础阶段仅含健康检查）")
+    .setDescription("Motro v1 版本化 REST API（认证与词条管理）")
     .setVersion("v1")
     .build();
   const document = SwaggerModule.createDocument(app, config);

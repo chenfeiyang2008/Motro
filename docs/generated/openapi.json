@@ -324,11 +324,148 @@
           "admin users"
         ]
       }
+    },
+    "/api/v1/admin/lexical-entries": {
+      "get": {
+        "operationId": "LexicalEntryController_list",
+        "parameters": [
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "按规范化/展示拼写搜索",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "键集分页游标（上次响应返回）",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "每页数量",
+            "schema": {
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LexicalEntryListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "搜索/分页词条（规范化拼写、来源状态、引用次数、更新时间）",
+        "tags": [
+          "admin lexical entries"
+        ]
+      },
+      "post": {
+        "operationId": "LexicalEntryController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLexicalEntryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LexicalEntryDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "重复警告/完全相同冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DuplicateErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "创建手工词条；重复候选返回 409 及候选，不静默落库",
+        "tags": [
+          "admin lexical entries"
+        ]
+      }
+    },
+    "/api/v1/admin/lexical-entries/{id}": {
+      "get": {
+        "operationId": "LexicalEntryController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LexicalEntryDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "词条事实与来源摘要",
+        "tags": [
+          "admin lexical entries"
+        ]
+      }
     }
   },
   "info": {
     "title": "Motro API",
-    "description": "Motro v1 版本化 REST API（平台基础阶段仅含健康检查）",
+    "description": "Motro v1 版本化 REST API（认证与词条管理）",
     "version": "v1",
     "contact": {}
   },
@@ -406,6 +543,344 @@
           "timezone",
           "dailyBudgetMinutes",
           "role"
+        ]
+      },
+      "LexicalEntrySummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "词条 ID"
+          },
+          "canonicalSpelling": {
+            "type": "string",
+            "description": "规范展示拼写"
+          },
+          "normalizedSpelling": {
+            "type": "string",
+            "description": "查询/去重用规范化拼写"
+          },
+          "partOfSpeech": {
+            "type": "string",
+            "nullable": true,
+            "description": "词性（可空）"
+          },
+          "sourceStatus": {
+            "type": "string",
+            "description": "来源状态（当前权威来源类型）"
+          },
+          "referenceCount": {
+            "type": "number",
+            "description": "课程词项引用次数；课程词项工单落地前恒为 0（预留 lexicalEntryId 查询边界）"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "最近更新时间"
+          }
+        },
+        "required": [
+          "id",
+          "canonicalSpelling",
+          "normalizedSpelling",
+          "partOfSpeech",
+          "sourceStatus",
+          "referenceCount",
+          "updatedAt"
+        ]
+      },
+      "PageInfoDto": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "nullable": true,
+            "description": "下一页游标；无更多时 null"
+          },
+          "hasMore": {
+            "type": "boolean",
+            "description": "是否还有更多"
+          }
+        },
+        "required": [
+          "cursor",
+          "hasMore"
+        ]
+      },
+      "LexicalEntryListResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LexicalEntrySummaryDto"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageInfoDto"
+          }
+        },
+        "required": [
+          "items",
+          "page"
+        ]
+      },
+      "SenseDto": {
+        "type": "object",
+        "properties": {
+          "meaning": {
+            "type": "string",
+            "description": "中文释义"
+          },
+          "example": {
+            "type": "string",
+            "description": "例句"
+          }
+        },
+        "required": [
+          "meaning"
+        ]
+      },
+      "CreateLexicalEntryDto": {
+        "type": "object",
+        "properties": {
+          "canonicalSpelling": {
+            "type": "string",
+            "description": "规范展示拼写（保留原样，不因小写无条件合并同形异义词）"
+          },
+          "partOfSpeech": {
+            "type": "string",
+            "enum": [
+              "noun",
+              "verb",
+              "adjective",
+              "adverb",
+              "pronoun",
+              "preposition",
+              "conjunction",
+              "interjection",
+              "determiner",
+              "article",
+              "numeral",
+              "particle",
+              "phrase",
+              "abbreviation",
+              "prefix",
+              "suffix"
+            ],
+            "description": "词性"
+          },
+          "pronunciation": {
+            "type": "string",
+            "description": "发音标注"
+          },
+          "senses": {
+            "description": "结构化释义",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SenseDto"
+            }
+          },
+          "sourceNote": {
+            "type": "string",
+            "description": "来源说明（不进入审计摘要）"
+          },
+          "confirmDuplicate": {
+            "type": "boolean",
+            "description": "确认允许创建同形异义词条（重复候选提示后）",
+            "default": false
+          }
+        },
+        "required": [
+          "canonicalSpelling"
+        ]
+      },
+      "ProvenanceDto": {
+        "type": "object",
+        "properties": {
+          "sourceType": {
+            "type": "string",
+            "description": "来源类型"
+          },
+          "sourceNote": {
+            "type": "string",
+            "nullable": true,
+            "description": "来源说明"
+          },
+          "contentHash": {
+            "type": "string",
+            "description": "来源内容哈希"
+          },
+          "createdByUsername": {
+            "type": "string",
+            "nullable": true,
+            "description": "创建者用户名"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "来源记录时间"
+          }
+        },
+        "required": [
+          "sourceType",
+          "sourceNote",
+          "contentHash",
+          "createdByUsername",
+          "createdAt"
+        ]
+      },
+      "AuditSummaryDto": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "审计动作"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "发生时间"
+          }
+        },
+        "required": [
+          "action",
+          "createdAt"
+        ]
+      },
+      "LexicalEntryDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "canonicalSpelling": {
+            "type": "string"
+          },
+          "normalizedSpelling": {
+            "type": "string"
+          },
+          "partOfSpeech": {
+            "type": "string",
+            "nullable": true
+          },
+          "pronunciation": {
+            "type": "string",
+            "nullable": true
+          },
+          "senses": {
+            "description": "结构化释义",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SenseDto"
+            }
+          },
+          "status": {
+            "type": "string",
+            "description": "词条状态"
+          },
+          "sourceStatus": {
+            "type": "string",
+            "description": "来源状态（当前权威来源类型）"
+          },
+          "referenceCount": {
+            "type": "number",
+            "description": "课程词项引用次数（课程词项落地前恒为 0）"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "provenance": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProvenanceDto"
+            }
+          },
+          "recentOperations": {
+            "description": "最近 10 条针对该词条的审计操作",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditSummaryDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "canonicalSpelling",
+          "normalizedSpelling",
+          "partOfSpeech",
+          "pronunciation",
+          "senses",
+          "status",
+          "sourceStatus",
+          "referenceCount",
+          "createdAt",
+          "updatedAt",
+          "provenance",
+          "recentOperations"
+        ]
+      },
+      "DuplicateCandidateDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "canonicalSpelling": {
+            "type": "string"
+          },
+          "normalizedSpelling": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "canonicalSpelling",
+          "normalizedSpelling"
+        ]
+      },
+      "DuplicateWarningErrorDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "错误码：DUPLICATE_WARNING 或 DUPLICATE_ENTRY"
+          },
+          "message": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "duplicateCandidates": {
+            "description": "重复候选词条",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DuplicateCandidateDto"
+            }
+          },
+          "retryable": {
+            "type": "boolean",
+            "description": "是否可重试"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "requestId",
+          "duplicateCandidates",
+          "retryable"
+        ]
+      },
+      "DuplicateErrorEnvelopeDto": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/DuplicateWarningErrorDto"
+          }
+        },
+        "required": [
+          "error"
         ]
       }
     }

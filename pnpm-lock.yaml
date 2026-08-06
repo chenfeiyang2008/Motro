@@ -159,6 +159,9 @@ importers:
       '@motro/db':
         specifier: workspace:*
         version: link:../packages/db
+      '@motro/domain':
+        specifier: workspace:*
+        version: link:../packages/domain
 
 packages:
 

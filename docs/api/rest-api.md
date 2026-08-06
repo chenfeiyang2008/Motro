@@ -122,7 +122,7 @@ One-time passwords are returned once and excluded from logs/audit payloads.
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `GET/POST` | `/admin/lexical-entries` | Search/create entries |
-| `GET/PATCH` | `/admin/lexical-entries/{id}` | Read/edit reviewed facts |
+| `GET` | `/admin/lexical-entries/{id}` | Read entry facts and source provenance |
 | `POST` | `/admin/imports` | Multipart upload and create batch |
 | `GET/PATCH` | `/admin/imports/{id}` | Read status/set mapping/source declaration |
 | `POST` | `/admin/imports/{id}/validate` | Enqueue parsing/validation |

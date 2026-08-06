@@ -6,6 +6,7 @@
   "description": "Motro 仓库级测试工作区（跨包集成/E2E）",
   "dependencies": {
     "@motro/config": "workspace:*",
-    "@motro/db": "workspace:*"
+    "@motro/db": "workspace:*",
+    "@motro/domain": "workspace:*"
   }
 }
