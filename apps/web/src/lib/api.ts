@@ -1,5 +1,5 @@
 // 版本化 API 客户端边界：只允许通过 /api/v1 访问服务，类型来自 @motro/api-client。
-// 服务端健康检查走 API_INTERNAL_URL；客户端词条操作走同源 /api/v1（Next 代理到 API）。
+// 服务端健康检查走 API_INTERNAL_URL；客户端词条/课程操作走同源 /api/v1（Next 代理到 API）。
 import type { components, paths } from "@motro/api-client";
 
 const API_BASE = process.env.API_INTERNAL_URL ?? "http://127.0.0.1:3000";
@@ -29,7 +29,7 @@ export async function fetchHealth(): Promise<HealthResult> {
   }
 }
 
-// ---- 管理员：词条（客户端调用，同源 /api/v1）----
+// ---- 管理员：词条 / 课程（客户端调用，同源 /api/v1）----
 
 export type LexicalEntrySummary = components["schemas"]["LexicalEntrySummaryDto"];
 export type LexicalEntryDetail = components["schemas"]["LexicalEntryDetailDto"];
@@ -38,23 +38,34 @@ export type CreateLexicalEntryPayload = components["schemas"]["CreateLexicalEntr
 export type DuplicateCandidate = components["schemas"]["DuplicateCandidateDto"];
 export type FieldError = { path: string; code: string; message?: string };
 
-export interface LexiconApiError {
+export type CourseListItem = components["schemas"]["CourseListItemDto"];
+export type CourseDraftDetail = components["schemas"]["CourseDraftDetailDto"];
+export type CreateCoursePayload = components["schemas"]["CreateCourseDto"];
+export type CreateCourseResult = components["schemas"]["CreateCourseResultDto"];
+export type UpdateCourseDraftPayload = components["schemas"]["UpdateCourseDraftDto"];
+export type CreateUnitPayload = components["schemas"]["CreateUnitDto"];
+export type UpdateUnitPayload = components["schemas"]["UpdateUnitDto"];
+export type ReorderUnitsPayload = components["schemas"]["ReorderUnitsDto"];
+export type UnitDto = components["schemas"]["UnitDto"];
+
+export interface ApiError {
   code?: string;
   message?: string;
   requestId?: string;
   duplicateCandidates?: DuplicateCandidate[];
   fieldErrors?: FieldError[];
+  currentDraftVersion?: number;
   retryable?: boolean;
 }
 
-interface LexiconApiResult<T> {
+export interface ApiResult<T> {
   ok: boolean;
   status: number;
   data?: T;
-  error?: LexiconApiError;
+  error?: ApiError;
 }
 
-async function lexiconFetch<T>(path: string, init?: RequestInit): Promise<LexiconApiResult<T>> {
+async function apiFetch<T>(path: string, init?: RequestInit): Promise<ApiResult<T>> {
   const headers: Record<string, string> = {
     ...(init?.headers as Record<string, string> | undefined),
   };
@@ -64,15 +75,15 @@ async function lexiconFetch<T>(path: string, init?: RequestInit): Promise<Lexico
     if (csrf) headers["x-csrf-token"] = csrf;
   }
   const res = await fetch(path, { ...init, headers, credentials: "same-origin" });
-  let data: T | { error?: LexiconApiError } | undefined;
+  let data: T | { error?: ApiError } | undefined;
   try {
-    data = (await res.json()) as T | { error?: LexiconApiError };
+    data = (await res.json()) as T | { error?: ApiError };
   } catch {
     data = undefined;
   }
   if (!res.ok) {
-    // 服务端错误信封：{ error: { code, message, ... } } → 解包成 LexiconApiError。
-    const err = (data as { error?: LexiconApiError } | undefined)?.error;
+    // 服务端错误信封：{ error: { code, message, ... } } → 解包成 ApiError。
+    const err = (data as { error?: ApiError } | undefined)?.error;
     return err ? { ok: false, status: res.status, error: err } : { ok: false, status: res.status };
   }
   return { ok: true, status: res.status, data: data as T };
@@ -88,13 +99,13 @@ function readCsrfCookie(): string | null {
 export function listLexicalEntries(opts: {
   q: string;
   cursor: string | null;
-}): Promise<LexiconApiResult<LexicalEntryListResponse>> {
+}): Promise<ApiResult<LexicalEntryListResponse>> {
   const search = new URLSearchParams();
   const trimmed = opts.q.trim();
   if (trimmed.length > 0) search.set("q", trimmed);
   if (opts.cursor) search.set("cursor", opts.cursor);
   const qs = search.toString();
-  return lexiconFetch<LexicalEntryListResponse>(
+  return apiFetch<LexicalEntryListResponse>(
     `/api/v1/admin/lexical-entries${qs.length > 0 ? `?${qs}` : ""}`,
     { method: "GET" },
   );
@@ -103,16 +114,88 @@ export function listLexicalEntries(opts: {
 /** 创建手工词条；重复候选时返回 409 DUPLICATE_WARNING（不静默落库）。 */
 export function createLexicalEntry(
   payload: CreateLexicalEntryPayload,
-): Promise<LexiconApiResult<LexicalEntryDetail>> {
-  return lexiconFetch<LexicalEntryDetail>("/api/v1/admin/lexical-entries", {
+): Promise<ApiResult<LexicalEntryDetail>> {
+  return apiFetch<LexicalEntryDetail>("/api/v1/admin/lexical-entries", {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
-export function getLexicalEntry(id: string): Promise<LexiconApiResult<LexicalEntryDetail>> {
-  return lexiconFetch<LexicalEntryDetail>(
-    `/api/v1/admin/lexical-entries/${encodeURIComponent(id)}`,
+export function getLexicalEntry(id: string): Promise<ApiResult<LexicalEntryDetail>> {
+  return apiFetch<LexicalEntryDetail>(`/api/v1/admin/lexical-entries/${encodeURIComponent(id)}`, {
+    method: "GET",
+  });
+}
+
+// ---- 管理员：课程草稿与单元 ----
+
+export function listCourses(): Promise<ApiResult<{ items: CourseListItem[] }>> {
+  return apiFetch<{ items: CourseListItem[] }>("/api/v1/admin/courses", { method: "GET" });
+}
+
+export function createCourse(payload: CreateCoursePayload): Promise<ApiResult<CreateCourseResult>> {
+  return apiFetch<CreateCourseResult>("/api/v1/admin/courses", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getCourseDraft(courseId: string): Promise<ApiResult<CourseDraftDetail>> {
+  return apiFetch<CourseDraftDetail>(
+    `/api/v1/admin/courses/${encodeURIComponent(courseId)}/draft`,
     { method: "GET" },
+  );
+}
+
+export function updateCourseDraft(
+  courseId: string,
+  payload: UpdateCourseDraftPayload,
+): Promise<ApiResult<CourseDraftDetail>> {
+  return apiFetch<CourseDraftDetail>(
+    `/api/v1/admin/courses/${encodeURIComponent(courseId)}/draft`,
+    { method: "PATCH", body: JSON.stringify(payload) },
+  );
+}
+
+export function createCourseUnit(
+  courseId: string,
+  unitId: string,
+  payload: CreateUnitPayload,
+): Promise<ApiResult<CourseDraftDetail>> {
+  return apiFetch<CourseDraftDetail>(
+    `/api/v1/admin/courses/${encodeURIComponent(courseId)}/draft/units/${encodeURIComponent(unitId)}`,
+    { method: "POST", body: JSON.stringify(payload) },
+  );
+}
+
+export function updateCourseUnit(
+  courseId: string,
+  unitId: string,
+  payload: UpdateUnitPayload,
+): Promise<ApiResult<CourseDraftDetail>> {
+  return apiFetch<CourseDraftDetail>(
+    `/api/v1/admin/courses/${encodeURIComponent(courseId)}/draft/units/${encodeURIComponent(unitId)}`,
+    { method: "PATCH", body: JSON.stringify(payload) },
+  );
+}
+
+export function deleteCourseUnit(
+  courseId: string,
+  unitId: string,
+  payload: { draftVersion: number },
+): Promise<ApiResult<CourseDraftDetail>> {
+  return apiFetch<CourseDraftDetail>(
+    `/api/v1/admin/courses/${encodeURIComponent(courseId)}/draft/units/${encodeURIComponent(unitId)}`,
+    { method: "DELETE", body: JSON.stringify(payload) },
+  );
+}
+
+export function reorderCourseUnits(
+  courseId: string,
+  payload: ReorderUnitsPayload,
+): Promise<ApiResult<CourseDraftDetail>> {
+  return apiFetch<CourseDraftDetail>(
+    `/api/v1/admin/courses/${encodeURIComponent(courseId)}/draft/reorder`,
+    { method: "POST", body: JSON.stringify(payload) },
   );
 }

@@ -3,6 +3,7 @@
 
 export * from "./schema/platform-identity.js";
 export * from "./schema/lexicon.js";
+export * from "./schema/courses.js";
 export { createPool, type DbConfig, loadDbConfigFromEnv } from "./client.js";
 export {
   assessMigrationState,

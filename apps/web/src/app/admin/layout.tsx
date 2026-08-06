@@ -7,7 +7,10 @@ import { usePathname } from "next/navigation";
 const NAV_GROUPS = [
   {
     label: "内容",
-    items: [{ href: "/admin/lexicon", label: "词条" }],
+    items: [
+      { href: "/admin/lexicon", label: "词条" },
+      { href: "/admin/courses", label: "课程" },
+    ],
   },
 ];
 

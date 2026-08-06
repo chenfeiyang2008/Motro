@@ -461,6 +461,405 @@
           "admin lexical entries"
         ]
       }
+    },
+    "/api/v1/admin/courses": {
+      "get": {
+        "operationId": "CourseController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "课程列表（草稿版本、可见状态）",
+        "tags": [
+          "admin courses"
+        ]
+      },
+      "post": {
+        "operationId": "CourseController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCourseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateCourseResultDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "slug 已存在"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "创建稳定课程并同时创建初始草稿（draftVersion=1）",
+        "tags": [
+          "admin courses"
+        ]
+      }
+    },
+    "/api/v1/admin/courses/{id}/draft": {
+      "get": {
+        "operationId": "CourseController_getDraft",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseDraftDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "草稿详情：元数据、版本与有序单元",
+        "tags": [
+          "admin courses"
+        ]
+      },
+      "patch": {
+        "operationId": "CourseController_updateDraft",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCourseDraftDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseDraftDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "草稿版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DraftVersionConflictEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "更新草稿元数据（If-Match 或 draftVersion）",
+        "tags": [
+          "admin courses"
+        ]
+      }
+    },
+    "/api/v1/admin/courses/{id}/draft/units/{unitId}": {
+      "post": {
+        "operationId": "CourseController_createUnit",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "unitId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUnitDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseDraftDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "草稿版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DraftVersionConflictEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "新增单元（客户端分配稳定 unitId，追加到末尾）",
+        "tags": [
+          "admin courses"
+        ]
+      },
+      "patch": {
+        "operationId": "CourseController_updateUnit",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "unitId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUnitDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseDraftDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "草稿版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DraftVersionConflictEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "编辑单元标题/描述",
+        "tags": [
+          "admin courses"
+        ]
+      },
+      "delete": {
+        "operationId": "CourseController_deleteUnit",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "unitId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteUnitDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseDraftDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "草稿版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DraftVersionConflictEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "删除单元并重排",
+        "tags": [
+          "admin courses"
+        ]
+      }
+    },
+    "/api/v1/admin/courses/{id}/draft/reorder": {
+      "post": {
+        "operationId": "CourseController_reorder",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderUnitsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseDraftDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "草稿版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DraftVersionConflictEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "提交完整单元顺序并事务重排",
+        "tags": [
+          "admin courses"
+        ]
+      }
     }
   },
   "info": {
@@ -881,6 +1280,367 @@
         },
         "required": [
           "error"
+        ]
+      },
+      "CourseListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string",
+            "description": "课程 slug（唯一）"
+          },
+          "title": {
+            "type": "string",
+            "description": "当前标题（来自 active 草稿）"
+          },
+          "level": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "description": "当前描述（来自 active 草稿）"
+          },
+          "visibility": {
+            "type": "string",
+            "description": "课程可见性"
+          },
+          "status": {
+            "type": "string",
+            "description": "课程状态"
+          },
+          "draftId": {
+            "type": "string",
+            "nullable": true,
+            "description": "active 草稿 ID"
+          },
+          "draftVersion": {
+            "type": "number",
+            "nullable": true,
+            "description": "active 草稿版本"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "最近编辑时间（来自 active 草稿）"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "title",
+          "level",
+          "description",
+          "visibility",
+          "status",
+          "draftId",
+          "draftVersion",
+          "updatedAt"
+        ]
+      },
+      "CourseListResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CourseListItemDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "CreateCourseDto": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "description": "课程 slug（唯一，小写字母/数字/连字符）"
+          },
+          "title": {
+            "type": "string",
+            "description": "课程标题"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "a1",
+              "a2",
+              "b1",
+              "b2",
+              "c1",
+              "c2"
+            ],
+            "default": "a1",
+            "description": "级别"
+          },
+          "description": {
+            "type": "string",
+            "description": "课程描述"
+          }
+        },
+        "required": [
+          "slug",
+          "title"
+        ]
+      },
+      "CreateCourseResultDto": {
+        "type": "object",
+        "properties": {
+          "courseId": {
+            "type": "string"
+          },
+          "draftId": {
+            "type": "string"
+          },
+          "draftVersion": {
+            "type": "number",
+            "description": "初始草稿版本"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "courseId",
+          "draftId",
+          "draftVersion",
+          "slug",
+          "title",
+          "level"
+        ]
+      },
+      "UnitDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "稳定 unit_id"
+          },
+          "position": {
+            "type": "number",
+            "description": "1 起始的位置"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "position",
+          "title",
+          "description",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CourseDraftDetailDto": {
+        "type": "object",
+        "properties": {
+          "courseId": {
+            "type": "string"
+          },
+          "draftId": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string",
+            "description": "课程 slug（唯一）"
+          },
+          "title": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "version": {
+            "type": "number",
+            "description": "当前草稿版本"
+          },
+          "status": {
+            "type": "string"
+          },
+          "units": {
+            "description": "按 position 升序的单元大纲",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UnitDto"
+            }
+          }
+        },
+        "required": [
+          "courseId",
+          "draftId",
+          "slug",
+          "title",
+          "level",
+          "description",
+          "version",
+          "status",
+          "units"
+        ]
+      },
+      "UpdateCourseDraftDto": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "description": "课程 slug（唯一，小写字母/数字/连字符）"
+          },
+          "title": {
+            "type": "string",
+            "description": "课程标题"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "a1",
+              "a2",
+              "b1",
+              "b2",
+              "c1",
+              "c2"
+            ],
+            "description": "级别"
+          },
+          "description": {
+            "type": "string",
+            "description": "课程描述"
+          },
+          "draftVersion": {
+            "type": "number",
+            "description": "期望的草稿版本（If-Match 的替代）"
+          }
+        }
+      },
+      "DraftVersionConflictErrorDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "错误码：DRAFT_VERSION_CONFLICT"
+          },
+          "message": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "currentDraftVersion": {
+            "type": "number",
+            "description": "服务端当前草稿版本"
+          },
+          "retryable": {
+            "type": "boolean",
+            "description": "是否可重试"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "requestId",
+          "currentDraftVersion",
+          "retryable"
+        ]
+      },
+      "DraftVersionConflictEnvelopeDto": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/DraftVersionConflictErrorDto"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "CreateUnitDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "单元标题"
+          },
+          "description": {
+            "type": "string",
+            "description": "单元描述"
+          },
+          "draftVersion": {
+            "type": "number",
+            "description": "期望的草稿版本（If-Match 的替代）"
+          }
+        },
+        "required": [
+          "title"
+        ]
+      },
+      "UpdateUnitDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "单元标题"
+          },
+          "description": {
+            "type": "string",
+            "description": "单元描述"
+          },
+          "draftVersion": {
+            "type": "number",
+            "description": "期望的草稿版本（If-Match 的替代）"
+          }
+        }
+      },
+      "DeleteUnitDto": {
+        "type": "object",
+        "properties": {
+          "draftVersion": {
+            "type": "number",
+            "description": "期望的草稿版本（If-Match 的替代）"
+          }
+        }
+      },
+      "ReorderUnitsDto": {
+        "type": "object",
+        "properties": {
+          "unitIds": {
+            "description": "完整单元 ID 顺序（无重复、无遗漏）",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "draftVersion": {
+            "type": "number",
+            "description": "期望的草稿版本（If-Match 的替代）"
+          }
+        },
+        "required": [
+          "unitIds"
         ]
       }
     }
