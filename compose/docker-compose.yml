@@ -1,0 +1,79 @@
+# Motro 本地开发 Compose 环境。
+# 仅用于开发；不包含生产 Compose、Tailscale、TLS、备份或供应商服务。
+# 运行前先在仓库根目录执行：cp .env.example .env
+name: motro
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-motro}
+      POSTGRES_USER: ${POSTGRES_USER:-motro}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_only_change_me}
+    ports:
+      # 只绑定回环地址，默认不暴露公网。
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      # 命名卷：docker compose down 不删除；显式清理需 docker compose down -v。
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - motro-net
+
+  api:
+    build:
+      context: ../
+      dockerfile: apps/api/Dockerfile
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      API_PORT: 3000
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-motro}
+      POSTGRES_USER: ${POSTGRES_USER:-motro}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_only_change_me}
+      SESSION_KEY: ${SESSION_KEY:-development-only-session-key-0123456789abcdef}
+      CSRF_KEY: ${CSRF_KEY:-development-only-csrf-key-0123456789abcdef}
+      COOKIE_SECURE: "false"
+      COOKIE_SAMESITE: lax
+      CORS_ORIGINS: http://127.0.0.1:3001
+    ports:
+      - "127.0.0.1:${API_PORT:-3000}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - motro-net
+
+  web:
+    build:
+      context: ../
+      dockerfile: apps/web/Dockerfile
+      args:
+        # 同源 rewrite 在构建期烘焙；容器内走服务名网络。
+        API_INTERNAL_URL: http://api:3000
+    environment:
+      API_INTERNAL_URL: http://api:3000
+      API_PUBLIC_URL: http://127.0.0.1:${API_PORT:-3000}
+      WEB_PORT: 3001
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3001}:3001"
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - motro-net
+
+  # worker：无实现，暂不加入。
+
+networks:
+  motro-net:
+    driver: bridge
+
+volumes:
+  db-data:

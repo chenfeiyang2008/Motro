@@ -1,0 +1,26 @@
+{
+  "name": "@motro/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Motro 类型化运行时配置与启动校验",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --build --pretty",
+    "test": "cd ../.. && vitest run tests/unit/config"
+  },
+  "dependencies": {
+    "zod": "^3.25.76"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

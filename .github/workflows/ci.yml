@@ -1,0 +1,179 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  quality-gates:
+    name: Quality gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: motro
+          POSTGRES_USER: motro
+          POSTGRES_PASSWORD: dev_only_change_me
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U motro -d motro"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # pnpm 版本取自根 package.json 的 packageManager 字段。
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      # Node 版本取自 .nvmrc（22），并用 pnpm-lock.yaml 做依赖缓存。
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      # 以下命令与根 package.json 的本地脚本一一对应。
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      # 强制数据库集成测试：Postgres 服务不可用时测试将失败，而不是静默跳过。
+      - name: Test (PostgreSQL integration)
+        env:
+          MOTRO_REQUIRE_DB: "1"
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      # OpenAPI 产物与源码一致，检测意外破坏性变更。
+      - name: OpenAPI check
+        run: pnpm openapi:check
+
+      # Web 应用走独立 Next 工具链，单独门禁。
+      - name: Web typecheck
+        run: pnpm --filter @motro/web typecheck
+
+      - name: Web build
+        run: pnpm --filter @motro/web build
+
+      # 任一质量门禁失败即上传可用报告，便于定位；不包含任何真实凭证或供应商调用。
+      - name: Upload failure reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-failure-reports
+          path: |
+            coverage/
+            test-results/
+            pnpm-debug.log
+          if-no-files-found: ignore
+
+  e2e:
+    name: E2E (web shell)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # 供 Web 解析 @motro/api-client 产物。
+      - name: Build packages
+        run: pnpm build
+
+      - name: Install browsers
+        run: pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Web shell E2E
+        run: pnpm exec playwright test tests/e2e/web-shell.spec.ts --project=chromium --project=webkit
+
+  compose-loop:
+    name: Compose auth loop
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm build
+
+      - name: Compose config
+        run: docker compose -f compose/docker-compose.yml config
+
+      - name: Compose up (db + api + web)
+        run: docker compose -f compose/docker-compose.yml up --build -d
+
+      - name: Wait for API health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:3000/api/v1/health/live >/dev/null; then exit 0; fi
+            sleep 5
+          done
+          echo "API 未在预期时间内就绪" && exit 1
+
+      - name: Migrate database
+        run: pnpm db:migrate
+
+      - name: Bootstrap admin
+        env:
+          BOOTSTRAP_ADMIN_PASSWORD: ci-admin-password-12345
+        run: pnpm db:bootstrap-admin
+
+      - name: Integration tests (REQUIRE_DB)
+        env:
+          MOTRO_REQUIRE_DB: "1"
+        run: pnpm test
+
+      - name: Auth E2E (Chromium + WebKit)
+        env:
+          E2E_ADMIN_USERNAME: admin
+          E2E_ADMIN_PASSWORD: ci-admin-password-12345
+          MOTRO_REQUIRE_DB: "1"
+          PW_REUSE_SERVER: "1"
+        run: |
+          pnpm exec playwright install --with-deps chromium webkit
+          pnpm exec playwright test tests/e2e/auth.spec.ts --project=chromium --project=webkit
+
+      - name: Cleanup
+        if: always()
+        run: docker compose -f compose/docker-compose.yml down

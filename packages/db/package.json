@@ -1,0 +1,32 @@
+{
+  "name": "@motro/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Motro Drizzle schema、仓库与显式 SQL 迁移（骨架阶段，无表定义）",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --build --pretty"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "@motro/config": "workspace:^",
+    "@node-rs/argon2": "^2.0.2",
+    "drizzle-orm": "^0.45.2",
+    "pg": "^8.22.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.20.4",
+    "drizzle-kit": "^0.31.10"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "name": "motro",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Motro — 面向小规模受邀用户的英语词汇学习系统（monorepo）",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "format": "prettier --check .",
+    "format:check": "prettier --check .",
+    "format:write": "prettier --write .",
+    "lint": "eslint .",
+    "typecheck": "tsc --build --pretty",
+    "test": "vitest run --passWithNoTests",
+    "build": "tsc --build --pretty",
+    "db:migrate": "tsc --build packages/db && node packages/db/dist/cli-migrate.js",
+    "db:migrate:check": "tsc --build packages/db && node packages/db/dist/cli-migrate-check.js",
+    "db:bootstrap-admin": "tsc --build packages/db && node packages/db/dist/cli-bootstrap-admin.js",
+    "config:check": "tsc --build packages/config && node packages/config/dist/cli-config-check.js",
+    "openapi:generate": "tsc --build apps/api && node apps/api/dist/openapi-generate.js",
+    "openapi:check": "tsc --build apps/api && node apps/api/dist/openapi-check.js",
+    "openapi:types": "openapi-typescript docs/generated/openapi.json -o packages/api-client/src/generated.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^22.20.1",
+    "eslint": "^10.8.0",
+    "eslint-config-prettier": "^10.1.8",
+    "openapi-typescript": "^7.13.0",
+    "prettier": "^3.9.6",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.66.0",
+    "vitest": "^4.1.10"
+  }
+}

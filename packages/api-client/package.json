@@ -1,0 +1,22 @@
+{
+  "name": "@motro/api-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Motro 生成的 API 客户端类型与请求层（骨架阶段，无契约）",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --build --pretty"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

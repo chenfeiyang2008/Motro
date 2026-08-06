@@ -1,0 +1,89 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+  background: #f7f9fc;
+  color: #182230;
+  min-height: 100vh;
+}
+
+:focus-visible {
+  outline: 3px solid #2f6fed;
+  outline-offset: 2px;
+}
+
+/* 跳过链接：opacity 隐藏不脱离 Tab 顺序（WebKit 也聚焦），聚焦时显示。 */
+.skip-link {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  pointer-events: none;
+  padding: 8px 12px;
+  background: #ffffff;
+  z-index: 100;
+}
+
+.skip-link:focus {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+main {
+  padding: 24px;
+}
+
+/* 表单基础：44px 触控区、清晰标签与错误 */
+.auth-form {
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-form label {
+  font-weight: 600;
+}
+
+.auth-form input,
+.auth-form button {
+  min-height: 44px;
+  font-size: 16px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid #dce3ec;
+}
+
+.auth-form input {
+  background: #ffffff;
+  color: #182230;
+}
+
+.auth-form button,
+button.primary {
+  min-height: 44px;
+  font-size: 16px;
+  border-radius: 8px;
+  border: none;
+  background: #2f6fed;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.auth-form button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.auth-error {
+  color: #c84545;
+  margin: 0;
+}

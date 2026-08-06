@@ -1,0 +1,22 @@
+{
+  "name": "@motro/domain",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Motro 纯领域策略与值对象（骨架阶段，无业务逻辑）",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --build --pretty"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

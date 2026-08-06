@@ -1,0 +1,23 @@
+.git/
+.agents/
+.claude/
+.impeccable/
+.scratch/
+docs/
+prototype/
+
+# 顶层产品/设计规范文档不属于代码格式化范围
+AGENTS.md
+PRODUCT.md
+CONTEXT.md
+DESIGN.md
+node_modules/
+.pnpm-store/
+**/dist/
+**/.next/
+**/coverage/
+data/
+backups/
+secrets/
+skills-lock.json
+pnpm-lock.yaml

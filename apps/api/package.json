@@ -1,0 +1,38 @@
+{
+  "name": "@motro/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Motro NestJS/Fastify HTTP 应用（平台外壳 + 健康检查）",
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --build --pretty",
+    "test": "cd ../.. && vitest run apps/api/src --passWithNoTests",
+    "test:integration": "cd ../.. && vitest run tests/integration/auth --passWithNoTests"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.1.2",
+    "@motro/config": "workspace:*",
+    "@motro/db": "workspace:*",
+    "@motro/domain": "workspace:^",
+    "@nestjs/common": "^11.1.0",
+    "@nestjs/core": "^11.1.0",
+    "@nestjs/platform-fastify": "^11.1.0",
+    "@nestjs/swagger": "^11.2.0",
+    "@node-rs/argon2": "^2.0.2",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
+    "drizzle-orm": "^0.45.2",
+    "fastify": "5.10.0",
+    "pg": "^8.22.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "^11.1.0",
+    "@types/pg": "^8.20.4"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

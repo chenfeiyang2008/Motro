@@ -6,6 +6,10 @@ coverage/
 playwright-report/
 test-results/
 
+# TypeScript build artifacts
+*.tsbuildinfo
+.eslintcache
+
 .env
 .env.*
 !.env.example
