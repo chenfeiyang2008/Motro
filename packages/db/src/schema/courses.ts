@@ -1,7 +1,16 @@
 // 课程/草稿/单元/词项/发布版本 schema：与 db/migrations/0005~0007 保持一致。
 // 一门课程至多一个 active draft；draft 写操作用整数 version 做乐观并发控制；
 // release rows 由显式 SQL 触发器禁止 UPDATE/DELETE。
-import { index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  index,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { auditEvents, users } from "./platform-identity.js";
 import { lexicalEntries } from "./lexicon.js";
 
@@ -161,5 +170,30 @@ export const releasedCourseItems = pgTable(
     ),
     uniqueIndex("released_items_release_item_unique").on(t.releaseId, t.courseItemId),
     index("released_items_release_id_idx").on(t.releaseId),
+  ],
+);
+
+// 学习者报名：软停用保留历史；每用户至多一个 active primary。
+// partial unique index `(user_id) WHERE active AND is_primary` 在 0009 migration，
+// Drizzle 无法表达部分唯一索引，这里只声明普通唯一 (user_id, course_id)。
+export const courseEnrollments = pgTable(
+  "course_enrollments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    courseId: uuid("course_id")
+      .notNull()
+      .references(() => courses.id, { onDelete: "restrict" }),
+    joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
+    active: boolean("active").notNull().default(true),
+    isPrimary: boolean("is_primary").notNull().default(false),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("course_enrollments_user_course_unique").on(t.userId, t.courseId),
+    index("course_enrollments_user_id_idx").on(t.userId),
+    index("course_enrollments_course_id_idx").on(t.courseId),
   ],
 );

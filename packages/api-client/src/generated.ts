@@ -409,7 +409,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** 学习者可见课程列表（只读 current release） */
+    /** 学习者可见课程列表（只读 current release + 本人报名/主课程状态） */
     get: operations["CatalogController_list"];
     put?: never;
     post?: never;
@@ -426,9 +426,43 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** 课程详情：当前 release 与有序单元概要；不可见返回隐藏资源 404 */
+    /** 课程详情：当前 release、有序单元概要与本人报名/主课程状态；不可见返回 404 */
     get: operations["CatalogController_get"];
     put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/catalog/courses/{id}/enroll": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 加入已发布课程（幂等）；可选 makePrimary */
+    post: operations["CatalogController_enroll"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/catalog/primary-course": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** 把已报名课程设为主课程（事务内原子切换；未报名返回 409） */
+    put: operations["CatalogController_setPrimary"];
     post?: never;
     delete?: never;
     options?: never;
@@ -878,6 +912,10 @@ export interface components {
       contentSource: string;
       /** @description 学习进度：阶段 4 恒为 not_started */
       progressStatus: string;
+      /** @description 当前用户是否已报名 */
+      isEnrolled: boolean;
+      /** @description 当前用户是否将此课程设为主课程 */
+      isPrimary: boolean;
     };
     CatalogCourseListResponseDto: {
       items: components["schemas"]["CatalogCourseSummaryDto"][];
@@ -903,8 +941,23 @@ export interface components {
       contentSource: string;
       /** @description 学习进度：阶段 4 恒为 not_started */
       progressStatus: string;
+      /** @description 当前用户是否已报名 */
+      isEnrolled: boolean;
+      /** @description 当前用户是否将此课程设为主课程 */
+      isPrimary: boolean;
       /** @description 按 position 升序的单元概要 */
       units: components["schemas"]["CatalogUnitSummaryDto"][];
+    };
+    EnrollCourseDto: {
+      /**
+       * @description 加入后是否设为主课程
+       * @default false
+       */
+      makePrimary: boolean;
+    };
+    SetPrimaryCourseDto: {
+      /** @description 要设为主课程的已报名课程 ID */
+      courseId: string;
     };
   };
   responses: never;
@@ -1757,6 +1810,54 @@ export interface operations {
       cookie?: never;
     };
     requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CatalogCourseDetailDto"];
+        };
+      };
+    };
+  };
+  CatalogController_enroll: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EnrollCourseDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CatalogCourseDetailDto"];
+        };
+      };
+    };
+  };
+  CatalogController_setPrimary: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SetPrimaryCourseDto"];
+      };
+    };
     responses: {
       200: {
         headers: {

@@ -314,3 +314,22 @@ export function getCatalogCourse(courseId: string): Promise<ApiResult<CatalogCou
     method: "GET",
   });
 }
+
+// ---- 学习者：报名与主课程选择 ----
+
+export function enrollCourse(
+  courseId: string,
+  makePrimary: boolean,
+): Promise<ApiResult<CatalogCourseDetail>> {
+  return apiFetch<CatalogCourseDetail>(
+    `/api/v1/catalog/courses/${encodeURIComponent(courseId)}/enroll`,
+    { method: "POST", body: JSON.stringify({ makePrimary }) },
+  );
+}
+
+export function setPrimaryCourse(courseId: string): Promise<ApiResult<CatalogCourseDetail>> {
+  return apiFetch<CatalogCourseDetail>("/api/v1/catalog/primary-course", {
+    method: "PUT",
+    body: JSON.stringify({ courseId }),
+  });
+}

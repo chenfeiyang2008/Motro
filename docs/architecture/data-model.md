@@ -64,7 +64,7 @@ Unique `(course_id, release_number)`, `(release_id, position)` and per-unit item
 
 ### `course_enrollments`
 
-`user_id`, `course_id`, joined time, active status, current release policy/pin if later required. A partial unique index ensures one active `is_primary=true` enrollment per user.
+`id`, `user_id`, `course_id`, `joined_at`, `active`, `is_primary`, `updated_at`; current release policy/pin columns can be added later. A unique `(user_id, course_id)` makes joining idempotent (re-join updates the existing row, never a duplicate). `active=false` is a soft disable that preserves the history row while counting as not enrolled. A partial unique index `(user_id) WHERE active = true AND is_primary = true` guarantees at most one active primary per user; primary switching runs in one transaction that clears the old primary before setting the new one, serialized per user by a transaction advisory lock, with the index as the final concurrency defense.
 
 ## 5. Learning
 

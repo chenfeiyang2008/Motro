@@ -51,7 +51,11 @@ Login is rate-limited and returns the same public failure for unknown user and w
 | `POST` | `/catalog/courses/{courseId}/enroll` | Join a course; optional make-primary flag |
 | `PUT` | `/catalog/primary-course` | Atomically select enrolled primary course |
 
-Course responses expose release ID/number so clients can display consistent content. They do not expose mutable drafts.
+Course responses expose release ID/number so clients can display consistent content. They do not expose mutable drafts. Both `GET /catalog/courses` and `GET /catalog/courses/{courseId}` include the current user's own `isEnrolled` and `isPrimary` state; a course with no current release, or not published, is hidden (detail returns `404`).
+
+`POST /catalog/courses/{courseId}/enroll` is idempotent: joining an already-joined course returns the existing enrollment (`200`, no duplicate row) and never downgrades an existing primary. Optional body `{ "makePrimary": true }` joins and sets the course as primary atomically; the response is the course detail. Hidden or no-current-release courses return `404`.
+
+`PUT /catalog/primary-course` takes `{ "courseId" }` of an enrolled course and atomically clears the previous primary before setting the new one in one transaction. Only the current user's own enrollment may be selected. Not-yet-enrolled returns `409`; hidden or no-current-release returns `404`. Exactly one active primary per user is guaranteed by a partial unique index; concurrent switches serialize on the server so the last committed switch wins. Switching never deletes other enrollments or their future learning history. Responses never include other users' enrollment data.
 
 ## 5. Study
 

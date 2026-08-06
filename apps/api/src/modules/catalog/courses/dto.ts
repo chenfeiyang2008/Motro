@@ -2,6 +2,7 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
   IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
   IsOptional,
@@ -567,6 +568,12 @@ export class CatalogCourseSummaryDto {
 
   @ApiProperty({ description: "学习进度：阶段 4 恒为 not_started" })
   progressStatus!: string;
+
+  @ApiProperty({ description: "当前用户是否已报名" })
+  isEnrolled!: boolean;
+
+  @ApiProperty({ description: "当前用户是否将此课程设为主课程" })
+  isPrimary!: boolean;
 }
 
 export class CatalogUnitSummaryDto {
@@ -591,4 +598,17 @@ export class CatalogCourseDetailDto extends CatalogCourseSummaryDto {
 export class CatalogCourseListResponseDto {
   @ApiProperty({ type: [CatalogCourseSummaryDto] })
   items!: CatalogCourseSummaryDto[];
+}
+
+export class EnrollCourseDto {
+  @ApiPropertyOptional({ description: "加入后是否设为主课程", default: false })
+  @IsOptional()
+  @IsBoolean()
+  makePrimary?: boolean;
+}
+
+export class SetPrimaryCourseDto {
+  @ApiProperty({ description: "要设为主课程的已报名课程 ID" })
+  @IsString()
+  courseId!: string;
 }

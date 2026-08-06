@@ -61,6 +61,10 @@ export default function CoursesPage() {
                 {course.description ? <p className="course-desc">{course.description}</p> : null}
                 <p className="course-status">
                   {course.progressStatus === "not_started" ? "未开始" : course.progressStatus}
+                  {course.isEnrolled && <span className="course-badge">已加入</span>}
+                  {course.isPrimary && (
+                    <span className="course-badge course-badge-primary">主课程</span>
+                  )}
                 </p>
               </Link>
             </li>

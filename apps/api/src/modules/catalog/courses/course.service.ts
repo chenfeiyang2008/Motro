@@ -13,6 +13,7 @@ import { createHash, randomUUID } from "node:crypto";
 import {
   buildCatalogDetail,
   buildCatalogSummary,
+  buildEnrollmentState,
   nextReleaseNumber,
   normalizeSlug,
   validateCourseDescription,
@@ -208,6 +209,8 @@ interface CatalogCourseRow {
   title: string;
   level: string;
   description: string;
+  enrolled_active: boolean | null;
+  enrolled_primary: boolean | null;
 }
 
 interface ValidationRow {
@@ -308,36 +311,49 @@ export class CourseService {
   }
 
   /** 学习者目录列表：只读可见课程的 current release，不读草稿。 */
-  async listCatalogCourses(): Promise<CatalogCourseListResponseDto> {
+  async listCatalogCourses(userId: string): Promise<CatalogCourseListResponseDto> {
     const result = await this.pool.query<CatalogCourseRow>(
-      `SELECT c.id AS course_id, r.id AS release_id, r.release_number, r.title, r.level, r.description
+      `SELECT c.id AS course_id, r.id AS release_id, r.release_number, r.title, r.level, r.description,
+              e.active AS enrolled_active, e.is_primary AS enrolled_primary
        FROM courses c
        JOIN course_releases r ON r.id = c.current_release_id
+       LEFT JOIN course_enrollments e ON e.course_id = c.id AND e.user_id = $1
        WHERE c.visibility = 'published' AND c.status = 'active'
        ORDER BY r.release_number DESC, c.id ASC`,
+      [userId],
     );
     return {
-      items: result.rows.map((row) =>
-        buildCatalogSummary({
+      items: result.rows.map((row) => {
+        const enrollment =
+          row.enrolled_active !== null
+            ? buildEnrollmentState({
+                active: row.enrolled_active,
+                is_primary: row.enrolled_primary ?? false,
+              })
+            : undefined;
+        return buildCatalogSummary({
           courseId: row.course_id,
           title: row.title,
           level: row.level,
           description: row.description,
           releaseId: row.release_id,
           releaseNumber: row.release_number,
-        }),
-      ),
+          enrollment,
+        });
+      }),
     };
   }
 
   /** 学习者目录详情：当前 release + 有序单元概要；无 current release/不可见 → 隐藏资源 404。 */
-  async getCatalogCourse(courseId: string): Promise<CatalogCourseDetailDto> {
+  async getCatalogCourse(userId: string, courseId: string): Promise<CatalogCourseDetailDto> {
     const result = await this.pool.query<CatalogCourseRow>(
-      `SELECT c.id AS course_id, r.id AS release_id, r.release_number, r.title, r.level, r.description
+      `SELECT c.id AS course_id, r.id AS release_id, r.release_number, r.title, r.level, r.description,
+              e.active AS enrolled_active, e.is_primary AS enrolled_primary
        FROM courses c
        JOIN course_releases r ON r.id = c.current_release_id
-       WHERE c.id = $1 AND c.visibility = 'published' AND c.status = 'active'`,
-      [courseId],
+       LEFT JOIN course_enrollments e ON e.course_id = c.id AND e.user_id = $1
+       WHERE c.id = $2 AND c.visibility = 'published' AND c.status = 'active'`,
+      [userId, courseId],
     );
     const row = result.rows[0];
     if (!row) throw new NotFoundException("课程不存在"); // 隐藏资源 404
@@ -352,6 +368,13 @@ export class CourseService {
        WHERE release_id = $1 ORDER BY position ASC, unit_id ASC`,
       [row.release_id],
     );
+    const enrollment =
+      row.enrolled_active !== null
+        ? buildEnrollmentState({
+            active: row.enrolled_active,
+            is_primary: row.enrolled_primary ?? false,
+          })
+        : undefined;
     return buildCatalogDetail(
       {
         courseId: row.course_id,
@@ -360,6 +383,7 @@ export class CourseService {
         description: row.description,
         releaseId: row.release_id,
         releaseNumber: row.release_number,
+        enrollment,
       },
       units.rows.map((u) => ({
         unitId: u.unit_id,
@@ -367,6 +391,113 @@ export class CourseService {
         title: u.title,
         description: u.description,
       })),
+    );
+  }
+
+  /** 加入已发布课程（幂等）：重复报名返回已有报名，不重复建行；可带 makePrimary。 */
+  async enroll(
+    userId: string,
+    courseId: string,
+    makePrimary: boolean,
+  ): Promise<CatalogCourseDetailDto> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      // 首次设主路径先取每用户 advisory 事务锁，再碰任何行锁/插入，
+      // 与 setPrimaryCourse 共用同一把锁：串行化并发“报名并设主”，
+      // 避免插入行锁与 FOR UPDATE 扫描顺序不同造成死锁或唯一索引冲突。
+      if (makePrimary) {
+        await this.lockUserPrimarySwitch(client, userId);
+      }
+      // 目标课程必须可见且有 current release，否则安全 404。
+      const course = await client.query<{ course_id: string }>(
+        `SELECT c.id AS course_id
+         FROM courses c JOIN course_releases r ON r.id = c.current_release_id
+         WHERE c.id = $1 AND c.visibility = 'published' AND c.status = 'active'`,
+        [courseId],
+      );
+      if (!course.rows[0]) throw new NotFoundException("课程不存在");
+
+      // 幂等报名：已存在 active 报名则不重复插入；软停用则重新激活。
+      const upserted = await client.query<{ id: string; is_primary: boolean }>(
+        `INSERT INTO course_enrollments (user_id, course_id, active)
+         VALUES ($1, $2, true)
+         ON CONFLICT (user_id, course_id) DO UPDATE SET active = true, updated_at = now()
+         RETURNING id, is_primary`,
+        [userId, courseId],
+      );
+      if (makePrimary && !upserted.rows[0]?.is_primary) {
+        await this.setPrimaryInTransaction(client, userId, courseId);
+      }
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw err;
+    } finally {
+      client.release();
+    }
+    return this.getCatalogCourse(userId, courseId);
+  }
+
+  /** 把一门已报名课程设为主课程：事务内清除旧 primary 并设置新 primary。 */
+  async setPrimaryCourse(userId: string, courseId: string): Promise<CatalogCourseDetailDto> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      // 每用户一把 advisory 事务锁，先于任何行锁获取：所有主课程切换在此串行化，
+      // partial unique index 是并发场景的最终防线。锁失败会随事务回滚自动释放。
+      await this.lockUserPrimarySwitch(client, userId);
+      // 目标课程必须可见且有 current release，否则安全 404。
+      const course = await client.query<{ course_id: string }>(
+        `SELECT c.id AS course_id
+         FROM courses c JOIN course_releases r ON r.id = c.current_release_id
+         WHERE c.id = $1 AND c.visibility = 'published' AND c.status = 'active'`,
+        [courseId],
+      );
+      if (!course.rows[0]) throw new NotFoundException("课程不存在");
+
+      // 锁定用户全部报名行，串行化并发主课程切换（advisory 锁已串行，行锁保证读一致）。
+      const enrollments = await client.query<{ course_id: string; active: boolean }>(
+        `SELECT course_id, active FROM course_enrollments WHERE user_id = $1 FOR UPDATE`,
+        [userId],
+      );
+      const target = enrollments.rows.find((e) => e.course_id === courseId && e.active);
+      if (!target) {
+        throw new ConflictException("未报名该课程，无法设为主课程");
+      }
+      await this.setPrimaryInTransaction(client, userId, courseId);
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw err;
+    } finally {
+      client.release();
+    }
+    return this.getCatalogCourse(userId, courseId);
+  }
+
+  /** 事务内获取每用户 advisory 锁：所有主课程切换（enroll 首次设主 + setPrimaryCourse）在此串行化。 */
+  private async lockUserPrimarySwitch(client: PoolClient, userId: string): Promise<void> {
+    // hashtextextended(text, bigint) 把 userId 映射为稳定的 int8 advisory 键；
+    // 事务锁随 COMMIT/ROLLBACK 自动释放，不会因连接池复用而泄漏。
+    await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [userId]);
+  }
+
+  /** 事务内：清除用户所有 active primary，再把目标课程报名置为 primary。 */
+  private async setPrimaryInTransaction(
+    client: PoolClient,
+    userId: string,
+    courseId: string,
+  ): Promise<void> {
+    await client.query(
+      `UPDATE course_enrollments SET is_primary = false, updated_at = now()
+       WHERE user_id = $1 AND active = true AND is_primary = true`,
+      [userId],
+    );
+    await client.query(
+      `UPDATE course_enrollments SET is_primary = true, updated_at = now()
+       WHERE user_id = $1 AND course_id = $2 AND active = true`,
+      [userId, courseId],
     );
   }
 

@@ -6,3 +6,4 @@ export * from "./items.js";
 export * from "./validation/index.js";
 export * from "./publishing/index.js";
 export * from "./catalog.js";
+export * from "./enrollment.js";

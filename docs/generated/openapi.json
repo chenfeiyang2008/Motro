@@ -1294,7 +1294,7 @@
             "bearer": []
           }
         ],
-        "summary": "学习者可见课程列表（只读 current release）",
+        "summary": "学习者可见课程列表（只读 current release + 本人报名/主课程状态）",
         "tags": [
           "catalog"
         ]
@@ -1330,7 +1330,90 @@
             "bearer": []
           }
         ],
-        "summary": "课程详情：当前 release 与有序单元概要；不可见返回隐藏资源 404",
+        "summary": "课程详情：当前 release、有序单元概要与本人报名/主课程状态；不可见返回 404",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/v1/catalog/courses/{id}/enroll": {
+      "post": {
+        "operationId": "CatalogController_enroll",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnrollCourseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogCourseDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "加入已发布课程（幂等）；可选 makePrimary",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
+    "/api/v1/catalog/primary-course": {
+      "put": {
+        "operationId": "CatalogController_setPrimary",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetPrimaryCourseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogCourseDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "把已报名课程设为主课程（事务内原子切换；未报名返回 409）",
         "tags": [
           "catalog"
         ]
@@ -2583,6 +2666,14 @@
           "progressStatus": {
             "type": "string",
             "description": "学习进度：阶段 4 恒为 not_started"
+          },
+          "isEnrolled": {
+            "type": "boolean",
+            "description": "当前用户是否已报名"
+          },
+          "isPrimary": {
+            "type": "boolean",
+            "description": "当前用户是否将此课程设为主课程"
           }
         },
         "required": [
@@ -2593,7 +2684,9 @@
           "releaseId",
           "releaseNumber",
           "contentSource",
-          "progressStatus"
+          "progressStatus",
+          "isEnrolled",
+          "isPrimary"
         ]
       },
       "CatalogCourseListResponseDto": {
@@ -2668,6 +2761,14 @@
             "type": "string",
             "description": "学习进度：阶段 4 恒为 not_started"
           },
+          "isEnrolled": {
+            "type": "boolean",
+            "description": "当前用户是否已报名"
+          },
+          "isPrimary": {
+            "type": "boolean",
+            "description": "当前用户是否将此课程设为主课程"
+          },
           "units": {
             "description": "按 position 升序的单元概要",
             "type": "array",
@@ -2685,7 +2786,31 @@
           "releaseNumber",
           "contentSource",
           "progressStatus",
+          "isEnrolled",
+          "isPrimary",
           "units"
+        ]
+      },
+      "EnrollCourseDto": {
+        "type": "object",
+        "properties": {
+          "makePrimary": {
+            "type": "boolean",
+            "description": "加入后是否设为主课程",
+            "default": false
+          }
+        }
+      },
+      "SetPrimaryCourseDto": {
+        "type": "object",
+        "properties": {
+          "courseId": {
+            "type": "string",
+            "description": "要设为主课程的已报名课程 ID"
+          }
+        },
+        "required": [
+          "courseId"
         ]
       }
     }

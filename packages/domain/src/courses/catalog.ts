@@ -1,5 +1,6 @@
 // 学习者课程目录（只读）：把 current release 数据映射为目录/详情响应。
 // 阶段 4 无学习记录：进度固定 not_started；内容来源固定 published_release。
+import type { EnrollmentState } from "./enrollment.js";
 
 export const PUBLISHED_RELEASE_SOURCE = "published_release";
 export const PROGRESS_NOT_STARTED = "not_started";
@@ -20,6 +21,8 @@ export interface CatalogCourseSummary {
   releaseNumber: number;
   contentSource: typeof PUBLISHED_RELEASE_SOURCE;
   progressStatus: typeof PROGRESS_NOT_STARTED;
+  isEnrolled: boolean;
+  isPrimary: boolean;
 }
 
 export interface CatalogCourseDetail extends CatalogCourseSummary {
@@ -33,6 +36,8 @@ export interface CatalogCourseInput {
   description: string;
   releaseId: string;
   releaseNumber: number;
+  /** 无报名信息时映射为未报名/非主课程。 */
+  enrollment?: EnrollmentState | undefined;
 }
 
 /** 列表摘要（不含单元）。 */
@@ -46,6 +51,8 @@ export function buildCatalogSummary(input: CatalogCourseInput): CatalogCourseSum
     releaseNumber: input.releaseNumber,
     contentSource: PUBLISHED_RELEASE_SOURCE,
     progressStatus: PROGRESS_NOT_STARTED,
+    isEnrolled: input.enrollment?.isEnrolled ?? false,
+    isPrimary: input.enrollment?.isPrimary ?? false,
   };
 }
 
