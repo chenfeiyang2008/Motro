@@ -12,7 +12,7 @@ Use `prototype` for real switchable Home, Study, weekly challenge board and focu
 
 ## 3. Platform foundation
 
-Scaffold pnpm monorepo, strict TypeScript, CI, Compose development, Postgres migrations, Nest/Fastify API, Next Web, OpenAPI generation, configuration and authentication. The implementation work is split into the one-session tickets in [`platform-foundation`](../.scratch/platform-foundation/spec.md):
+Scaffold pnpm monorepo, strict TypeScript, CI, Compose development, PostgreSQL + Drizzle migrations, Nest/Fastify API, Next Web, OpenAPI generation, configuration and authentication. The implementation work is split into the one-session tickets in [`platform-foundation`](../.scratch/platform-foundation/spec.md):
 
 - [`01-monorepo-toolchain`](../.scratch/platform-foundation/issues/01-monorepo-toolchain.md)
 - [`02-ci-quality-gates`](../.scratch/platform-foundation/issues/02-ci-quality-gates.md)
