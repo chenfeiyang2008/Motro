@@ -248,3 +248,14 @@ export function reorderCourseItems(
     { method: "POST", body: JSON.stringify(payload) },
   );
 }
+
+// ---- 管理员：草稿校验（发布准备） ----
+
+export type CourseValidationResult = components["schemas"]["CourseValidationResultDto"];
+
+export function validateCourseDraft(courseId: string): Promise<ApiResult<CourseValidationResult>> {
+  return apiFetch<CourseValidationResult>(
+    `/api/v1/admin/courses/${encodeURIComponent(courseId)}/validate`,
+    { method: "POST" },
+  );
+}

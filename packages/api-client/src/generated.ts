@@ -278,6 +278,23 @@ export interface paths {
     patch: operations["CourseController_updateDraft"];
     trace?: never;
   };
+  "/api/v1/admin/courses/{id}/validate": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 校验草稿：只读、不创建 release、不改变 current-release */
+    post: operations["CourseController_validate"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/admin/courses/{id}/draft/units/{unitId}": {
     parameters: {
       query?: never;
@@ -602,6 +619,51 @@ export interface components {
       status: string;
       /** @description 按 position 升序的单元大纲 */
       units: components["schemas"]["UnitDto"][];
+    };
+    ValidationIssueDto: {
+      /** @description 稳定错误码 */
+      code: string;
+      /** @description 定位路径：course、unit.<unitId>、item.<itemId>.<field> */
+      path: string;
+      message: string;
+      /**
+       * @description error 阻断发布，warning 仅提示
+       * @enum {string}
+       */
+      severity: "error" | "warning";
+    };
+    DiffSummaryDto: {
+      /**
+       * @description 首次发布或相对当前版本的差异
+       * @enum {string}
+       */
+      kind: "initial" | "changed";
+      addedUnits: number;
+      removedUnits: number;
+      addedItems: number;
+      removedItems: number;
+      changedItems: number;
+      totalUnits: number;
+      totalItems: number;
+    };
+    CourseValidationResultDto: {
+      /** @description 被校验草稿的版本 */
+      draftVersion: number;
+      /** @description 是否存在阻断错误 */
+      isPublishable: boolean;
+      /** @description 阻断发布的问题 */
+      blockingErrors: components["schemas"]["ValidationIssueDto"][];
+      /** @description 提示但可发布的问题 */
+      warnings: components["schemas"]["ValidationIssueDto"][];
+      diffSummary: components["schemas"]["DiffSummaryDto"];
+      /** @description 受影响学习者数量；第 4 阶段无报名数据时为 0 */
+      affectedLearnerCount: number;
+      /** @description 校验时刻（RFC 3339 UTC） */
+      validatedAt: string;
+      /** @description 草稿内容规范化序列化 SHA-256 */
+      contentHash: string;
+      /** @description 校验令牌：draftVersion.contentHash 前缀，发布须携带精确版本 */
+      validationToken: string;
     };
     UpdateCourseDraftDto: {
       /** @description 课程 slug（唯一，小写字母/数字/连字符） */
@@ -1124,6 +1186,27 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["DraftVersionConflictEnvelopeDto"];
+        };
+      };
+    };
+  };
+  CourseController_validate: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CourseValidationResultDto"];
         };
       };
     };

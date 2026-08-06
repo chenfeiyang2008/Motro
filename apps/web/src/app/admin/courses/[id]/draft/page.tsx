@@ -86,6 +86,16 @@ export default function CourseDraftPage() {
     void load();
   }, [load]);
 
+  // 从发布准备页的修复链接带 hash 跳转时，草稿加载完成后滚动到对应单元/词项。
+  useEffect(() => {
+    if (loading) return;
+    const hash = window.location.hash;
+    if (hash.length > 1) {
+      const target = document.getElementById(hash.slice(1));
+      target?.scrollIntoView({ block: "start", behavior: "smooth" });
+    }
+  }, [loading, draft]);
+
   /** 应用服务端草稿；syncMetadata 为 true 时同步元数据表单（初始加载/保存元数据后）。 */
   function applyDraft(next: CourseDraftDetail, syncMetadata: boolean): void {
     setDraft(next);
@@ -380,6 +390,8 @@ export default function CourseDraftPage() {
     <section>
       <p>
         <Link href="/admin/courses">返回课程列表</Link>
+        {" · "}
+        <Link href={`/admin/courses/${courseId}/publishing`}>发布准备</Link>
       </p>
       <h1>{draft.title}</h1>
       <p>
@@ -408,7 +420,7 @@ export default function CourseDraftPage() {
       )}
 
       <h2>课程元数据</h2>
-      <form className="lexicon-form" onSubmit={saveMetadata} noValidate>
+      <form id="metadata" className="lexicon-form" onSubmit={saveMetadata} noValidate>
         <label htmlFor="draft-slug">slug</label>
         <input
           id="draft-slug"
@@ -501,7 +513,7 @@ export default function CourseDraftPage() {
       ) : (
         <ol className="unit-list">
           {draft.units.map((unit, index) => (
-            <li key={unit.id} className="unit-item">
+            <li key={unit.id} id={`unit-${unit.id}`} className="unit-item">
               <div className="unit-main">
                 <span className="unit-position">{index + 1}.</span>
                 {editingUnitId === unit.id ? (
@@ -589,7 +601,7 @@ export default function CourseDraftPage() {
                 ) : (
                   <ol className="item-list">
                     {unit.items.map((item, itemIndex) => (
-                      <li key={item.id} className="item-entry">
+                      <li key={item.id} id={`item-${item.id}`} className="item-entry">
                         {editingItem?.item.id === item.id ? (
                           <form className="unit-edit-form" onSubmit={submitEditItem} noValidate>
                             <label htmlFor={`edit-item-meaning-${item.id}`}>中文释义</label>

@@ -617,6 +617,42 @@
         ]
       }
     },
+    "/api/v1/admin/courses/{id}/validate": {
+      "post": {
+        "operationId": "CourseController_validate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseValidationResultDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "校验草稿：只读、不创建 release、不改变 current-release",
+        "tags": [
+          "admin courses"
+        ]
+      }
+    },
     "/api/v1/admin/courses/{id}/draft/units/{unitId}": {
       "post": {
         "operationId": "CourseController_createUnit",
@@ -1831,6 +1867,137 @@
           "version",
           "status",
           "units"
+        ]
+      },
+      "ValidationIssueDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "稳定错误码"
+          },
+          "path": {
+            "type": "string",
+            "description": "定位路径：course、unit.<unitId>、item.<itemId>.<field>"
+          },
+          "message": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warning"
+            ],
+            "description": "error 阻断发布，warning 仅提示"
+          }
+        },
+        "required": [
+          "code",
+          "path",
+          "message",
+          "severity"
+        ]
+      },
+      "DiffSummaryDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "initial",
+              "changed"
+            ],
+            "description": "首次发布或相对当前版本的差异"
+          },
+          "addedUnits": {
+            "type": "number"
+          },
+          "removedUnits": {
+            "type": "number"
+          },
+          "addedItems": {
+            "type": "number"
+          },
+          "removedItems": {
+            "type": "number"
+          },
+          "changedItems": {
+            "type": "number"
+          },
+          "totalUnits": {
+            "type": "number"
+          },
+          "totalItems": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "kind",
+          "addedUnits",
+          "removedUnits",
+          "addedItems",
+          "removedItems",
+          "changedItems",
+          "totalUnits",
+          "totalItems"
+        ]
+      },
+      "CourseValidationResultDto": {
+        "type": "object",
+        "properties": {
+          "draftVersion": {
+            "type": "number",
+            "description": "被校验草稿的版本"
+          },
+          "isPublishable": {
+            "type": "boolean",
+            "description": "是否存在阻断错误"
+          },
+          "blockingErrors": {
+            "description": "阻断发布的问题",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValidationIssueDto"
+            }
+          },
+          "warnings": {
+            "description": "提示但可发布的问题",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValidationIssueDto"
+            }
+          },
+          "diffSummary": {
+            "$ref": "#/components/schemas/DiffSummaryDto"
+          },
+          "affectedLearnerCount": {
+            "type": "number",
+            "description": "受影响学习者数量；第 4 阶段无报名数据时为 0"
+          },
+          "validatedAt": {
+            "type": "string",
+            "description": "校验时刻（RFC 3339 UTC）"
+          },
+          "contentHash": {
+            "type": "string",
+            "description": "草稿内容规范化序列化 SHA-256"
+          },
+          "validationToken": {
+            "type": "string",
+            "description": "校验令牌：draftVersion.contentHash 前缀，发布须携带精确版本"
+          }
+        },
+        "required": [
+          "draftVersion",
+          "isPublishable",
+          "blockingErrors",
+          "warnings",
+          "diffSummary",
+          "affectedLearnerCount",
+          "validatedAt",
+          "contentHash",
+          "validationToken"
         ]
       },
       "UpdateCourseDraftDto": {

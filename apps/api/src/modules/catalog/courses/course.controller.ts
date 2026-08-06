@@ -7,6 +7,7 @@ import {
   Delete,
   Get,
   Headers,
+  HttpCode,
   HttpStatus,
   Param,
   ParseUUIDPipe,
@@ -30,6 +31,7 @@ import { SessionGuard, type AuthenticatedRequest } from "../../../auth/session.g
 import {
   CourseDraftDetailDto,
   CourseListResponseDto,
+  CourseValidationResultDto,
   CreateCourseDto,
   CreateCourseResultDto,
   CreateItemDto,
@@ -85,6 +87,15 @@ export class CourseController {
   @ApiOkResponse({ type: CourseDraftDetailDto })
   getDraft(@Param("id", ParseUUIDPipe) id: string) {
     return this.courseService.getDraft(id);
+  }
+
+  @Post(":id/validate")
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "校验草稿：只读、不创建 release、不改变 current-release" })
+  @ApiOkResponse({ type: CourseValidationResultDto })
+  validate(@Param("id", ParseUUIDPipe) id: string) {
+    return this.courseService.validateCourse(id);
   }
 
   @Patch(":id/draft")

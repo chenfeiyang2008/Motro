@@ -388,3 +388,74 @@ export class DraftVersionConflictEnvelopeDto {
   @ApiProperty({ type: DraftVersionConflictErrorDto })
   error!: DraftVersionConflictErrorDto;
 }
+
+// ---- 校验（草稿发布准备） ----
+
+export class ValidationIssueDto {
+  @ApiProperty({ description: "稳定错误码" })
+  code!: string;
+
+  @ApiProperty({ description: "定位路径：course、unit.<unitId>、item.<itemId>.<field>" })
+  path!: string;
+
+  @ApiProperty()
+  message!: string;
+
+  @ApiProperty({ enum: ["error", "warning"], description: "error 阻断发布，warning 仅提示" })
+  severity!: "error" | "warning";
+}
+
+export class DiffSummaryDto {
+  @ApiProperty({ enum: ["initial", "changed"], description: "首次发布或相对当前版本的差异" })
+  kind!: "initial" | "changed";
+
+  @ApiProperty()
+  addedUnits!: number;
+
+  @ApiProperty()
+  removedUnits!: number;
+
+  @ApiProperty()
+  addedItems!: number;
+
+  @ApiProperty()
+  removedItems!: number;
+
+  @ApiProperty()
+  changedItems!: number;
+
+  @ApiProperty()
+  totalUnits!: number;
+
+  @ApiProperty()
+  totalItems!: number;
+}
+
+export class CourseValidationResultDto {
+  @ApiProperty({ description: "被校验草稿的版本" })
+  draftVersion!: number;
+
+  @ApiProperty({ description: "是否存在阻断错误" })
+  isPublishable!: boolean;
+
+  @ApiProperty({ type: [ValidationIssueDto], description: "阻断发布的问题" })
+  blockingErrors!: ValidationIssueDto[];
+
+  @ApiProperty({ type: [ValidationIssueDto], description: "提示但可发布的问题" })
+  warnings!: ValidationIssueDto[];
+
+  @ApiProperty({ type: DiffSummaryDto })
+  diffSummary!: DiffSummaryDto;
+
+  @ApiProperty({ description: "受影响学习者数量；第 4 阶段无报名数据时为 0" })
+  affectedLearnerCount!: number;
+
+  @ApiProperty({ description: "校验时刻（RFC 3339 UTC）" })
+  validatedAt!: string;
+
+  @ApiProperty({ description: "草稿内容规范化序列化 SHA-256" })
+  contentHash!: string;
+
+  @ApiProperty({ description: "校验令牌：draftVersion.contentHash 前缀，发布须携带精确版本" })
+  validationToken!: string;
+}

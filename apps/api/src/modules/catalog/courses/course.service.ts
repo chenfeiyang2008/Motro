@@ -15,12 +15,14 @@ import {
   validateCourseDescription,
   validateCourseLevel,
   validateCourseTitle,
+  validateCourseDraft,
   validateItemHint,
   validateItemMeaning,
   validateSlug,
   validateUnitDescription,
   validateUnitOrder,
   validateUnitTitle,
+  type UnitSnapshot,
 } from "@motro/domain";
 import type { Pool, PoolClient } from "pg";
 import { POOL } from "../../../auth/database.provider.js";
@@ -28,6 +30,7 @@ import type { UserRecord } from "../../../auth/session.service.js";
 import type {
   CourseDraftDetailDto,
   CourseListItemDto,
+  CourseValidationResultDto,
   CreateCourseResultDto,
   ItemDto,
   UnitDto,
@@ -134,6 +137,23 @@ interface ItemRow {
   canonical_spelling: string;
   normalized_spelling: string;
   source_status: string | null;
+}
+
+interface ValidationRow {
+  version: number;
+  title: string;
+  unit_id: string | null;
+  unit_position: number | null;
+  unit_title: string | null;
+  unit_description: string | null;
+  item_id: string | null;
+  item_position: number | null;
+  meaning: string | null;
+  hint: string | null;
+  lexical_entry_id: string | null;
+  content_review_reference: string | null;
+  lexical_entry_exists: boolean;
+  content_review_valid: boolean;
 }
 
 @Injectable()
@@ -255,6 +275,74 @@ export class CourseService {
     const detail = await this.loadDraftDetail(courseId);
     if (!detail) throw new NotFoundException("课程或草稿不存在");
     return detail;
+  }
+
+  /** 只读校验：不修改草稿、不创建 release、不改变 current-release，从当前草稿即时计算。 */
+  async validateCourse(courseId: string): Promise<CourseValidationResultDto> {
+    const result = await this.pool.query<ValidationRow>(
+      `SELECT d.version, d.title,
+              u.id AS unit_id, u.position AS unit_position, u.title AS unit_title,
+              u.description AS unit_description,
+              i.id AS item_id, i.position AS item_position, i.meaning, i.hint,
+              i.lexical_entry_id, i.content_review_reference,
+              (e.id IS NOT NULL) AS lexical_entry_exists,
+              (a.id IS NOT NULL) AS content_review_valid
+       FROM course_drafts d
+       LEFT JOIN draft_units u ON u.draft_id = d.id
+       LEFT JOIN draft_course_items i ON i.draft_unit_id = u.id
+       LEFT JOIN lexical_entries e ON e.id = i.lexical_entry_id
+       LEFT JOIN audit_events a ON a.id = i.content_review_reference
+       WHERE d.course_id = $1 AND d.status = 'active'
+       ORDER BY u.position ASC, u.id ASC, i.position ASC, i.id ASC`,
+      [courseId],
+    );
+    const first = result.rows[0];
+    if (!first) throw new NotFoundException("课程或草稿不存在");
+
+    const units: UnitSnapshot[] = [];
+    const unitsById = new Map<string, UnitSnapshot>();
+    for (const row of result.rows) {
+      if (!row.unit_id) continue;
+      let unit = unitsById.get(row.unit_id);
+      if (!unit) {
+        unit = {
+          id: row.unit_id,
+          position: row.unit_position ?? 0,
+          title: row.unit_title ?? "",
+          description: row.unit_description ?? "",
+          items: [],
+        };
+        unitsById.set(row.unit_id, unit);
+        units.push(unit);
+      }
+      if (row.item_id) {
+        unit.items.push({
+          id: row.item_id,
+          position: row.item_position ?? 0,
+          meaning: row.meaning ?? "",
+          hint: row.hint,
+          lexicalEntryId: row.lexical_entry_id ?? "",
+          lexicalEntryExists: row.lexical_entry_exists,
+          contentReviewReference: row.content_review_reference ?? "",
+          contentReviewValid: row.content_review_valid,
+        });
+      }
+    }
+    units.sort((a, b) => a.position - b.position);
+
+    const outcome = validateCourseDraft({ draftVersion: first.version, title: first.title, units });
+    return {
+      draftVersion: outcome.draftVersion,
+      isPublishable: outcome.isPublishable,
+      blockingErrors: outcome.blockingErrors,
+      warnings: outcome.warnings,
+      diffSummary: outcome.diffSummary,
+      // 第 7 张工单接入真实报名关系后，复用同一字段返回真实影响人数；第 4 阶段无报名数据。
+      affectedLearnerCount: 0,
+      validatedAt: new Date().toISOString(),
+      contentHash: outcome.contentHash,
+      validationToken: `${outcome.draftVersion}.${outcome.contentHash.slice(0, 12)}`,
+    };
   }
 
   async updateDraft(
