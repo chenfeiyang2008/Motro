@@ -259,3 +259,43 @@ export function validateCourseDraft(courseId: string): Promise<ApiResult<CourseV
     { method: "POST" },
   );
 }
+
+// ---- 管理员：发布版本与当前指针 ----
+
+export type PublishReleasePayload = components["schemas"]["PublishReleaseDto"];
+export type PublishReleaseResult = components["schemas"]["PublishReleaseResultDto"];
+export type ReleaseListItem = components["schemas"]["ReleaseListItemDto"];
+
+export function publishCourseRelease(
+  courseId: string,
+  payload: PublishReleasePayload,
+  idempotencyKey: string,
+): Promise<ApiResult<PublishReleaseResult>> {
+  return apiFetch<PublishReleaseResult>(
+    `/api/v1/admin/courses/${encodeURIComponent(courseId)}/releases`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+      headers: { "idempotency-key": idempotencyKey },
+    },
+  );
+}
+
+export function listCourseReleases(
+  courseId: string,
+): Promise<ApiResult<{ items: ReleaseListItem[] }>> {
+  return apiFetch<{ items: ReleaseListItem[] }>(
+    `/api/v1/admin/courses/${encodeURIComponent(courseId)}/releases`,
+    { method: "GET" },
+  );
+}
+
+export function setCourseCurrentRelease(
+  courseId: string,
+  releaseId: string,
+): Promise<ApiResult<{ currentReleaseId: string }>> {
+  return apiFetch<{ currentReleaseId: string }>(
+    `/api/v1/admin/courses/${encodeURIComponent(courseId)}/current-release`,
+    { method: "PUT", body: JSON.stringify({ releaseId }) },
+  );
+}

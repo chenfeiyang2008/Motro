@@ -295,6 +295,41 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/admin/courses/{id}/releases": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 版本历史与当前版本标记（只读） */
+    get: operations["CourseController_releases"];
+    put?: never;
+    /** 发布不可变版本（需 Idempotency-Key；幂等重试返回原结果） */
+    post: operations["CourseController_publish"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/courses/{id}/current-release": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** 把当前版本指针指向已有 release（仅同一课程，不修改快照） */
+    put: operations["CourseController_setCurrentRelease"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/admin/courses/{id}/draft/units/{unitId}": {
     parameters: {
       query?: never;
@@ -665,6 +700,62 @@ export interface components {
       /** @description 校验令牌：draftVersion.contentHash 前缀，发布须携带精确版本 */
       validationToken: string;
     };
+    PublishReleaseDto: {
+      /** @description 精确草稿版本（发布须重新确认） */
+      draftVersion: number;
+      /** @description 发布说明 */
+      releaseNote?: string;
+      /** @description 校验令牌（可选，须与草稿版本+内容哈希匹配） */
+      validationToken?: string;
+    };
+    PublishReleaseResultDto: {
+      releaseId: string;
+      /** @description 每门课程单调递增的版本号 */
+      releaseNumber: number;
+      /** @description 发布快照内容哈希 */
+      contentHash: string;
+      /** @description 发布后成为当前版本指针 */
+      currentReleaseId: string;
+      createdAt: string;
+    };
+    DraftVersionConflictErrorDto: {
+      /** @description 错误码：DRAFT_VERSION_CONFLICT */
+      code: string;
+      message: string;
+      requestId: string;
+      /** @description 服务端当前草稿版本 */
+      currentDraftVersion: number;
+      /** @description 是否可重试 */
+      retryable: boolean;
+    };
+    DraftVersionConflictEnvelopeDto: {
+      error: components["schemas"]["DraftVersionConflictErrorDto"];
+    };
+    ReleaseListItemDto: {
+      id: string;
+      releaseNumber: number;
+      title: string;
+      level: string;
+      description: string | null;
+      /** @description 快照内容哈希 */
+      contentHash: string;
+      /** @description 来源草稿版本 */
+      sourceDraftVersion: number;
+      /** @description 发布说明 */
+      releaseNote: string | null;
+      /** @description 创建者用户名 */
+      createdByUsername: string;
+      createdAt: string;
+      /** @description 是否为当前版本 */
+      isCurrent: boolean;
+    };
+    ReleaseListResponseDto: {
+      items: components["schemas"]["ReleaseListItemDto"][];
+    };
+    SetCurrentReleaseDto: {
+      /** @description 指向的已有 release ID（必须属于同一课程） */
+      releaseId: string;
+    };
     UpdateCourseDraftDto: {
       /** @description 课程 slug（唯一，小写字母/数字/连字符） */
       slug?: string;
@@ -679,19 +770,6 @@ export interface components {
       description?: string;
       /** @description 期望的草稿版本（If-Match 的替代） */
       draftVersion?: number;
-    };
-    DraftVersionConflictErrorDto: {
-      /** @description 错误码：DRAFT_VERSION_CONFLICT */
-      code: string;
-      message: string;
-      requestId: string;
-      /** @description 服务端当前草稿版本 */
-      currentDraftVersion: number;
-      /** @description 是否可重试 */
-      retryable: boolean;
-    };
-    DraftVersionConflictEnvelopeDto: {
-      error: components["schemas"]["DraftVersionConflictErrorDto"];
     };
     CreateUnitDto: {
       /** @description 单元标题 */
@@ -1208,6 +1286,92 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["CourseValidationResultDto"];
         };
+      };
+    };
+  };
+  CourseController_releases: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ReleaseListResponseDto"];
+        };
+      };
+    };
+  };
+  CourseController_publish: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PublishReleaseDto"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PublishReleaseResultDto"];
+        };
+      };
+      /** @description 草稿版本过期/幂等冲突 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DraftVersionConflictEnvelopeDto"];
+        };
+      };
+    };
+  };
+  CourseController_setCurrentRelease: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SetCurrentReleaseDto"];
+      };
+    };
+    responses: {
+      /** @description 更新后的 currentReleaseId */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 跨课程 release 拒绝 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };

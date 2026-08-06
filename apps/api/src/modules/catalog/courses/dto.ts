@@ -431,6 +431,87 @@ export class DiffSummaryDto {
   totalItems!: number;
 }
 
+export class PublishReleaseDto {
+  @ApiProperty({ description: "精确草稿版本（发布须重新确认）" })
+  @IsInt()
+  @Min(1)
+  draftVersion!: number;
+
+  @ApiPropertyOptional({ description: "发布说明" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  releaseNote?: string;
+
+  @ApiPropertyOptional({ description: "校验令牌（可选，须与草稿版本+内容哈希匹配）" })
+  @IsOptional()
+  @IsString()
+  validationToken?: string;
+}
+
+export class PublishReleaseResultDto {
+  @ApiProperty()
+  releaseId!: string;
+
+  @ApiProperty({ description: "每门课程单调递增的版本号" })
+  releaseNumber!: number;
+
+  @ApiProperty({ description: "发布快照内容哈希" })
+  contentHash!: string;
+
+  @ApiProperty({ description: "发布后成为当前版本指针" })
+  currentReleaseId!: string;
+
+  @ApiProperty()
+  createdAt!: string;
+}
+
+export class SetCurrentReleaseDto {
+  @ApiProperty({ description: "指向的已有 release ID（必须属于同一课程）" })
+  @IsString()
+  releaseId!: string;
+}
+
+export class ReleaseListItemDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  releaseNumber!: number;
+
+  @ApiProperty()
+  title!: string;
+
+  @ApiProperty()
+  level!: string;
+
+  @ApiProperty({ type: String, nullable: true })
+  description!: string | null;
+
+  @ApiProperty({ description: "快照内容哈希" })
+  contentHash!: string;
+
+  @ApiProperty({ description: "来源草稿版本" })
+  sourceDraftVersion!: number;
+
+  @ApiProperty({ type: String, nullable: true, description: "发布说明" })
+  releaseNote!: string | null;
+
+  @ApiProperty({ description: "创建者用户名" })
+  createdByUsername!: string;
+
+  @ApiProperty()
+  createdAt!: string;
+
+  @ApiProperty({ description: "是否为当前版本" })
+  isCurrent!: boolean;
+}
+
+export class ReleaseListResponseDto {
+  @ApiProperty({ type: [ReleaseListItemDto] })
+  items!: ReleaseListItemDto[];
+}
+
 export class CourseValidationResultDto {
   @ApiProperty({ description: "被校验草稿的版本" })
   draftVersion!: number;

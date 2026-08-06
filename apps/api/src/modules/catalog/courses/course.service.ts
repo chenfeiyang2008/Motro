@@ -11,6 +11,7 @@ import {
 } from "@nestjs/common";
 import { createHash, randomUUID } from "node:crypto";
 import {
+  nextReleaseNumber,
   normalizeSlug,
   validateCourseDescription,
   validateCourseLevel,
@@ -23,6 +24,7 @@ import {
   validateUnitOrder,
   validateUnitTitle,
   type UnitSnapshot,
+  type ValidateDraftInput,
 } from "@motro/domain";
 import type { Pool, PoolClient } from "pg";
 import { POOL } from "../../../auth/database.provider.js";
@@ -33,6 +35,8 @@ import type {
   CourseValidationResultDto,
   CreateCourseResultDto,
   ItemDto,
+  PublishReleaseResultDto,
+  ReleaseListItemDto,
   UnitDto,
 } from "./dto.js";
 
@@ -42,6 +46,26 @@ export class DraftVersionConflictError extends Error {
     super("草稿版本冲突");
     this.name = "DraftVersionConflictError";
   }
+}
+
+/** 相同幂等键的请求仍在处理中：等待超时后返回 409 IDEMPOTENCY_IN_PROGRESS（可重试）。 */
+export class IdempotencyInProgressError extends Error {
+  constructor() {
+    super("相同幂等键的请求正在处理中");
+    this.name = "IdempotencyInProgressError";
+  }
+}
+
+const IDEMPOTENCY_WAIT_MS = 3000;
+
+function isPendingIdempotencyResponse(value: unknown): boolean {
+  return (
+    typeof value === "object" && value !== null && (value as { pending?: boolean }).pending === true
+  );
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 interface CourseRow {
@@ -124,6 +148,40 @@ export interface UpdateItemInput {
   unitId: string | undefined;
 }
 
+export interface PublishReleaseInput {
+  draftVersion: number;
+  releaseNote: string | undefined;
+  validationToken: string | undefined;
+}
+
+interface ReleaseCopyRow {
+  unit_id: string | null;
+  unit_position: number | null;
+  unit_title: string | null;
+  unit_description: string | null;
+  item_id: string | null;
+  item_position: number | null;
+  meaning: string | null;
+  hint: string | null;
+  lexical_entry_id: string | null;
+  content_review_reference: string | null;
+  english_spelling: string | null;
+}
+
+interface ReleaseListRow {
+  id: string;
+  release_number: number;
+  title: string;
+  level: string;
+  description: string;
+  content_hash: string;
+  source_draft_version: number;
+  release_note: string;
+  created_by_username: string;
+  created_at: Date;
+  is_current: boolean;
+}
+
 interface ItemRow {
   id: string;
   draft_unit_id: string;
@@ -154,6 +212,58 @@ interface ValidationRow {
   content_review_reference: string | null;
   lexical_entry_exists: boolean;
   content_review_valid: boolean;
+}
+
+const VALIDATION_SQL = `SELECT d.version, d.title,
+        u.id AS unit_id, u.position AS unit_position, u.title AS unit_title,
+        u.description AS unit_description,
+        i.id AS item_id, i.position AS item_position, i.meaning, i.hint,
+        i.lexical_entry_id, i.content_review_reference,
+        (e.id IS NOT NULL) AS lexical_entry_exists,
+        (a.id IS NOT NULL) AS content_review_valid
+ FROM course_drafts d
+ LEFT JOIN draft_units u ON u.draft_id = d.id
+ LEFT JOIN draft_course_items i ON i.draft_unit_id = u.id
+ LEFT JOIN lexical_entries e ON e.id = i.lexical_entry_id
+ LEFT JOIN audit_events a ON a.id = i.content_review_reference
+ WHERE d.course_id = $1 AND d.status = 'active'
+ ORDER BY u.position ASC, u.id ASC, i.position ASC, i.id ASC`;
+
+/** 把校验查询行聚合成领域校验输入（纯函数）。 */
+function buildSnapshotFromRows(rows: ValidationRow[]): ValidateDraftInput | null {
+  const first = rows[0];
+  if (!first) return null;
+  const units: UnitSnapshot[] = [];
+  const unitsById = new Map<string, UnitSnapshot>();
+  for (const row of rows) {
+    if (!row.unit_id) continue;
+    let unit = unitsById.get(row.unit_id);
+    if (!unit) {
+      unit = {
+        id: row.unit_id,
+        position: row.unit_position ?? 0,
+        title: row.unit_title ?? "",
+        description: row.unit_description ?? "",
+        items: [],
+      };
+      unitsById.set(row.unit_id, unit);
+      units.push(unit);
+    }
+    if (row.item_id) {
+      unit.items.push({
+        id: row.item_id,
+        position: row.item_position ?? 0,
+        meaning: row.meaning ?? "",
+        hint: row.hint,
+        lexicalEntryId: row.lexical_entry_id ?? "",
+        lexicalEntryExists: row.lexical_entry_exists,
+        contentReviewReference: row.content_review_reference ?? "",
+        contentReviewValid: row.content_review_valid,
+      });
+    }
+  }
+  units.sort((a, b) => a.position - b.position);
+  return { draftVersion: first.version, title: first.title, units };
 }
 
 @Injectable()
@@ -279,58 +389,10 @@ export class CourseService {
 
   /** 只读校验：不修改草稿、不创建 release、不改变 current-release，从当前草稿即时计算。 */
   async validateCourse(courseId: string): Promise<CourseValidationResultDto> {
-    const result = await this.pool.query<ValidationRow>(
-      `SELECT d.version, d.title,
-              u.id AS unit_id, u.position AS unit_position, u.title AS unit_title,
-              u.description AS unit_description,
-              i.id AS item_id, i.position AS item_position, i.meaning, i.hint,
-              i.lexical_entry_id, i.content_review_reference,
-              (e.id IS NOT NULL) AS lexical_entry_exists,
-              (a.id IS NOT NULL) AS content_review_valid
-       FROM course_drafts d
-       LEFT JOIN draft_units u ON u.draft_id = d.id
-       LEFT JOIN draft_course_items i ON i.draft_unit_id = u.id
-       LEFT JOIN lexical_entries e ON e.id = i.lexical_entry_id
-       LEFT JOIN audit_events a ON a.id = i.content_review_reference
-       WHERE d.course_id = $1 AND d.status = 'active'
-       ORDER BY u.position ASC, u.id ASC, i.position ASC, i.id ASC`,
-      [courseId],
-    );
-    const first = result.rows[0];
-    if (!first) throw new NotFoundException("课程或草稿不存在");
-
-    const units: UnitSnapshot[] = [];
-    const unitsById = new Map<string, UnitSnapshot>();
-    for (const row of result.rows) {
-      if (!row.unit_id) continue;
-      let unit = unitsById.get(row.unit_id);
-      if (!unit) {
-        unit = {
-          id: row.unit_id,
-          position: row.unit_position ?? 0,
-          title: row.unit_title ?? "",
-          description: row.unit_description ?? "",
-          items: [],
-        };
-        unitsById.set(row.unit_id, unit);
-        units.push(unit);
-      }
-      if (row.item_id) {
-        unit.items.push({
-          id: row.item_id,
-          position: row.item_position ?? 0,
-          meaning: row.meaning ?? "",
-          hint: row.hint,
-          lexicalEntryId: row.lexical_entry_id ?? "",
-          lexicalEntryExists: row.lexical_entry_exists,
-          contentReviewReference: row.content_review_reference ?? "",
-          contentReviewValid: row.content_review_valid,
-        });
-      }
-    }
-    units.sort((a, b) => a.position - b.position);
-
-    const outcome = validateCourseDraft({ draftVersion: first.version, title: first.title, units });
+    const rows = (await this.pool.query<ValidationRow>(VALIDATION_SQL, [courseId])).rows;
+    const input = buildSnapshotFromRows(rows);
+    if (!input) throw new NotFoundException("课程或草稿不存在");
+    const outcome = validateCourseDraft(input);
     return {
       draftVersion: outcome.draftVersion,
       isPublishable: outcome.isPublishable,
@@ -343,6 +405,365 @@ export class CourseService {
       contentHash: outcome.contentHash,
       validationToken: `${outcome.draftVersion}.${outcome.contentHash.slice(0, 12)}`,
     };
+  }
+
+  /** 发布不可变版本（幂等）：锁草稿 → 校验 → 分配编号 → 复制快照 → 更新指针 → 审计。 */
+  async publishRelease(
+    actor: UserRecord,
+    courseId: string,
+    input: PublishReleaseInput,
+    idempotencyKey: string | undefined,
+    requestId: string,
+  ): Promise<PublishReleaseResultDto> {
+    if (!idempotencyKey) throw new BadRequestException("缺少 Idempotency-Key 头");
+    const scope = `admin:publish-release:${courseId}`;
+    const requestHash = this.requestHashOf({
+      draftVersion: input.draftVersion,
+      releaseNote: input.releaseNote ?? "",
+      validationToken: input.validationToken ?? null,
+    });
+    const claimed = await this.claimIdempotency(scope, idempotencyKey, requestHash);
+    if (claimed !== "claimed") return claimed as PublishReleaseResultDto;
+    try {
+      // 幂等响应在发布事务内原子写入：release 与 response_json 同事务提交。
+      return await this.doPublishRelease(actor, courseId, input, requestId, scope, idempotencyKey);
+    } catch (err) {
+      // 发布事务失败：清理 key 允许重新尝试。
+      await this.releaseIdempotency(scope, idempotencyKey).catch(() => undefined);
+      throw err;
+    }
+  }
+
+  private async doPublishRelease(
+    actor: UserRecord,
+    courseId: string,
+    input: PublishReleaseInput,
+    requestId: string,
+    idempotencyScope: string,
+    idempotencyKey: string,
+  ): Promise<PublishReleaseResultDto> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const draft = await this.lockActiveDraft(client, courseId);
+      if (!draft) throw new NotFoundException("课程或草稿不存在");
+      if (draft.version !== input.draftVersion) throw new DraftVersionConflictError(draft.version);
+
+      // 重新执行 blocking validation。
+      const rows = (await client.query<ValidationRow>(VALIDATION_SQL, [courseId])).rows;
+      const snapshot = buildSnapshotFromRows(rows);
+      if (!snapshot) throw new NotFoundException("课程或草稿不存在");
+      const outcome = validateCourseDraft(snapshot);
+      if (!outcome.isPublishable) {
+        throw new UnprocessableEntityException({
+          message: "草稿存在阻断错误，无法发布",
+          fieldErrors: outcome.blockingErrors.map((e) => ({
+            path: e.path,
+            code: e.code,
+            message: e.message,
+          })),
+        });
+      }
+      // 校验 validationToken（如果提供）。
+      if (input.validationToken) {
+        const expected = `${draft.version}.${outcome.contentHash.slice(0, 12)}`;
+        if (input.validationToken !== expected) {
+          throw new ConflictException("validationToken 与当前草稿不匹配，请重新校验后发布");
+        }
+      }
+
+      // 分配下一个 release_number。
+      const releaseNumber = nextReleaseNumber(await this.loadReleaseNumbers(client, courseId));
+
+      // 复制完整快照。
+      const release = await client.query<{
+        id: string;
+        created_at: Date;
+      }>(
+        `INSERT INTO course_releases
+           (course_id, release_number, title, level, description, source_draft_version, content_hash, release_note, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING id, created_at`,
+        [
+          courseId,
+          releaseNumber,
+          draft.title,
+          draft.level,
+          draft.description,
+          draft.version,
+          outcome.contentHash,
+          input.releaseNote?.trim() ?? "",
+          actor.id,
+        ],
+      );
+      const releaseId = release.rows[0]?.id;
+      if (!releaseId) throw new Error("发布版本插入失败");
+
+      const copyRows = (
+        await client.query<ReleaseCopyRow>(
+          `SELECT u.id AS unit_id, u.position AS unit_position, u.title AS unit_title,
+                  u.description AS unit_description,
+                  i.id AS item_id, i.position AS item_position, i.meaning, i.hint,
+                  i.lexical_entry_id, i.content_review_reference,
+                  e.canonical_spelling AS english_spelling
+           FROM draft_units u
+           LEFT JOIN draft_course_items i ON i.draft_unit_id = u.id
+           LEFT JOIN lexical_entries e ON e.id = i.lexical_entry_id
+           WHERE u.draft_id = $1
+           ORDER BY u.position ASC, u.id ASC, i.position ASC, i.id ASC`,
+          [draft.id],
+        )
+      ).rows;
+
+      for (const row of copyRows) {
+        if (!row.unit_id) continue;
+        const unitInsert = await client.query<{ id: string }>(
+          `INSERT INTO released_units (release_id, unit_id, position, title, description)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (release_id, unit_id) DO NOTHING
+           RETURNING id`,
+          [releaseId, row.unit_id, row.unit_position, row.unit_title, row.unit_description],
+        );
+        const releasedUnitId = unitInsert.rows[0]?.id;
+        if (!releasedUnitId) continue;
+        if (row.item_id) {
+          await client.query(
+            `INSERT INTO released_course_items
+               (release_id, released_unit_id, course_item_id, lexical_entry_id, position,
+                english_spelling, meaning, hint, content_review_reference)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+             ON CONFLICT (release_id, course_item_id) DO NOTHING`,
+            [
+              releaseId,
+              releasedUnitId,
+              row.item_id,
+              row.lexical_entry_id,
+              row.item_position,
+              row.english_spelling,
+              row.meaning,
+              row.hint,
+              row.content_review_reference,
+            ],
+          );
+        }
+      }
+
+      // 更新 current pointer 与草稿 based-on。
+      await client.query(
+        `UPDATE courses SET current_release_id = $2, updated_at = now() WHERE id = $1`,
+        [courseId, releaseId],
+      );
+      await client.query(`UPDATE course_drafts SET based_on_release_id = $2 WHERE id = $1`, [
+        draft.id,
+        releaseId,
+      ]);
+
+      await this.audit(
+        client,
+        actor.id,
+        "admin.course.release.create",
+        "course",
+        courseId,
+        { releaseId, releaseNumber, sourceDraftVersion: draft.version },
+        requestId,
+      );
+      // 幂等响应与 release 在同一事务内原子提交：任一失败整体回滚，
+      // 避免“release 已创建但 response 缺失”导致 key 永久 pending。
+      const result: PublishReleaseResultDto = {
+        releaseId,
+        releaseNumber,
+        contentHash: outcome.contentHash,
+        currentReleaseId: releaseId,
+        createdAt: release.rows[0]?.created_at.toISOString() ?? new Date().toISOString(),
+      };
+      await client.query(
+        `UPDATE idempotency_keys SET response_json = $3, resource_id = $4 WHERE scope = $1 AND key = $2`,
+        [idempotencyScope, idempotencyKey, JSON.stringify(result), releaseId],
+      );
+      await client.query("COMMIT");
+      return result;
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  async listReleases(courseId: string): Promise<{ items: ReleaseListItemDto[] }> {
+    const result = await this.pool.query<ReleaseListRow>(
+      `SELECT r.id, r.release_number, r.title, r.level, r.description, r.content_hash,
+              r.source_draft_version, r.release_note, r.created_at,
+              u.username AS created_by_username,
+              (c.current_release_id = r.id) AS is_current
+       FROM course_releases r
+       JOIN courses c ON c.id = r.course_id
+       JOIN users u ON u.id = r.created_by
+       WHERE r.course_id = $1
+       ORDER BY r.release_number DESC`,
+      [courseId],
+    );
+    return {
+      items: result.rows.map((r) => ({
+        id: r.id,
+        releaseNumber: r.release_number,
+        title: r.title,
+        level: r.level,
+        description: r.description,
+        contentHash: r.content_hash,
+        sourceDraftVersion: r.source_draft_version,
+        releaseNote: r.release_note,
+        createdByUsername: r.created_by_username,
+        createdAt: r.created_at.toISOString(),
+        isCurrent: r.is_current,
+      })),
+    };
+  }
+
+  /** 移动 current pointer：只能指向同一课程的已发布版本，不修改任何 release rows。 */
+  async setCurrentRelease(
+    actor: UserRecord,
+    courseId: string,
+    releaseId: string,
+    requestId: string,
+  ): Promise<{ currentReleaseId: string }> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const release = await client.query<{ course_id: string }>(
+        "SELECT course_id FROM course_releases WHERE id = $1",
+        [releaseId],
+      );
+      const row = release.rows[0];
+      if (!row) throw new NotFoundException("发布版本不存在");
+      if (row.course_id !== courseId) {
+        throw new ConflictException("该发布版本不属于此课程，不能作为当前版本");
+      }
+      await client.query(
+        `UPDATE courses SET current_release_id = $2, updated_at = now() WHERE id = $1`,
+        [courseId, releaseId],
+      );
+      await this.audit(
+        client,
+        actor.id,
+        "admin.course.current_release.change",
+        "course",
+        courseId,
+        { releaseId },
+        requestId,
+      );
+      await client.query("COMMIT");
+      return { currentReleaseId: releaseId };
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  // ---- 幂等 ----
+
+  private async claimIdempotency(
+    scope: string,
+    key: string,
+    requestHash: string,
+  ): Promise<unknown | "claimed"> {
+    const deadline = Date.now() + IDEMPOTENCY_WAIT_MS;
+    while (true) {
+      const claim = await this.pool.query<{ response_json: unknown; request_hash: string }>(
+        `INSERT INTO idempotency_keys (scope, key, request_hash, response_json) VALUES ($1, $2, $3, $4)
+         ON CONFLICT (scope, key) DO NOTHING RETURNING response_json, request_hash`,
+        [scope, key, requestHash, JSON.stringify({ pending: true })],
+      );
+      if ((claim.rowCount ?? 0) > 0) return "claimed";
+
+      const existing = await this.pool.query<{ response_json: unknown; request_hash: string }>(
+        `SELECT response_json, request_hash FROM idempotency_keys WHERE scope = $1 AND key = $2`,
+        [scope, key],
+      );
+      const row = existing.rows[0];
+      if (!row) continue; // 记录被首次请求失败后清理 → 重新尝试领取。
+
+      if (row.request_hash !== requestHash) {
+        throw new ConflictException("IDEMPOTENCY_CONFLICT：该请求键已用于不同的请求内容");
+      }
+      if (!isPendingIdempotencyResponse(row.response_json)) {
+        // 第一次请求已完成 → 返回完整原结果，绝不把 pending 当成功。
+        return row.response_json;
+      }
+      if (Date.now() >= deadline) {
+        // 恢复：通过幂等记录的 resource_id 唯一关联到本次发布生成的 release，
+        // 避免按 (course, draft_version) 误匹配同草稿版本的其他 release。
+        const recovered = await this.recoverReleaseResult(scope, key);
+        if (recovered) return recovered;
+        throw new IdempotencyInProgressError();
+      }
+      await sleep(50);
+    }
+  }
+
+  /** 恢复发布结果：用幂等记录的 resource_id 唯一定位 release；currentReleaseId 读取真实指针。 */
+  private async recoverReleaseResult(
+    scope: string,
+    key: string,
+  ): Promise<PublishReleaseResultDto | null> {
+    const PREFIX = "admin:publish-release:";
+    if (!scope.startsWith(PREFIX)) return null;
+    const courseId = scope.slice(PREFIX.length);
+
+    const keyRow = await this.pool.query<{ resource_id: string | null }>(
+      `SELECT resource_id FROM idempotency_keys WHERE scope = $1 AND key = $2`,
+      [scope, key],
+    );
+    const releaseId = keyRow.rows[0]?.resource_id;
+    if (!releaseId) return null; // 无 resource_id（事务未提交）→ 不可唯一恢复。
+
+    const release = await this.pool.query<{
+      id: string;
+      release_number: number;
+      content_hash: string;
+      course_id: string;
+      created_at: Date;
+    }>(
+      `SELECT id, release_number, content_hash, course_id, created_at FROM course_releases WHERE id = $1`,
+      [releaseId],
+    );
+    const row = release.rows[0];
+    if (!row || row.course_id !== courseId) return null; // 防御：release 必须属于该课程。
+
+    const course = await this.pool.query<{ current_release_id: string | null }>(
+      `SELECT current_release_id FROM courses WHERE id = $1`,
+      [courseId],
+    );
+    const currentReleaseId = course.rows[0]?.current_release_id ?? null;
+    return {
+      releaseId: row.id,
+      releaseNumber: row.release_number,
+      contentHash: row.content_hash,
+      // currentReleaseId 必须反映真实的 current pointer，不能无条件填被恢复的 release。
+      currentReleaseId: currentReleaseId ?? row.id,
+      createdAt: row.created_at.toISOString(),
+    };
+  }
+
+  private requestHashOf(value: unknown): string {
+    return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+  }
+
+  private async releaseIdempotency(scope: string, key: string): Promise<void> {
+    await this.pool.query(`DELETE FROM idempotency_keys WHERE scope = $1 AND key = $2`, [
+      scope,
+      key,
+    ]);
+  }
+
+  private async loadReleaseNumbers(client: PoolClient, courseId: string): Promise<number[]> {
+    const result = await client.query<{ release_number: number }>(
+      `SELECT release_number FROM course_releases WHERE course_id = $1`,
+      [courseId],
+    );
+    return result.rows.map((r) => r.release_number);
   }
 
   async updateDraft(

@@ -1,11 +1,18 @@
 "use client";
 
-// 发布准备页：校验课程草稿，展示阻断错误、警告、草稿版本、差异摘要与影响人数。
-// 有阻断错误时不显示可执行的“发布版本”；无阻断错误时仅显示占位入口（发布在后续工单实现）。
+// 发布准备页：校验课程草稿，展示阻断错误、警告、差异摘要与影响人数；
+// 校验通过后输入发布说明并确认发布不可变版本；展示版本历史并支持切换当前版本指针。
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import { validateCourseDraft, type CourseValidationResult } from "@/lib/api";
+import {
+  listCourseReleases,
+  publishCourseRelease,
+  setCourseCurrentRelease,
+  validateCourseDraft,
+  type CourseValidationResult,
+  type ReleaseListItem,
+} from "@/lib/api";
 
 type Issue = CourseValidationResult["blockingErrors"][number];
 
@@ -63,6 +70,17 @@ export default function CoursePublishingPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const [releaseNote, setReleaseNote] = useState("");
+  const [publishing, setPublishing] = useState(false);
+  const [published, setPublished] = useState<{
+    releaseNumber: number;
+    contentHash: string;
+    createdAt: string;
+  } | null>(null);
+
+  const [releases, setReleases] = useState<ReleaseListItem[]>([]);
+  const [historyError, setHistoryError] = useState("");
+
   async function runValidation(): Promise<void> {
     setLoading(true);
     setError("");
@@ -73,6 +91,64 @@ export default function CoursePublishingPage() {
       return;
     }
     setResult(res.data);
+    void loadHistory();
+  }
+
+  async function loadHistory(): Promise<void> {
+    const res = await listCourseReleases(courseId);
+    if (res.ok && res.data) {
+      setReleases(res.data.items);
+      setHistoryError("");
+    } else {
+      setHistoryError(res.error?.message ?? "版本历史加载失败");
+    }
+  }
+
+  async function publish(): Promise<void> {
+    if (!result || !result.isPublishable) return;
+    const nextNumber =
+      result.diffSummary.kind === "initial" ? 1 : (releases[0]?.releaseNumber ?? 0) + 1;
+    if (
+      !window.confirm(
+        `发布后将创建不可修改的版本 ${nextNumber}。已发布内容无法编辑或删除。确定发布吗？`,
+      )
+    ) {
+      return;
+    }
+    setPublishing(true);
+    setError("");
+    const res = await publishCourseRelease(
+      courseId,
+      {
+        draftVersion: result.draftVersion,
+        releaseNote,
+        validationToken: result.validationToken,
+      },
+      crypto.randomUUID(),
+    );
+    setPublishing(false);
+    if (!res.ok || !res.data) {
+      setError(res.error?.message ?? "发布失败，请重试");
+      return;
+    }
+    setPublished({
+      releaseNumber: res.data.releaseNumber,
+      contentHash: res.data.contentHash,
+      createdAt: res.data.createdAt,
+    });
+    setReleaseNote("");
+    void loadHistory();
+  }
+
+  async function switchCurrent(releaseId: string, releaseNumber: number): Promise<void> {
+    if (!window.confirm(`把当前版本切换到版本 ${releaseNumber}？历史版本本身不会被修改。`)) return;
+    setError("");
+    const res = await setCourseCurrentRelease(courseId, releaseId);
+    if (!res.ok) {
+      setError(res.error?.message ?? "切换当前版本失败");
+      return;
+    }
+    void loadHistory();
   }
 
   return (
@@ -147,12 +223,72 @@ export default function CoursePublishingPage() {
           {result.isPublishable ? (
             <section className="publishing-section">
               <h2>发布</h2>
-              <button type="button" className="primary" disabled title="发布功能将在后续工单实现">
-                发布版本
-              </button>
-              <p className="empty-hint">发布功能将在后续工单实现；当前仅完成草稿校验。</p>
+              <label htmlFor="release-note">发布说明（可选）</label>
+              <input
+                id="release-note"
+                value={releaseNote}
+                onChange={(e) => setReleaseNote(e.target.value)}
+                maxLength={500}
+              />
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="primary"
+                  disabled={publishing}
+                  onClick={() => void publish()}
+                >
+                  {publishing ? "发布中…" : "发布版本"}
+                </button>
+              </div>
+              {published && (
+                <p className="form-inline-message form-inline-success" role="status">
+                  已创建不可修改的版本 {published.releaseNumber}（内容哈希{" "}
+                  {published.contentHash.slice(0, 12)}… ·{" "}
+                  {new Date(published.createdAt).toLocaleString("zh-CN")}）。
+                </p>
+              )}
             </section>
           ) : null}
+
+          <section className="publishing-section">
+            <h2>版本历史</h2>
+            {historyError !== "" && (
+              <p className="form-inline-message form-inline-error" role="alert">
+                {historyError}
+              </p>
+            )}
+            {releases.length === 0 ? (
+              <p className="empty-hint">还没有发布版本。</p>
+            ) : (
+              <ul className="release-list">
+                {releases.map((release) => (
+                  <li key={release.id} className="release-item">
+                    <div>
+                      <strong>版本 {release.releaseNumber}</strong>
+                      {release.isCurrent && <span className="release-current"> · 当前版本</span>}
+                      <p className="release-meta">
+                        {release.createdAt
+                          ? new Date(release.createdAt).toLocaleString("zh-CN")
+                          : ""}
+                        {" · "}发布说明：{release.releaseNote || "—"}
+                        {" · "}创建者：{release.createdByUsername}
+                        {" · "}内容哈希：{release.contentHash.slice(0, 12)}…
+                      </p>
+                    </div>
+                    {!release.isCurrent && (
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => void switchCurrent(release.id, release.releaseNumber)}
+                      >
+                        设为当前版本
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </>
       )}
     </section>

@@ -13,6 +13,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Req,
   Res,
   UseGuards,
@@ -39,13 +40,21 @@ import {
   DeleteItemDto,
   DeleteUnitDto,
   DraftVersionConflictEnvelopeDto,
+  PublishReleaseDto,
+  PublishReleaseResultDto,
+  ReleaseListResponseDto,
   ReorderItemsDto,
   ReorderUnitsDto,
+  SetCurrentReleaseDto,
   UpdateCourseDraftDto,
   UpdateItemDto,
   UpdateUnitDto,
 } from "./dto.js";
-import { CourseService, DraftVersionConflictError } from "./course.service.js";
+import {
+  CourseService,
+  DraftVersionConflictError,
+  IdempotencyInProgressError,
+} from "./course.service.js";
 
 @ApiTags("admin courses")
 @Controller("admin/courses")
@@ -96,6 +105,82 @@ export class CourseController {
   @ApiOkResponse({ type: CourseValidationResultDto })
   validate(@Param("id", ParseUUIDPipe) id: string) {
     return this.courseService.validateCourse(id);
+  }
+
+  @Post(":id/releases")
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "发布不可变版本（需 Idempotency-Key；幂等重试返回原结果）" })
+  @ApiCreatedResponse({ type: PublishReleaseResultDto })
+  @ApiConflictResponse({
+    description: "草稿版本过期/幂等冲突",
+    type: DraftVersionConflictEnvelopeDto,
+  })
+  publish(
+    @Req() req: AuthenticatedRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Headers("idempotency-key") idempotencyKey: string | undefined,
+    @Body() dto: PublishReleaseDto,
+  ) {
+    return this.courseService
+      .publishRelease(
+        req.user,
+        id,
+        {
+          draftVersion: dto.draftVersion,
+          releaseNote: dto.releaseNote,
+          validationToken: dto.validationToken,
+        },
+        idempotencyKey,
+        req.id,
+      )
+      .catch((err: unknown) => {
+        if (err instanceof DraftVersionConflictError) {
+          reply.status(HttpStatus.CONFLICT).send({
+            error: {
+              code: "DRAFT_VERSION_CONFLICT",
+              message: "草稿版本已过期，请重新校验后发布",
+              requestId: req.id,
+              currentDraftVersion: err.currentVersion,
+              retryable: false,
+            },
+          });
+          return undefined;
+        }
+        if (err instanceof IdempotencyInProgressError) {
+          reply.status(HttpStatus.CONFLICT).send({
+            error: {
+              code: "IDEMPOTENCY_IN_PROGRESS",
+              message: "相同请求正在处理中，请稍后重试",
+              requestId: req.id,
+              retryable: true,
+            },
+          });
+          return undefined;
+        }
+        throw err;
+      });
+  }
+
+  @Get(":id/releases")
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "版本历史与当前版本标记（只读）" })
+  @ApiOkResponse({ type: ReleaseListResponseDto })
+  releases(@Param("id", ParseUUIDPipe) id: string) {
+    return this.courseService.listReleases(id);
+  }
+
+  @Put(":id/current-release")
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "把当前版本指针指向已有 release（仅同一课程，不修改快照）" })
+  @ApiOkResponse({ description: "更新后的 currentReleaseId" })
+  @ApiConflictResponse({ description: "跨课程 release 拒绝" })
+  async setCurrentRelease(
+    @Req() req: AuthenticatedRequest,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: SetCurrentReleaseDto,
+  ) {
+    return this.courseService.setCurrentRelease(req.user, id, dto.releaseId, req.id);
   }
 
   @Patch(":id/draft")

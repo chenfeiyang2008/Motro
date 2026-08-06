@@ -231,17 +231,18 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
       const draft = await admin.req("GET", `/api/v1/admin/courses/${courseId}/draft`, {});
       expect((body(draft) as { version?: number }).version).toBe(draftVersion);
 
-      // 不产生 release 表，也不改变 current-release（本阶段无该列/表）。
+      // 校验不产生 release 行，也不改变 current-release（表已存在，但校验只读不落库）。
       const pool = createPool({ ...config, max: 1 });
       try {
-        const releaseTables = await pool.query(
-          "SELECT 1 FROM information_schema.tables WHERE table_name = 'course_releases'",
+        const releases = await pool.query("SELECT 1 FROM course_releases WHERE course_id = $1", [
+          courseId,
+        ]);
+        expect(releases.rowCount).toBe(0);
+        const current = await pool.query<{ current_release_id: string | null }>(
+          "SELECT current_release_id FROM courses WHERE id = $1",
+          [courseId],
         );
-        expect(releaseTables.rowCount).toBe(0);
-        const currentCol = await pool.query(
-          `SELECT 1 FROM information_schema.columns WHERE table_name = 'courses' AND column_name = 'current_release_id'`,
-        );
-        expect(currentCol.rowCount).toBe(0);
+        expect(current.rows[0]?.current_release_id).toBeNull();
       } finally {
         await pool.end();
       }

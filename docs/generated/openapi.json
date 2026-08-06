@@ -653,6 +653,138 @@
         ]
       }
     },
+    "/api/v1/admin/courses/{id}/releases": {
+      "post": {
+        "operationId": "CourseController_publish",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishReleaseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishReleaseResultDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "草稿版本过期/幂等冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DraftVersionConflictEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "发布不可变版本（需 Idempotency-Key；幂等重试返回原结果）",
+        "tags": [
+          "admin courses"
+        ]
+      },
+      "get": {
+        "operationId": "CourseController_releases",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "版本历史与当前版本标记（只读）",
+        "tags": [
+          "admin courses"
+        ]
+      }
+    },
+    "/api/v1/admin/courses/{id}/current-release": {
+      "put": {
+        "operationId": "CourseController_setCurrentRelease",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetCurrentReleaseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "更新后的 currentReleaseId"
+          },
+          "409": {
+            "description": "跨课程 release 拒绝"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "把当前版本指针指向已有 release（仅同一课程，不修改快照）",
+        "tags": [
+          "admin courses"
+        ]
+      }
+    },
     "/api/v1/admin/courses/{id}/draft/units/{unitId}": {
       "post": {
         "operationId": "CourseController_createUnit",
@@ -2000,38 +2132,55 @@
           "validationToken"
         ]
       },
-      "UpdateCourseDraftDto": {
+      "PublishReleaseDto": {
         "type": "object",
         "properties": {
-          "slug": {
-            "type": "string",
-            "description": "课程 slug（唯一，小写字母/数字/连字符）"
-          },
-          "title": {
-            "type": "string",
-            "description": "课程标题"
-          },
-          "level": {
-            "type": "string",
-            "enum": [
-              "a1",
-              "a2",
-              "b1",
-              "b2",
-              "c1",
-              "c2"
-            ],
-            "description": "级别"
-          },
-          "description": {
-            "type": "string",
-            "description": "课程描述"
-          },
           "draftVersion": {
             "type": "number",
-            "description": "期望的草稿版本（If-Match 的替代）"
+            "description": "精确草稿版本（发布须重新确认）"
+          },
+          "releaseNote": {
+            "type": "string",
+            "description": "发布说明"
+          },
+          "validationToken": {
+            "type": "string",
+            "description": "校验令牌（可选，须与草稿版本+内容哈希匹配）"
           }
-        }
+        },
+        "required": [
+          "draftVersion"
+        ]
+      },
+      "PublishReleaseResultDto": {
+        "type": "object",
+        "properties": {
+          "releaseId": {
+            "type": "string"
+          },
+          "releaseNumber": {
+            "type": "number",
+            "description": "每门课程单调递增的版本号"
+          },
+          "contentHash": {
+            "type": "string",
+            "description": "发布快照内容哈希"
+          },
+          "currentReleaseId": {
+            "type": "string",
+            "description": "发布后成为当前版本指针"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "releaseId",
+          "releaseNumber",
+          "contentHash",
+          "currentReleaseId",
+          "createdAt"
+        ]
       },
       "DraftVersionConflictErrorDto": {
         "type": "object",
@@ -2073,6 +2222,123 @@
         "required": [
           "error"
         ]
+      },
+      "ReleaseListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "releaseNumber": {
+            "type": "number"
+          },
+          "title": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "contentHash": {
+            "type": "string",
+            "description": "快照内容哈希"
+          },
+          "sourceDraftVersion": {
+            "type": "number",
+            "description": "来源草稿版本"
+          },
+          "releaseNote": {
+            "type": "string",
+            "nullable": true,
+            "description": "发布说明"
+          },
+          "createdByUsername": {
+            "type": "string",
+            "description": "创建者用户名"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "isCurrent": {
+            "type": "boolean",
+            "description": "是否为当前版本"
+          }
+        },
+        "required": [
+          "id",
+          "releaseNumber",
+          "title",
+          "level",
+          "description",
+          "contentHash",
+          "sourceDraftVersion",
+          "releaseNote",
+          "createdByUsername",
+          "createdAt",
+          "isCurrent"
+        ]
+      },
+      "ReleaseListResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReleaseListItemDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "SetCurrentReleaseDto": {
+        "type": "object",
+        "properties": {
+          "releaseId": {
+            "type": "string",
+            "description": "指向的已有 release ID（必须属于同一课程）"
+          }
+        },
+        "required": [
+          "releaseId"
+        ]
+      },
+      "UpdateCourseDraftDto": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "description": "课程 slug（唯一，小写字母/数字/连字符）"
+          },
+          "title": {
+            "type": "string",
+            "description": "课程标题"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "a1",
+              "a2",
+              "b1",
+              "b2",
+              "c1",
+              "c2"
+            ],
+            "description": "级别"
+          },
+          "description": {
+            "type": "string",
+            "description": "课程描述"
+          },
+          "draftVersion": {
+            "type": "number",
+            "description": "期望的草稿版本（If-Match 的替代）"
+          }
+        }
       },
       "CreateUnitDto": {
         "type": "object",

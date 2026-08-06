@@ -62,6 +62,8 @@ export const idempotencyKeys = pgTable(
     key: text("key").notNull(),
     requestHash: text("request_hash").notNull().default(""),
     responseJson: jsonb("response_json").notNull(),
+    // 可关联的资源 ID（如发布生成的 release_id），供同 key 恢复唯一匹配；可空。
+    resourceId: text("resource_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
