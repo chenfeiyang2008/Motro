@@ -360,3 +360,96 @@ button.secondary.danger {
 .empty-hint {
   color: #5d6b7a;
 }
+
+/* 课程词项 */
+.unit-items {
+  margin-top: 12px;
+  border-top: 1px solid #dce3ec;
+  padding-top: 12px;
+}
+
+.unit-items-actions {
+  margin-top: 12px;
+}
+
+.item-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.item-entry {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: #f7f9fc;
+  border: 1px solid #dce3ec;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.item-position {
+  font-weight: 600;
+  color: #5d6b7a;
+  min-width: 24px;
+}
+
+.item-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.item-meaning {
+  color: #182230;
+}
+
+.item-hint {
+  color: #5d6b7a;
+  font-size: 14px;
+}
+
+.item-meta {
+  color: #5d6b7a;
+  font-size: 14px;
+}
+
+.item-search-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #dce3ec;
+  border-radius: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.item-search-results li {
+  border-bottom: 1px solid #dce3ec;
+}
+
+.item-search-results li:last-child {
+  border-bottom: none;
+}
+
+.search-result {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  text-align: left;
+  background: #ffffff;
+  border: none;
+  padding: 8px 12px;
+  font-size: 16px;
+  color: #182230;
+  cursor: pointer;
+}
+
+.search-result:hover {
+  background: #eaf1ff;
+}

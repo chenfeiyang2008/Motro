@@ -1,6 +1,9 @@
-// 课程/草稿/单元 schema：与 db/migrations/0005_course_drafts_and_units.sql 保持一致。
+// 课程/草稿/单元/词项 schema：与 db/migrations/0005_course_drafts_and_units.sql
+// 及 0006_draft_course_items.sql 保持一致。
 // 一门课程至多一个 active draft；draft 写操作用整数 version 做乐观并发控制。
 import { index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { auditEvents } from "./platform-identity.js";
+import { lexicalEntries } from "./lexicon.js";
 
 export const courses = pgTable(
   "courses",
@@ -54,5 +57,32 @@ export const draftUnits = pgTable(
     uniqueIndex("draft_units_draft_position_unique").on(t.draftId, t.position),
     uniqueIndex("draft_units_draft_unit_id_unique").on(t.draftId, t.id),
     index("draft_units_draft_id_idx").on(t.draftId),
+  ],
+);
+
+export const draftCourseItems = pgTable(
+  "draft_course_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    draftUnitId: uuid("draft_unit_id")
+      .notNull()
+      .references(() => draftUnits.id, { onDelete: "cascade" }),
+    lexicalEntryId: uuid("lexical_entry_id")
+      .notNull()
+      .references(() => lexicalEntries.id),
+    position: integer("position").notNull(),
+    meaning: text("meaning").notNull(),
+    hint: text("hint"),
+    contentReviewReference: uuid("content_review_reference")
+      .notNull()
+      .references(() => auditEvents.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("draft_course_items_unit_position_unique").on(t.draftUnitId, t.position),
+    uniqueIndex("draft_course_items_draft_item_id_unique").on(t.draftUnitId, t.id),
+    index("draft_course_items_unit_id_idx").on(t.draftUnitId),
+    index("draft_course_items_lexical_entry_id_idx").on(t.lexicalEntryId),
   ],
 );

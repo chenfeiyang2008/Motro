@@ -5,6 +5,8 @@ import {
   validateCourseDescription,
   validateCourseLevel,
   validateCourseTitle,
+  validateItemHint,
+  validateItemMeaning,
   validateSlug,
   validateUnitDescription,
   validateUnitOrder,
@@ -137,5 +139,27 @@ describe("validateUnitOrder", () => {
 
   it("空草稿空顺序通过", () => {
     expect(validateUnitOrder([], [])).toEqual([]);
+  });
+});
+
+describe("validateItemMeaning / validateItemHint", () => {
+  it("空中文释义报错", () => {
+    expect(validateItemMeaning("   ").join("")).toContain("不能为空");
+  });
+
+  it("过长释义报错", () => {
+    expect(validateItemMeaning("x".repeat(501)).join("")).toContain("500");
+  });
+
+  it("合法释义通过", () => {
+    expect(validateItemMeaning("放弃")).toEqual([]);
+  });
+
+  it("未提供提示通过", () => {
+    expect(validateItemHint(undefined)).toEqual([]);
+  });
+
+  it("过长提示报错", () => {
+    expect(validateItemHint("x".repeat(501))).toHaveLength(1);
   });
 });

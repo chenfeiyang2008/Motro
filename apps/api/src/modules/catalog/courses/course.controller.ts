@@ -32,11 +32,15 @@ import {
   CourseListResponseDto,
   CreateCourseDto,
   CreateCourseResultDto,
+  CreateItemDto,
   CreateUnitDto,
+  DeleteItemDto,
   DeleteUnitDto,
   DraftVersionConflictEnvelopeDto,
+  ReorderItemsDto,
   ReorderUnitsDto,
   UpdateCourseDraftDto,
+  UpdateItemDto,
   UpdateUnitDto,
 } from "./dto.js";
 import { CourseService, DraftVersionConflictError } from "./course.service.js";
@@ -188,6 +192,96 @@ export class CourseController {
   ) {
     return this.runDraftMutation(req, reply, ifMatch, dto.draftVersion, (expected) =>
       this.courseService.reorderUnits(req.user, id, dto.unitIds, expected, req.id),
+    );
+  }
+
+  @Post(":id/draft/items/reorder")
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "提交单元内完整词项顺序并事务重排" })
+  @ApiCreatedResponse({ type: CourseDraftDetailDto })
+  @ApiConflictResponse({ description: "草稿版本冲突", type: DraftVersionConflictEnvelopeDto })
+  reorderItems(
+    @Req() req: AuthenticatedRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Headers("if-match") ifMatch: string | undefined,
+    @Body() dto: ReorderItemsDto,
+  ) {
+    return this.runDraftMutation(req, reply, ifMatch, dto.draftVersion, (expected) =>
+      this.courseService.reorderItems(req.user, id, dto.unitId, dto.itemIds, expected, req.id),
+    );
+  }
+
+  @Post(":id/draft/items/:itemId")
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "新增课程词项（客户端分配稳定 course_item_id）" })
+  @ApiCreatedResponse({ type: CourseDraftDetailDto })
+  @ApiConflictResponse({ description: "草稿版本冲突", type: DraftVersionConflictEnvelopeDto })
+  createItem(
+    @Req() req: AuthenticatedRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("itemId", ParseUUIDPipe) itemId: string,
+    @Headers("if-match") ifMatch: string | undefined,
+    @Body() dto: CreateItemDto,
+  ) {
+    return this.runDraftMutation(req, reply, ifMatch, dto.draftVersion, (expected) =>
+      this.courseService.createItem(
+        req.user,
+        id,
+        itemId,
+        {
+          unitId: dto.unitId,
+          lexicalEntryId: dto.lexicalEntryId,
+          meaning: dto.meaning,
+          hint: dto.hint,
+        },
+        expected,
+        req.id,
+      ),
+    );
+  }
+
+  @Patch(":id/draft/items/:itemId")
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "编辑课程词项（释义/提示/移动到其他单元）" })
+  @ApiOkResponse({ type: CourseDraftDetailDto })
+  @ApiConflictResponse({ description: "草稿版本冲突", type: DraftVersionConflictEnvelopeDto })
+  updateItem(
+    @Req() req: AuthenticatedRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("itemId", ParseUUIDPipe) itemId: string,
+    @Headers("if-match") ifMatch: string | undefined,
+    @Body() dto: UpdateItemDto,
+  ) {
+    return this.runDraftMutation(req, reply, ifMatch, dto.draftVersion, (expected) =>
+      this.courseService.updateItem(
+        req.user,
+        id,
+        itemId,
+        { meaning: dto.meaning, hint: dto.hint, unitId: dto.unitId },
+        expected,
+        req.id,
+      ),
+    );
+  }
+
+  @Delete(":id/draft/items/:itemId")
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "删除课程词项并重排" })
+  @ApiOkResponse({ type: CourseDraftDetailDto })
+  @ApiConflictResponse({ description: "草稿版本冲突", type: DraftVersionConflictEnvelopeDto })
+  deleteItem(
+    @Req() req: AuthenticatedRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("itemId", ParseUUIDPipe) itemId: string,
+    @Headers("if-match") ifMatch: string | undefined,
+    @Body() dto: DeleteItemDto,
+  ) {
+    return this.runDraftMutation(req, reply, ifMatch, dto.draftVersion, (expected) =>
+      this.courseService.deleteItem(req.user, id, itemId, expected, req.id),
     );
   }
 

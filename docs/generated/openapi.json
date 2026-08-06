@@ -860,6 +860,250 @@
           "admin courses"
         ]
       }
+    },
+    "/api/v1/admin/courses/{id}/draft/items/reorder": {
+      "post": {
+        "operationId": "CourseController_reorderItems",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderItemsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseDraftDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "草稿版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DraftVersionConflictEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "提交单元内完整词项顺序并事务重排",
+        "tags": [
+          "admin courses"
+        ]
+      }
+    },
+    "/api/v1/admin/courses/{id}/draft/items/{itemId}": {
+      "post": {
+        "operationId": "CourseController_createItem",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "itemId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseDraftDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "草稿版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DraftVersionConflictEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "新增课程词项（客户端分配稳定 course_item_id）",
+        "tags": [
+          "admin courses"
+        ]
+      },
+      "patch": {
+        "operationId": "CourseController_updateItem",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "itemId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseDraftDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "草稿版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DraftVersionConflictEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "编辑课程词项（释义/提示/移动到其他单元）",
+        "tags": [
+          "admin courses"
+        ]
+      },
+      "delete": {
+        "operationId": "CourseController_deleteItem",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "itemId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseDraftDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "草稿版本冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DraftVersionConflictEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "删除课程词项并重排",
+        "tags": [
+          "admin courses"
+        ]
+      }
     }
   },
   "info": {
@@ -1420,6 +1664,83 @@
           "level"
         ]
       },
+      "DraftItemSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "全局词条 ID"
+          },
+          "canonicalSpelling": {
+            "type": "string",
+            "description": "英语拼写"
+          },
+          "normalizedSpelling": {
+            "type": "string",
+            "description": "规范化拼写"
+          },
+          "sourceStatus": {
+            "type": "string",
+            "description": "词条来源状态"
+          }
+        },
+        "required": [
+          "id",
+          "canonicalSpelling",
+          "normalizedSpelling",
+          "sourceStatus"
+        ]
+      },
+      "ItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "稳定 course_item_id"
+          },
+          "position": {
+            "type": "number",
+            "description": "单元内 1 起始的位置"
+          },
+          "meaning": {
+            "type": "string",
+            "description": "课程专属中文释义"
+          },
+          "hint": {
+            "type": "string",
+            "nullable": true,
+            "description": "可选提示"
+          },
+          "contentReviewReference": {
+            "type": "string",
+            "description": "人工内容 provenance：关联的管理员审计事件 ID"
+          },
+          "lexicalEntry": {
+            "description": "引用的全局词条摘要",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DraftItemSummaryDto"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "position",
+          "meaning",
+          "hint",
+          "contentReviewReference",
+          "lexicalEntry",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
       "UnitDto": {
         "type": "object",
         "properties": {
@@ -1438,6 +1759,13 @@
             "type": "string",
             "nullable": true
           },
+          "items": {
+            "description": "按 position 升序的课程词项",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemDto"
+            }
+          },
           "createdAt": {
             "type": "string"
           },
@@ -1450,6 +1778,7 @@
           "position",
           "title",
           "description",
+          "items",
           "createdAt",
           "updatedAt"
         ]
@@ -1642,6 +1971,90 @@
         "required": [
           "unitIds"
         ]
+      },
+      "ReorderItemsDto": {
+        "type": "object",
+        "properties": {
+          "unitId": {
+            "type": "string",
+            "description": "所属草稿单元 ID"
+          },
+          "itemIds": {
+            "description": "该单元内完整词项 ID 顺序（无重复、无遗漏、无陌生 ID）",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "draftVersion": {
+            "type": "number",
+            "description": "期望的草稿版本（If-Match 的替代）"
+          }
+        },
+        "required": [
+          "unitId",
+          "itemIds"
+        ]
+      },
+      "CreateItemDto": {
+        "type": "object",
+        "properties": {
+          "unitId": {
+            "type": "string",
+            "description": "所属草稿单元 ID"
+          },
+          "lexicalEntryId": {
+            "type": "string",
+            "description": "引用的全局词条 ID"
+          },
+          "meaning": {
+            "type": "string",
+            "description": "课程专属中文释义（必填）"
+          },
+          "hint": {
+            "type": "string",
+            "description": "可选提示"
+          },
+          "draftVersion": {
+            "type": "number",
+            "description": "期望的草稿版本（If-Match 的替代）"
+          }
+        },
+        "required": [
+          "unitId",
+          "lexicalEntryId",
+          "meaning"
+        ]
+      },
+      "UpdateItemDto": {
+        "type": "object",
+        "properties": {
+          "meaning": {
+            "type": "string",
+            "description": "课程专属中文释义（必填）"
+          },
+          "hint": {
+            "type": "string",
+            "description": "可选提示"
+          },
+          "unitId": {
+            "type": "string",
+            "description": "移动到其他草稿单元（追加到该单元末尾）"
+          },
+          "draftVersion": {
+            "type": "number",
+            "description": "期望的草稿版本（If-Match 的替代）"
+          }
+        }
+      },
+      "DeleteItemDto": {
+        "type": "object",
+        "properties": {
+          "draftVersion": {
+            "type": "number",
+            "description": "期望的草稿版本（If-Match 的替代）"
+          }
+        }
       }
     }
   }

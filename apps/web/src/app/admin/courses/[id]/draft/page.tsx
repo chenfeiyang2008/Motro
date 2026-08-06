@@ -1,19 +1,26 @@
 "use client";
 
-// 课程草稿编排页：元数据编辑 + 单元大纲 + 保存草稿。
-// 主操作为“保存草稿”；显示当前草稿版本与未保存状态；单元用上移/下移按钮排序（不依赖拖拽）。
-// 课程词项区域暂时只显示空状态，不实现词项功能（工单 03）。
+// 课程草稿编排页：元数据编辑 + 单元大纲 + 课程词项。
+// 主操作为“保存草稿”；显示当前草稿版本与未保存状态；单元/词项用上移/下移按钮排序（不依赖拖拽）。
+// 课程词项：按单元展示，可搜索并选择已有词条、填写课程专属中文释义与可选提示、编辑/删除/移动。
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import {
+  createCourseItem,
   createCourseUnit,
+  deleteCourseItem,
   deleteCourseUnit,
   getCourseDraft,
+  listLexicalEntries,
+  reorderCourseItems,
   reorderCourseUnits,
   updateCourseDraft,
+  updateCourseItem,
   updateCourseUnit,
   type CourseDraftDetail,
+  type ItemDto,
+  type LexicalEntrySummary,
   type UnitDto,
 } from "@/lib/api";
 
@@ -42,6 +49,21 @@ export default function CourseDraftPage() {
   const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDesc, setEditDesc] = useState("");
+
+  // 词项新增状态
+  const [addingItemUnitId, setAddingItemUnitId] = useState<string | null>(null);
+  const [itemSearch, setItemSearch] = useState("");
+  const [itemResults, setItemResults] = useState<LexicalEntrySummary[]>([]);
+  const [selectedEntry, setSelectedEntry] = useState<LexicalEntrySummary | null>(null);
+  const [newItemMeaning, setNewItemMeaning] = useState("");
+  const [newItemHint, setNewItemHint] = useState("");
+  const [itemFormError, setItemFormError] = useState("");
+
+  // 词项编辑状态
+  const [editingItem, setEditingItem] = useState<{ unitId: string; item: ItemDto } | null>(null);
+  const [editItemMeaning, setEditItemMeaning] = useState("");
+  const [editItemHint, setEditItemHint] = useState("");
+  const [editItemUnitId, setEditItemUnitId] = useState("");
 
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -101,14 +123,7 @@ export default function CourseDraftPage() {
       setMessage("草稿已保存");
       return;
     }
-    if (res.status === 409 && res.error?.currentDraftVersion !== undefined) {
-      setConflictVersion(res.error.currentDraftVersion);
-      setMessageKind("error");
-      setMessage("草稿已被其他修改更新，请重新加载后再保存");
-      return;
-    }
-    setMessageKind("error");
-    setMessage(res.error?.message ?? "保存失败，请重试");
+    handleConflict(res.status, res.error?.currentDraftVersion, res.error?.message);
   }
 
   async function addUnit(event: React.FormEvent<HTMLFormElement>) {
@@ -192,6 +207,141 @@ export default function CourseDraftPage() {
       applyDraft(res.data, false);
       setMessageKind("success");
       setMessage(direction === "up" ? "单元已上移" : "单元已下移");
+      return;
+    }
+    handleConflict(res.status, res.error?.currentDraftVersion, res.error?.message);
+  }
+
+  // ---- 课程词项 ----
+
+  async function searchEntries(query: string) {
+    setItemSearch(query);
+    const res = await listLexicalEntries({ q: query, cursor: null });
+    if (res.ok && res.data) {
+      setItemResults(res.data.items);
+    } else {
+      setItemResults([]);
+    }
+  }
+
+  function openAddItem(unitId: string) {
+    setAddingItemUnitId(unitId);
+    setItemSearch("");
+    setItemResults([]);
+    setSelectedEntry(null);
+    setNewItemMeaning("");
+    setNewItemHint("");
+    setItemFormError("");
+  }
+
+  async function submitAddItem(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!draft || !addingItemUnitId) return;
+    if (!selectedEntry) {
+      setItemFormError("请先搜索并选择一个词条");
+      return;
+    }
+    if (newItemMeaning.trim() === "") {
+      setItemFormError("中文释义不能为空");
+      return;
+    }
+    const itemId = crypto.randomUUID();
+    setBusy(true);
+    setMessage("");
+    setItemFormError("");
+    const res = await createCourseItem(courseId, itemId, {
+      unitId: addingItemUnitId,
+      lexicalEntryId: selectedEntry.id,
+      meaning: newItemMeaning,
+      hint: newItemHint,
+      draftVersion: draft.version,
+    });
+    setBusy(false);
+    if (res.ok && res.data) {
+      applyDraft(res.data, false);
+      setAddingItemUnitId(null);
+      setMessageKind("success");
+      setMessage("课程词项已添加");
+      return;
+    }
+    const fieldErr = res.error?.fieldErrors?.find((f) => f.path === "meaning");
+    if (fieldErr) setItemFormError(fieldErr.message ?? "中文释义不能为空");
+    handleConflict(res.status, res.error?.currentDraftVersion, res.error?.message);
+  }
+
+  function openEditItem(unitId: string, item: ItemDto) {
+    setEditingItem({ unitId, item });
+    setEditItemMeaning(item.meaning);
+    setEditItemHint(item.hint ?? "");
+    setEditItemUnitId(unitId);
+  }
+
+  async function submitEditItem(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!draft || !editingItem) return;
+    if (editItemMeaning.trim() === "") {
+      setItemFormError("中文释义不能为空");
+      return;
+    }
+    setBusy(true);
+    setMessage("");
+    setItemFormError("");
+    const res = await updateCourseItem(courseId, editingItem.item.id, {
+      meaning: editItemMeaning,
+      hint: editItemHint,
+      unitId: editItemUnitId,
+      draftVersion: draft.version,
+    });
+    setBusy(false);
+    if (res.ok && res.data) {
+      applyDraft(res.data, false);
+      setEditingItem(null);
+      setMessageKind("success");
+      setMessage("课程词项已更新");
+      return;
+    }
+    const fieldErr = res.error?.fieldErrors?.find((f) => f.path === "meaning");
+    if (fieldErr) setItemFormError(fieldErr.message ?? "中文释义不能为空");
+    handleConflict(res.status, res.error?.currentDraftVersion, res.error?.message);
+  }
+
+  async function removeItem(item: ItemDto) {
+    if (!draft) return;
+    if (!window.confirm(`确认删除词项“${item.lexicalEntry.canonicalSpelling}”？`)) return;
+    setBusy(true);
+    setMessage("");
+    const res = await deleteCourseItem(courseId, item.id, { draftVersion: draft.version });
+    setBusy(false);
+    if (res.ok && res.data) {
+      applyDraft(res.data, false);
+      if (editingItem?.item.id === item.id) setEditingItem(null);
+      setMessageKind("success");
+      setMessage("课程词项已删除");
+      return;
+    }
+    handleConflict(res.status, res.error?.currentDraftVersion, res.error?.message);
+  }
+
+  async function moveItem(unit: UnitDto, item: ItemDto, direction: "up" | "down") {
+    if (!draft) return;
+    const items = unit.items;
+    const index = items.findIndex((i) => i.id === item.id);
+    const target = direction === "up" ? index - 1 : index + 1;
+    if (index < 0 || target < 0 || target >= items.length) return;
+    const next = [...items];
+    [next[index], next[target]] = [next[target]!, next[index]!];
+    setBusy(true);
+    setMessage("");
+    const res = await reorderCourseItems(courseId, {
+      unitId: unit.id,
+      itemIds: next.map((i) => i.id),
+      draftVersion: draft.version,
+    });
+    setBusy(false);
+    if (res.ok && res.data) {
+      applyDraft(res.data, false);
+      setMessageKind("success");
+      setMessage(direction === "up" ? "词项已上移" : "词项已下移");
       return;
     }
     handleConflict(res.status, res.error?.currentDraftVersion, res.error?.message);
@@ -310,7 +460,7 @@ export default function CourseDraftPage() {
       </form>
 
       <div className="section-heading">
-        <h2>单元大纲</h2>
+        <h2>单元大纲与课程词项</h2>
         {addingUnit ? null : (
           <button type="button" className="secondary" onClick={() => setAddingUnit(true)}>
             新增单元
@@ -431,13 +581,196 @@ export default function CourseDraftPage() {
                   </>
                 )}
               </div>
+
+              {/* 单元内课程词项 */}
+              <div className="unit-items">
+                {unit.items.length === 0 ? (
+                  <p className="empty-hint">该单元还没有课程词项。</p>
+                ) : (
+                  <ol className="item-list">
+                    {unit.items.map((item, itemIndex) => (
+                      <li key={item.id} className="item-entry">
+                        {editingItem?.item.id === item.id ? (
+                          <form className="unit-edit-form" onSubmit={submitEditItem} noValidate>
+                            <label htmlFor={`edit-item-meaning-${item.id}`}>中文释义</label>
+                            <input
+                              id={`edit-item-meaning-${item.id}`}
+                              value={editItemMeaning}
+                              onChange={(e) => setEditItemMeaning(e.target.value)}
+                              required
+                            />
+                            <label htmlFor={`edit-item-hint-${item.id}`}>提示（可选）</label>
+                            <input
+                              id={`edit-item-hint-${item.id}`}
+                              value={editItemHint}
+                              onChange={(e) => setEditItemHint(e.target.value)}
+                            />
+                            <label htmlFor={`edit-item-unit-${item.id}`}>所属单元</label>
+                            <select
+                              id={`edit-item-unit-${item.id}`}
+                              value={editItemUnitId}
+                              onChange={(e) => setEditItemUnitId(e.target.value)}
+                            >
+                              {draft.units.map((u) => (
+                                <option key={u.id} value={u.id}>
+                                  {u.title}
+                                </option>
+                              ))}
+                            </select>
+                            {itemFormError !== "" && (
+                              <p className="field-error" role="alert">
+                                {itemFormError}
+                              </p>
+                            )}
+                            <div className="form-actions">
+                              <button type="submit" className="primary" disabled={busy}>
+                                保存词项
+                              </button>
+                              <button
+                                type="button"
+                                className="secondary"
+                                onClick={() => {
+                                  setEditingItem(null);
+                                  setItemFormError("");
+                                }}
+                              >
+                                取消
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
+                          <>
+                            <span className="item-position">{itemIndex + 1}.</span>
+                            <div className="item-content">
+                              <strong>{item.lexicalEntry.canonicalSpelling}</strong>
+                              <span className="item-meaning">{item.meaning}</span>
+                              {item.hint ? (
+                                <span className="item-hint">提示：{item.hint}</span>
+                              ) : null}
+                              <span className="item-meta">
+                                来源：{item.lexicalEntry.sourceStatus} · 词项 ID：
+                                {item.id.slice(0, 8)}…
+                              </span>
+                            </div>
+                            <div className="unit-actions">
+                              <button
+                                type="button"
+                                className="secondary"
+                                disabled={itemIndex === 0 || busy}
+                                aria-label={`上移 ${item.lexicalEntry.canonicalSpelling}`}
+                                onClick={() => void moveItem(unit, item, "up")}
+                              >
+                                上移
+                              </button>
+                              <button
+                                type="button"
+                                className="secondary"
+                                disabled={itemIndex === unit.items.length - 1 || busy}
+                                aria-label={`下移 ${item.lexicalEntry.canonicalSpelling}`}
+                                onClick={() => void moveItem(unit, item, "down")}
+                              >
+                                下移
+                              </button>
+                              <button
+                                type="button"
+                                className="secondary"
+                                onClick={() => openEditItem(unit.id, item)}
+                              >
+                                编辑
+                              </button>
+                              <button
+                                type="button"
+                                className="secondary danger"
+                                disabled={busy}
+                                onClick={() => void removeItem(item)}
+                              >
+                                删除
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                )}
+
+                {addingItemUnitId === unit.id ? (
+                  <form className="lexicon-form" onSubmit={submitAddItem} noValidate>
+                    <h3>添加课程词项</h3>
+                    <label htmlFor={`item-search-${unit.id}`}>搜索词条</label>
+                    <input
+                      id={`item-search-${unit.id}`}
+                      value={itemSearch}
+                      onChange={(e) => void searchEntries(e.target.value)}
+                      placeholder="例如 abandon"
+                    />
+                    {itemResults.length > 0 && !selectedEntry && (
+                      <ul className="item-search-results">
+                        {itemResults.map((entry) => (
+                          <li key={entry.id}>
+                            <button
+                              type="button"
+                              className="search-result"
+                              onClick={() => setSelectedEntry(entry)}
+                            >
+                              {entry.canonicalSpelling} · 来源：{entry.sourceStatus}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {selectedEntry && (
+                      <p className="form-inline-success">
+                        已选择词条：{selectedEntry.canonicalSpelling}
+                      </p>
+                    )}
+                    <label htmlFor={`item-meaning-${unit.id}`}>中文释义</label>
+                    <input
+                      id={`item-meaning-${unit.id}`}
+                      value={newItemMeaning}
+                      onChange={(e) => setNewItemMeaning(e.target.value)}
+                      required
+                    />
+                    <label htmlFor={`item-hint-${unit.id}`}>提示（可选）</label>
+                    <input
+                      id={`item-hint-${unit.id}`}
+                      value={newItemHint}
+                      onChange={(e) => setNewItemHint(e.target.value)}
+                    />
+                    {itemFormError !== "" && (
+                      <p className="field-error" role="alert">
+                        {itemFormError}
+                      </p>
+                    )}
+                    <div className="form-actions">
+                      <button type="submit" className="primary" disabled={busy}>
+                        {busy ? "保存中…" : "保存词项"}
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => setAddingItemUnitId(null)}
+                      >
+                        取消
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="unit-items-actions">
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => openAddItem(unit.id)}
+                    >
+                      添加课程词项
+                    </button>
+                  </div>
+                )}
+              </div>
             </li>
           ))}
         </ol>
       )}
-
-      <h2>课程词项</h2>
-      <p className="empty-hint">课程词项功能将在后续工单实现。当前课程还没有任何词项。</p>
     </section>
   );
 }

@@ -68,7 +68,7 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
         const rows = await c.query<{ version: number }>(
           "SELECT version FROM schema_migrations ORDER BY version",
         );
-        expect(rows.rows.map((r) => r.version)).toEqual([1, 2, 3, 4, 5]);
+        expect(rows.rows.map((r) => r.version)).toEqual([1, 2, 3, 4, 5, 6]);
       } finally {
         await c.end();
       }

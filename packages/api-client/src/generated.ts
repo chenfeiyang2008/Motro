@@ -314,6 +314,42 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/admin/courses/{id}/draft/items/reorder": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 提交单元内完整词项顺序并事务重排 */
+    post: operations["CourseController_reorderItems"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/courses/{id}/draft/items/{itemId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 新增课程词项（客户端分配稳定 course_item_id） */
+    post: operations["CourseController_createItem"];
+    /** 删除课程词项并重排 */
+    delete: operations["CourseController_deleteItem"];
+    options?: never;
+    head?: never;
+    /** 编辑课程词项（释义/提示/移动到其他单元） */
+    patch: operations["CourseController_updateItem"];
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -515,6 +551,32 @@ export interface components {
       title: string;
       level: string;
     };
+    DraftItemSummaryDto: {
+      /** @description 全局词条 ID */
+      id: string;
+      /** @description 英语拼写 */
+      canonicalSpelling: string;
+      /** @description 规范化拼写 */
+      normalizedSpelling: string;
+      /** @description 词条来源状态 */
+      sourceStatus: string;
+    };
+    ItemDto: {
+      /** @description 稳定 course_item_id */
+      id: string;
+      /** @description 单元内 1 起始的位置 */
+      position: number;
+      /** @description 课程专属中文释义 */
+      meaning: string;
+      /** @description 可选提示 */
+      hint: string | null;
+      /** @description 人工内容 provenance：关联的管理员审计事件 ID */
+      contentReviewReference: string;
+      /** @description 引用的全局词条摘要 */
+      lexicalEntry: components["schemas"]["DraftItemSummaryDto"];
+      createdAt: string;
+      updatedAt: string;
+    };
     UnitDto: {
       /** @description 稳定 unit_id */
       id: string;
@@ -522,6 +584,8 @@ export interface components {
       position: number;
       title: string;
       description: string | null;
+      /** @description 按 position 升序的课程词项 */
+      items: components["schemas"]["ItemDto"][];
       createdAt: string;
       updatedAt: string;
     };
@@ -590,6 +654,40 @@ export interface components {
     ReorderUnitsDto: {
       /** @description 完整单元 ID 顺序（无重复、无遗漏） */
       unitIds: string[];
+      /** @description 期望的草稿版本（If-Match 的替代） */
+      draftVersion?: number;
+    };
+    ReorderItemsDto: {
+      /** @description 所属草稿单元 ID */
+      unitId: string;
+      /** @description 该单元内完整词项 ID 顺序（无重复、无遗漏、无陌生 ID） */
+      itemIds: string[];
+      /** @description 期望的草稿版本（If-Match 的替代） */
+      draftVersion?: number;
+    };
+    CreateItemDto: {
+      /** @description 所属草稿单元 ID */
+      unitId: string;
+      /** @description 引用的全局词条 ID */
+      lexicalEntryId: string;
+      /** @description 课程专属中文释义（必填） */
+      meaning: string;
+      /** @description 可选提示 */
+      hint?: string;
+      /** @description 期望的草稿版本（If-Match 的替代） */
+      draftVersion?: number;
+    };
+    UpdateItemDto: {
+      /** @description 课程专属中文释义（必填） */
+      meaning?: string;
+      /** @description 可选提示 */
+      hint?: string;
+      /** @description 移动到其他草稿单元（追加到该单元末尾） */
+      unitId?: string;
+      /** @description 期望的草稿版本（If-Match 的替代） */
+      draftVersion?: number;
+    };
+    DeleteItemDto: {
       /** @description 期望的草稿版本（If-Match 的替代） */
       draftVersion?: number;
     };
@@ -1151,6 +1249,145 @@ export interface operations {
     };
     responses: {
       201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CourseDraftDetailDto"];
+        };
+      };
+      /** @description 草稿版本冲突 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DraftVersionConflictEnvelopeDto"];
+        };
+      };
+    };
+  };
+  CourseController_reorderItems: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ReorderItemsDto"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CourseDraftDetailDto"];
+        };
+      };
+      /** @description 草稿版本冲突 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DraftVersionConflictEnvelopeDto"];
+        };
+      };
+    };
+  };
+  CourseController_createItem: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+        itemId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateItemDto"];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CourseDraftDetailDto"];
+        };
+      };
+      /** @description 草稿版本冲突 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DraftVersionConflictEnvelopeDto"];
+        };
+      };
+    };
+  };
+  CourseController_deleteItem: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+        itemId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DeleteItemDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CourseDraftDetailDto"];
+        };
+      };
+      /** @description 草稿版本冲突 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DraftVersionConflictEnvelopeDto"];
+        };
+      };
+    };
+  };
+  CourseController_updateItem: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+        itemId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateItemDto"];
+      };
+    };
+    responses: {
+      200: {
         headers: {
           [name: string]: unknown;
         };

@@ -47,6 +47,10 @@ export type CreateUnitPayload = components["schemas"]["CreateUnitDto"];
 export type UpdateUnitPayload = components["schemas"]["UpdateUnitDto"];
 export type ReorderUnitsPayload = components["schemas"]["ReorderUnitsDto"];
 export type UnitDto = components["schemas"]["UnitDto"];
+export type ItemDto = components["schemas"]["ItemDto"];
+export type CreateItemPayload = components["schemas"]["CreateItemDto"];
+export type UpdateItemPayload = components["schemas"]["UpdateItemDto"];
+export type ReorderItemsPayload = components["schemas"]["ReorderItemsDto"];
 
 export interface ApiError {
   code?: string;
@@ -196,6 +200,51 @@ export function reorderCourseUnits(
 ): Promise<ApiResult<CourseDraftDetail>> {
   return apiFetch<CourseDraftDetail>(
     `/api/v1/admin/courses/${encodeURIComponent(courseId)}/draft/reorder`,
+    { method: "POST", body: JSON.stringify(payload) },
+  );
+}
+
+// ---- 管理员：课程词项 ----
+
+export function createCourseItem(
+  courseId: string,
+  itemId: string,
+  payload: CreateItemPayload,
+): Promise<ApiResult<CourseDraftDetail>> {
+  return apiFetch<CourseDraftDetail>(
+    `/api/v1/admin/courses/${encodeURIComponent(courseId)}/draft/items/${encodeURIComponent(itemId)}`,
+    { method: "POST", body: JSON.stringify(payload) },
+  );
+}
+
+export function updateCourseItem(
+  courseId: string,
+  itemId: string,
+  payload: UpdateItemPayload,
+): Promise<ApiResult<CourseDraftDetail>> {
+  return apiFetch<CourseDraftDetail>(
+    `/api/v1/admin/courses/${encodeURIComponent(courseId)}/draft/items/${encodeURIComponent(itemId)}`,
+    { method: "PATCH", body: JSON.stringify(payload) },
+  );
+}
+
+export function deleteCourseItem(
+  courseId: string,
+  itemId: string,
+  payload: { draftVersion: number },
+): Promise<ApiResult<CourseDraftDetail>> {
+  return apiFetch<CourseDraftDetail>(
+    `/api/v1/admin/courses/${encodeURIComponent(courseId)}/draft/items/${encodeURIComponent(itemId)}`,
+    { method: "DELETE", body: JSON.stringify(payload) },
+  );
+}
+
+export function reorderCourseItems(
+  courseId: string,
+  payload: ReorderItemsPayload,
+): Promise<ApiResult<CourseDraftDetail>> {
+  return apiFetch<CourseDraftDetail>(
+    `/api/v1/admin/courses/${encodeURIComponent(courseId)}/draft/items/reorder`,
     { method: "POST", body: JSON.stringify(payload) },
   );
 }

@@ -134,6 +134,88 @@ export class ReorderUnitsDto {
   draftVersion?: number;
 }
 
+export class CreateItemDto {
+  @ApiProperty({ description: "所属草稿单元 ID" })
+  @IsString()
+  unitId!: string;
+
+  @ApiProperty({ description: "引用的全局词条 ID" })
+  @IsString()
+  lexicalEntryId!: string;
+
+  @ApiProperty({ description: "课程专属中文释义（必填）" })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(500)
+  meaning!: string;
+
+  @ApiPropertyOptional({ description: "可选提示" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  hint?: string;
+
+  @ApiPropertyOptional({ description: "期望的草稿版本（If-Match 的替代）" })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  draftVersion?: number;
+}
+
+export class UpdateItemDto {
+  @ApiPropertyOptional({ description: "课程专属中文释义（必填）" })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(500)
+  meaning?: string;
+
+  @ApiPropertyOptional({ description: "可选提示" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  hint?: string;
+
+  @ApiPropertyOptional({ description: "移动到其他草稿单元（追加到该单元末尾）" })
+  @IsOptional()
+  @IsString()
+  unitId?: string;
+
+  @ApiPropertyOptional({ description: "期望的草稿版本（If-Match 的替代）" })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  draftVersion?: number;
+}
+
+export class DeleteItemDto {
+  @ApiPropertyOptional({ description: "期望的草稿版本（If-Match 的替代）" })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  draftVersion?: number;
+}
+
+export class ReorderItemsDto {
+  @ApiProperty({ description: "所属草稿单元 ID" })
+  @IsString()
+  unitId!: string;
+
+  @ApiProperty({
+    type: [String],
+    description: "该单元内完整词项 ID 顺序（无重复、无遗漏、无陌生 ID）",
+  })
+  @IsArray()
+  @IsString({ each: true })
+  itemIds!: string[];
+
+  @ApiPropertyOptional({ description: "期望的草稿版本（If-Match 的替代）" })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  draftVersion?: number;
+}
+
 // ---- 响应（OpenAPI 形状） ----
 
 export class CourseListItemDto {
@@ -168,6 +250,46 @@ export class CourseListItemDto {
   updatedAt!: string;
 }
 
+export class DraftItemSummaryDto {
+  @ApiProperty({ description: "全局词条 ID" })
+  id!: string;
+
+  @ApiProperty({ description: "英语拼写" })
+  canonicalSpelling!: string;
+
+  @ApiProperty({ description: "规范化拼写" })
+  normalizedSpelling!: string;
+
+  @ApiProperty({ description: "词条来源状态" })
+  sourceStatus!: string;
+}
+
+export class ItemDto {
+  @ApiProperty({ description: "稳定 course_item_id" })
+  id!: string;
+
+  @ApiProperty({ description: "单元内 1 起始的位置" })
+  position!: number;
+
+  @ApiProperty({ description: "课程专属中文释义" })
+  meaning!: string;
+
+  @ApiProperty({ type: String, nullable: true, description: "可选提示" })
+  hint!: string | null;
+
+  @ApiProperty({ description: "人工内容 provenance：关联的管理员审计事件 ID" })
+  contentReviewReference!: string;
+
+  @ApiProperty({ type: DraftItemSummaryDto, description: "引用的全局词条摘要" })
+  lexicalEntry!: DraftItemSummaryDto;
+
+  @ApiProperty()
+  createdAt!: string;
+
+  @ApiProperty()
+  updatedAt!: string;
+}
+
 export class UnitDto {
   @ApiProperty({ description: "稳定 unit_id" })
   id!: string;
@@ -180,6 +302,9 @@ export class UnitDto {
 
   @ApiProperty({ type: String, nullable: true })
   description!: string | null;
+
+  @ApiProperty({ type: [ItemDto], description: "按 position 升序的课程词项" })
+  items!: ItemDto[];
 
   @ApiProperty()
   createdAt!: string;

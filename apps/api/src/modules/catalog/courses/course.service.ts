@@ -9,11 +9,14 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from "@nestjs/common";
+import { createHash, randomUUID } from "node:crypto";
 import {
   normalizeSlug,
   validateCourseDescription,
   validateCourseLevel,
   validateCourseTitle,
+  validateItemHint,
+  validateItemMeaning,
   validateSlug,
   validateUnitDescription,
   validateUnitOrder,
@@ -26,6 +29,7 @@ import type {
   CourseDraftDetailDto,
   CourseListItemDto,
   CreateCourseResultDto,
+  ItemDto,
   UnitDto,
 } from "./dto.js";
 
@@ -102,6 +106,34 @@ export interface CreateUnitInput {
 export interface UpdateUnitInput {
   title: string | undefined;
   description: string | undefined;
+}
+
+export interface CreateItemInput {
+  unitId: string;
+  lexicalEntryId: string;
+  meaning: string;
+  hint: string | undefined;
+}
+
+export interface UpdateItemInput {
+  meaning: string | undefined;
+  hint: string | undefined;
+  unitId: string | undefined;
+}
+
+interface ItemRow {
+  id: string;
+  draft_unit_id: string;
+  lexical_entry_id: string;
+  position: number;
+  meaning: string;
+  hint: string | null;
+  content_review_reference: string;
+  created_at: Date;
+  updated_at: Date;
+  canonical_spelling: string;
+  normalized_spelling: string;
+  source_status: string | null;
 }
 
 @Injectable()
@@ -543,6 +575,330 @@ export class CourseService {
     return detail;
   }
 
+  async createItem(
+    actor: UserRecord,
+    courseId: string,
+    itemId: string,
+    input: CreateItemInput,
+    expectedVersion: number | undefined,
+    requestId: string,
+  ): Promise<CourseDraftDetailDto> {
+    const meaning = input.meaning.trim();
+    const fieldErrors: { path: string; code: string; message: string }[] = [];
+    for (const message of validateItemMeaning(meaning)) {
+      fieldErrors.push({ path: "meaning", code: "invalid", message });
+    }
+    for (const message of validateItemHint(input.hint)) {
+      fieldErrors.push({ path: "hint", code: "invalid", message });
+    }
+    if (fieldErrors.length > 0) {
+      throw new UnprocessableEntityException({ message: "词项输入不合法", fieldErrors });
+    }
+
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const draft = await this.lockActiveDraft(client, courseId);
+      if (!draft) throw new NotFoundException("课程或草稿不存在");
+      if (expectedVersion === undefined)
+        throw new BadRequestException("缺少草稿版本（If-Match 或 draftVersion）");
+      if (draft.version !== expectedVersion) throw new DraftVersionConflictError(draft.version);
+
+      const unit = await client.query<UnitRow>(
+        "SELECT * FROM draft_units WHERE id = $1 AND draft_id = $2",
+        [input.unitId, draft.id],
+      );
+      if (!unit.rows[0]) {
+        throw new UnprocessableEntityException({
+          message: "单元不属于该课程草稿",
+          fieldErrors: [{ path: "unitId", code: "invalid", message: "单元不存在或不属于该草稿" }],
+        });
+      }
+      const entry = await client.query("SELECT 1 FROM lexical_entries WHERE id = $1", [
+        input.lexicalEntryId,
+      ]);
+      if (entry.rowCount === 0) {
+        throw new UnprocessableEntityException({
+          message: "词条不存在",
+          fieldErrors: [{ path: "lexicalEntryId", code: "not_found", message: "引用的词条不存在" }],
+        });
+      }
+
+      // 手工中文内容 provenance：预生成审计事件 id 作为 content_review_reference。
+      const auditId = randomUUID();
+      const meaningHash = createHash("sha256").update(meaning).digest("hex");
+      await client.query(
+        `INSERT INTO audit_events
+           (id, actor_id, action, target_type, target_id, before_summary, after_summary, request_id)
+         VALUES ($1, $2, 'admin.course.item.create', 'course', $3, NULL, $4::jsonb, $5)`,
+        [
+          auditId,
+          actor.id,
+          courseId,
+          JSON.stringify({
+            itemId,
+            unitId: input.unitId,
+            lexicalEntryId: input.lexicalEntryId,
+            meaningHash,
+          }),
+          requestId,
+        ],
+      );
+
+      const position = await this.nextItemPosition(client, input.unitId);
+      await client.query(
+        `INSERT INTO draft_course_items
+           (id, draft_unit_id, lexical_entry_id, position, meaning, hint, content_review_reference)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          itemId,
+          input.unitId,
+          input.lexicalEntryId,
+          position,
+          meaning,
+          input.hint?.trim() ?? null,
+          auditId,
+        ],
+      );
+      const nextVersion = draft.version + 1;
+      await this.bumpVersion(client, draft.id, nextVersion);
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw err;
+    } finally {
+      client.release();
+    }
+    const detail = await this.loadDraftDetail(courseId);
+    if (!detail) throw new NotFoundException("课程或草稿不存在");
+    return detail;
+  }
+
+  async updateItem(
+    actor: UserRecord,
+    courseId: string,
+    itemId: string,
+    input: UpdateItemInput,
+    expectedVersion: number | undefined,
+    requestId: string,
+  ): Promise<CourseDraftDetailDto> {
+    const fieldErrors: { path: string; code: string; message: string }[] = [];
+    if (input.meaning !== undefined) {
+      for (const message of validateItemMeaning(input.meaning)) {
+        fieldErrors.push({ path: "meaning", code: "invalid", message });
+      }
+    }
+    if (input.hint !== undefined) {
+      for (const message of validateItemHint(input.hint)) {
+        fieldErrors.push({ path: "hint", code: "invalid", message });
+      }
+    }
+    if (fieldErrors.length > 0) {
+      throw new UnprocessableEntityException({ message: "词项输入不合法", fieldErrors });
+    }
+
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const draft = await this.lockActiveDraft(client, courseId);
+      if (!draft) throw new NotFoundException("课程或草稿不存在");
+      if (expectedVersion === undefined)
+        throw new BadRequestException("缺少草稿版本（If-Match 或 draftVersion）");
+      if (draft.version !== expectedVersion) throw new DraftVersionConflictError(draft.version);
+
+      const itemRes = await client.query<ItemRow>(
+        `SELECT * FROM draft_course_items WHERE id = $1
+         AND draft_unit_id IN (SELECT id FROM draft_units WHERE draft_id = $2)`,
+        [itemId, draft.id],
+      );
+      const item = itemRes.rows[0];
+      if (!item) throw new NotFoundException("词项不存在");
+
+      const newMeaning = input.meaning?.trim() ?? item.meaning;
+      const newHint = input.hint !== undefined ? input.hint.trim() || null : item.hint;
+      let targetUnitId = item.draft_unit_id;
+      if (input.unitId !== undefined && input.unitId !== item.draft_unit_id) {
+        const unit = await client.query<UnitRow>(
+          "SELECT * FROM draft_units WHERE id = $1 AND draft_id = $2",
+          [input.unitId, draft.id],
+        );
+        if (!unit.rows[0]) {
+          throw new UnprocessableEntityException({
+            message: "单元不属于该课程草稿",
+            fieldErrors: [{ path: "unitId", code: "invalid", message: "单元不存在或不属于该草稿" }],
+          });
+        }
+        targetUnitId = input.unitId;
+      }
+
+      const auditId = randomUUID();
+      const meaningHash = createHash("sha256").update(newMeaning).digest("hex");
+      await client.query(
+        `INSERT INTO audit_events
+           (id, actor_id, action, target_type, target_id, before_summary, after_summary, request_id)
+         VALUES ($1, $2, 'admin.course.item.update', 'course', $3, NULL, $4::jsonb, $5)`,
+        [
+          auditId,
+          actor.id,
+          courseId,
+          JSON.stringify({
+            itemId,
+            unitId: targetUnitId,
+            lexicalEntryId: item.lexical_entry_id,
+            meaningHash,
+          }),
+          requestId,
+        ],
+      );
+
+      if (targetUnitId !== item.draft_unit_id) {
+        // 跨单元移动：从旧单元移除并重排，再追加到目标单元末尾。
+        const sourceRemaining = (await this.loadItemIds(client, item.draft_unit_id)).filter(
+          (id) => id !== itemId,
+        );
+        await this.renumberItemIds(client, item.draft_unit_id, sourceRemaining);
+        const position = await this.nextItemPosition(client, targetUnitId);
+        await client.query(
+          `UPDATE draft_course_items
+           SET draft_unit_id = $2, position = $3, meaning = $4, hint = $5,
+               content_review_reference = $6, updated_at = now()
+           WHERE id = $1`,
+          [itemId, targetUnitId, position, newMeaning, newHint, auditId],
+        );
+      } else {
+        await client.query(
+          `UPDATE draft_course_items
+           SET meaning = $2, hint = $3, content_review_reference = $4, updated_at = now()
+           WHERE id = $1`,
+          [itemId, newMeaning, newHint, auditId],
+        );
+      }
+      const nextVersion = draft.version + 1;
+      await this.bumpVersion(client, draft.id, nextVersion);
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw err;
+    } finally {
+      client.release();
+    }
+    const detail = await this.loadDraftDetail(courseId);
+    if (!detail) throw new NotFoundException("课程或草稿不存在");
+    return detail;
+  }
+
+  async deleteItem(
+    actor: UserRecord,
+    courseId: string,
+    itemId: string,
+    expectedVersion: number | undefined,
+    requestId: string,
+  ): Promise<CourseDraftDetailDto> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const draft = await this.lockActiveDraft(client, courseId);
+      if (!draft) throw new NotFoundException("课程或草稿不存在");
+      if (expectedVersion === undefined)
+        throw new BadRequestException("缺少草稿版本（If-Match 或 draftVersion）");
+      if (draft.version !== expectedVersion) throw new DraftVersionConflictError(draft.version);
+
+      const itemRes = await client.query<{ draft_unit_id: string }>(
+        `SELECT draft_unit_id FROM draft_course_items WHERE id = $1
+         AND draft_unit_id IN (SELECT id FROM draft_units WHERE draft_id = $2)`,
+        [itemId, draft.id],
+      );
+      const item = itemRes.rows[0];
+      if (!item) throw new NotFoundException("词项不存在");
+
+      await client.query("DELETE FROM draft_course_items WHERE id = $1", [itemId]);
+      const remaining = (await this.loadItemIds(client, item.draft_unit_id)).filter(
+        (id) => id !== itemId,
+      );
+      await this.renumberItemIds(client, item.draft_unit_id, remaining);
+
+      const nextVersion = draft.version + 1;
+      await this.bumpVersion(client, draft.id, nextVersion);
+      await this.audit(
+        client,
+        actor.id,
+        "admin.course.item.delete",
+        "course",
+        courseId,
+        { itemId, draftVersion: nextVersion },
+        requestId,
+      );
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw err;
+    } finally {
+      client.release();
+    }
+    const detail = await this.loadDraftDetail(courseId);
+    if (!detail) throw new NotFoundException("课程或草稿不存在");
+    return detail;
+  }
+
+  async reorderItems(
+    actor: UserRecord,
+    courseId: string,
+    unitId: string,
+    itemIds: string[],
+    expectedVersion: number | undefined,
+    requestId: string,
+  ): Promise<CourseDraftDetailDto> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const draft = await this.lockActiveDraft(client, courseId);
+      if (!draft) throw new NotFoundException("课程或草稿不存在");
+      if (expectedVersion === undefined)
+        throw new BadRequestException("缺少草稿版本（If-Match 或 draftVersion）");
+      if (draft.version !== expectedVersion) throw new DraftVersionConflictError(draft.version);
+
+      const unit = await client.query<UnitRow>(
+        "SELECT * FROM draft_units WHERE id = $1 AND draft_id = $2",
+        [unitId, draft.id],
+      );
+      if (!unit.rows[0]) {
+        throw new UnprocessableEntityException({
+          message: "单元不属于该课程草稿",
+          fieldErrors: [{ path: "unitId", code: "invalid", message: "单元不存在或不属于该草稿" }],
+        });
+      }
+      const existingItemIds = await this.loadItemIds(client, unitId);
+      const orderErrors = validateUnitOrder(existingItemIds, itemIds);
+      if (orderErrors.length > 0) {
+        throw new UnprocessableEntityException({
+          message: "词项顺序不合法",
+          fieldErrors: [{ path: "itemIds", code: "invalid", message: orderErrors.join("；") }],
+        });
+      }
+      await this.renumberItemIds(client, unitId, itemIds);
+      const nextVersion = draft.version + 1;
+      await this.bumpVersion(client, draft.id, nextVersion);
+      await this.audit(
+        client,
+        actor.id,
+        "admin.course.items.reorder",
+        "course",
+        courseId,
+        { unitId, itemIds, draftVersion: nextVersion },
+        requestId,
+      );
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw err;
+    } finally {
+      client.release();
+    }
+    const detail = await this.loadDraftDetail(courseId);
+    if (!detail) throw new NotFoundException("课程或草稿不存在");
+    return detail;
+  }
+
   // ---- 内部 ----
 
   private async loadDraftDetail(courseId: string): Promise<CourseDraftDetailDto | null> {
@@ -573,14 +929,82 @@ export class CourseService {
       `SELECT * FROM draft_units WHERE draft_id = $1 ORDER BY position ASC, id ASC`,
       [draftId],
     );
-    return result.rows.map((u) => ({
-      id: u.id,
-      position: u.position,
-      title: u.title,
-      description: u.description,
-      createdAt: u.created_at.toISOString(),
-      updatedAt: u.updated_at.toISOString(),
+    const units: UnitDto[] = [];
+    for (const u of result.rows) {
+      units.push({
+        id: u.id,
+        position: u.position,
+        title: u.title,
+        description: u.description,
+        items: await this.loadItemsByPool(u.id),
+        createdAt: u.created_at.toISOString(),
+        updatedAt: u.updated_at.toISOString(),
+      });
+    }
+    return units;
+  }
+
+  private async loadItemsByPool(unitId: string): Promise<ItemDto[]> {
+    const result = await this.pool.query<ItemRow>(
+      `SELECT i.*, e.canonical_spelling, e.normalized_spelling,
+              (SELECT s.source_type FROM lexical_sources s
+                WHERE s.lexical_entry_id = i.lexical_entry_id
+                ORDER BY s.created_at DESC, s.id DESC LIMIT 1) AS source_status
+       FROM draft_course_items i
+       JOIN lexical_entries e ON e.id = i.lexical_entry_id
+       WHERE i.draft_unit_id = $1
+       ORDER BY i.position ASC, i.id ASC`,
+      [unitId],
+    );
+    return result.rows.map((r) => ({
+      id: r.id,
+      position: r.position,
+      meaning: r.meaning,
+      hint: r.hint,
+      contentReviewReference: r.content_review_reference,
+      lexicalEntry: {
+        id: r.lexical_entry_id,
+        canonicalSpelling: r.canonical_spelling,
+        normalizedSpelling: r.normalized_spelling,
+        sourceStatus: r.source_status ?? "manual",
+      },
+      createdAt: r.created_at.toISOString(),
+      updatedAt: r.updated_at.toISOString(),
     }));
+  }
+
+  private async nextItemPosition(client: PoolClient, unitId: string): Promise<number> {
+    const result = await client.query<{ max: number | null }>(
+      `SELECT MAX(position) AS max FROM draft_course_items WHERE draft_unit_id = $1`,
+      [unitId],
+    );
+    return (result.rows[0]?.max ?? 0) + 1;
+  }
+
+  private async loadItemIds(client: PoolClient, unitId: string): Promise<string[]> {
+    const result = await client.query<{ id: string }>(
+      `SELECT id FROM draft_course_items WHERE draft_unit_id = $1 ORDER BY position ASC, id ASC`,
+      [unitId],
+    );
+    return result.rows.map((r) => r.id);
+  }
+
+  private async renumberItemIds(
+    client: PoolClient,
+    unitId: string,
+    orderedIds: string[],
+  ): Promise<void> {
+    // 先把该单元所有位置临时偏移到高位，避免逐个赋值时撞上仍占位的旧位置。
+    await client.query(
+      `UPDATE draft_course_items SET position = position + 1000000 WHERE draft_unit_id = $1`,
+      [unitId],
+    );
+    for (let i = 0; i < orderedIds.length; i++) {
+      await client.query(
+        `UPDATE draft_course_items SET position = $2, updated_at = now() WHERE id = $1 AND draft_unit_id = $3`,
+        [orderedIds[i], i + 1, unitId],
+      );
+    }
   }
 
   private async lockActiveDraft(client: PoolClient, courseId: string): Promise<DraftRow | null> {
