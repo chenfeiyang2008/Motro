@@ -18,10 +18,13 @@ This document makes [`DESIGN.md`](../../DESIGN.md) implementable for the respons
 
 | Semantic role | Light value | Usage |
 | --- | --- | --- |
-| `brand.600` | `#2F6FED` | Primary action, selected navigation, links |
-| `brand.700` | `#255ED0` | Hover |
-| `brand.800` | `#1F4FAF` | Pressed |
-| `brand.050` | `#EAF1FF` | Selected/quiet brand background |
+| `brand.600` | `#F5781F` | Sole primary action, links |
+| `brand.700` | `#E76812` | Hover |
+| `brand.800` | `#DE640F` | Pressed |
+| `brand.900` | `#B84D22` | Selected navigation text and icons on `brand.050` |
+| `brand.050` | `#FFF2E8` | Selected/quiet brand background |
+| `text.on-brand` | `#182230` | Text and icons on filled primary orange |
+| `focus.default` | `#182230` | Visible focus indicator on light and filled-brand surfaces |
 | `bg.page` | `#F7F9FC` | App canvas |
 | `bg.surface` | `#FFFFFF` | Content surface and controls |
 | `text.primary` | `#182230` | Headings and body |
@@ -31,7 +34,11 @@ This document makes [`DESIGN.md`](../../DESIGN.md) implementable for the respons
 | `status.warning` | `#C47A16` | Attention and recoverable risk |
 | `status.error` | `#C84545` | Errors and destructive intent |
 
-Every foreground/background pair must be verified for WCAG 2.2 AA. Semantic colors may use separately tested pale backgrounds; never lower opacity on text to create muted colors. Status is never conveyed by color alone.
+Every foreground/background pair must be verified for WCAG 2.2 AA. `text.on-brand` on `brand.600` is 5.79:1; `brand.900` on `brand.050` is 4.64:1. `focus.default` is a solid focus indicator with equivalent contrast on both the light canvas and filled-brand controls; it never depends on a reflection cue. Semantic colors may use separately tested pale backgrounds; never lower opacity on text to create muted colors. Status is never conveyed by color alone.
+
+The bright orange brand is a controlled action and wayfinding accent, not a page decoration. Keep page/background/surface layers neutral, reserve filled orange for the one strongest action in a decision region, and use `brand.900` text/icons for selection on `brand.050`. Neutral secondary controls never become orange outlines. Do not create energy through broad saturated fills, gradient borders, glows, or a row of competing vivid status colors; hierarchy should first come from neutral surfaces, type and space. A soft color change is valid only when it comes from the real backdrop response of a Glass layer, never as decoration on a normal component. Components consume semantic role tokens, never these literal values, so a future dark or high-contrast theme can remap roles rather than mechanically invert this light palette.
+
+**Confirmed dosage: A — bright emphasis.** Orange appears in the sole primary action, selected learner navigation, links, and limited high-value progress cues; it does not spread to ordinary secondary controls or semantic status messages.
 
 ### 3.2 Typography
 
@@ -58,7 +65,7 @@ Liquid Glass is a functional navigation/control layer, not a translucent treatme
 - Use **regular Glass** by default for the mobile learner Dock, desktop learner sidebar, app/study headers, compact toolbars, popovers and text-dense functional groups. It must adapt to the luminance of the actual backdrop through a translucent fill and adequate blur, plus a subtle edge and restrained elevation. A fixed translucent color alone is not a valid regular Glass treatment.
 - Use **clear Glass** only above visually rich media. The learner's ordinary light canvas, study cards, course copy, forms, plans and fact panels use standard opaque content surfaces instead. Clear Glass requires a tested dimming layer when the underlying content is bright (use a roughly 35% dark layer as the starting point, then verify contrast).
 - Keep one coherent Glass group per navigation region. Related destinations or contextual controls share that group and spacing; do not turn every card, metric, list row or secondary button into Glass, and do not layer Glass panels inside Glass panels. A content-layer slider or toggle may briefly adopt Glass while directly manipulated, but returns to the standard content layer otherwise.
-- Brand color is reserved for one primary action background and selected navigation labels/icons. Do not tint several Glass controls with brand blue at once.
+- Brand color is reserved for one primary action background and selected navigation labels/icons. Do not tint several Glass controls with bright orange at once.
 - Provide an opaque `bg.surface` fallback for browsers without `backdrop-filter`, `prefers-reduced-transparency: reduce`, and `prefers-contrast: more`. The fallback preserves the same labels, selected state, focus ring, layout and 44px target sizes; never make muted text by reducing its opacity.
 - Test Glass against the resting and scrolling content under it, including the most colorful permitted course content. Never accept a material solely because it looks correct on an empty canvas.
 
@@ -66,6 +73,8 @@ Liquid Glass is a functional navigation/control layer, not a translucent treatme
 
 For Web, reproduce the **functional hierarchy and perceptual cues**, not Apple platform compositor internals. A valid regular Glass region is composed in this order: (1) actual backdrop participation, with blur only where supported; (2) an adaptive translucent base that preserves label contrast; (3) a subtle inner/outer edge that distinguishes the boundary; and (4) a restrained elevation shadow. These cues together express the optical behavior Apple describes as background refraction, reflected ambient color/light, and edge lensing.
 
+- **Specify thickness as a stack, not a number.** The upper/outer edge is a restrained light-catching rim; the lower/inner edge is a slightly darker occlusion cue; the shadow has a real offset and soft blur. Together they make the functional layer read as a single piece of glass above the content. Do not add multiple white borders, a zero-offset glow, or a large blur radius to make Glass feel thicker.
+- **Keep edge optics local.** A weak background-only refraction/lensing cue may exist immediately around the contour, never through labels, icons, focus rings, or hit targets. Larger text-dense Glass regions such as the rail and Dock gain readability by using a more opaque regular base, not by adding a heavier outline. In opaque fallback, replace all optical edges with one tested `border.default`-equivalent boundary.
 - **Refraction is background-only.** A softly altered backdrop may appear to bend at the outer boundary, but text, icons, focus indicators and hit targets in the functional layer must never distort, move, or lose contrast. Do not simulate a lens by applying filters or transforms to the control content.
 - **Reflection is contextual, not decoration.** A faint reflected light/color response may react to actual backdrop changes or to a direct hover/press interaction. It must remain low contrast, be absent when it harms readability, and never appear as a persistent white shine, rainbow sheen, or autonomous sweep. A static CSS gradient is not sufficient evidence of Liquid Glass.
 - **Edge treatment is a boundary, not an outline style.** Use one quiet rim that communicates separation from content; avoid doubled strokes, glowing blue borders, and a separate glossy tile around every destination. The opaque fallback keeps an equivalent boundary using the standard border token.
@@ -83,7 +92,12 @@ For Web, reproduce the **functional hierarchy and perceptual cues**, not Apple p
 
 ### 3.7 Iconography
 
-Use one pinned Lucide version through the project wrapper. Default sizes are 16, 20 and 24px with consistent stroke width. Every icon-only control has an accessible name and tooltip where meaning is not universal. Do not use Emoji or AI-generated icons.
+Use the pinned Motro Icon Set through the project wrapper: a fixed Lucide geometric base with explicitly curated, same-concept filled, enclosed, or optically heavier variants. Do not import a second icon library, use Emoji, or use AI-generated icons.
+
+- **Default is not always a thin outline.** Use outline variants for ordinary toolbar, list, and text-adjacent actions. Use the curated same-concept filled, enclosed, or optically heavier treatment for selected global navigation, completion/attention states, and the member-tier mark when it improves recognition. The selected treatment is a semantic state, not a general decoration; it must preserve the same concept and optical footprint as the default. Do not manufacture a variant by arbitrarily filling an outline SVG in CSS.
+- **Sizes and weights:** 16px is for dense metadata and must not have an effective stroke below 1.75px; 20px is the standard UI icon; 24px is reserved for direct emphasis. Match icon weight to adjacent text, using a fuller visual weight beside 600 selected labels. Adjust optical padding for circles, narrow symbols, and badges when needed; do not rely solely on equal SVG boxes.
+- **Color and layers:** default to one tested foreground color. A meaningful multi-part symbol may use primary/secondary opacity layers or one brand-orange emphasis layer with neutral structure, but never generic rainbow fills, glass effects inside an icon, or decorative gradients. Text and icons in one control use the same semantic foreground role.
+- Every icon-only control has an accessible name and a tooltip where its meaning is not universal. Its target is at least 44px on touch devices, and focus/selected/disabled states remain identifiable without color alone.
 
 ## 4. Layout and navigation
 
@@ -155,12 +169,13 @@ Ant Design is allowed only in admin surfaces and must map to Motro tokens. Prefe
 
 ## 7. Accessibility
 
-- Semantic landmarks and headings have a logical hierarchy; every page has one `h1`.
-- All actions are keyboard reachable in a predictable order. Focus is visible on all backgrounds and restored appropriately after drawers/dialogs close.
+- Semantic landmarks and headings have a logical hierarchy; every page has one `h1` and a visible-on-focus “skip to main content” link. Heading anchors reserve scroll space below fixed Glass chrome.
+- All actions are keyboard reachable in a predictable order. Use native buttons for actions and links for navigation; do not turn generic containers into click targets. Focus is visible through `:focus-visible` on all backgrounds, never removed without an equivalent replacement, and restored appropriately after drawers/dialogs close.
 - Dialogs trap focus, have an accessible name, close by Escape when safe and return focus to the trigger.
 - Dynamic study feedback uses restrained live regions; do not announce both toast and page content redundantly.
 - Error summaries link to invalid fields. Tables include captions or programmatic labels and proper header associations.
 - Minimum pointer target is 44×44 CSS px on mobile. Zoom to 200% must not hide actions or require two-dimensional scrolling except data tables.
+- Touch controls use `touch-action: manipulation`; set the webkit tap highlight deliberately instead of relying on a browser default that conflicts with the material. Full-bleed Dock and header layouts account for `env(safe-area-inset-*)`.
 - Support text resizing and long English words, Chinese translations and user names without truncating essential meaning.
 
 ## 8. Content style
