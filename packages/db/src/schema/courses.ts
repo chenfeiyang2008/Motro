@@ -7,6 +7,7 @@ import {
   foreignKey,
   index,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -316,6 +317,8 @@ export const studySessions = pgTable(
 
 // 会话计划项（阶段 5 工单 03）：可恢复计划快照，非调度真相来源。
 // 真实约束在 0012 migration：position/session 唯一、item_kind/state CHECK、card 引用 learning_cards。
+// 0015 migration 追加支撑 review_events 关系一致性的唯一键：
+//   UNIQUE (session_id, id)、UNIQUE (id, card_id)——见下方 uniqueIndex 声明，与真实约束保持一致。
 export const studySessionItems = pgTable(
   "study_session_items",
   {
@@ -334,7 +337,65 @@ export const studySessionItems = pgTable(
   },
   (t) => [
     uniqueIndex("study_session_items_session_position_unique").on(t.sessionId, t.position),
+    uniqueIndex("study_session_items_session_id_id_unique").on(t.sessionId, t.id),
+    uniqueIndex("study_session_items_id_card_id_unique").on(t.id, t.cardId),
     index("study_session_items_session_id_idx").on(t.sessionId),
     index("study_session_items_card_id_idx").on(t.cardId),
+  ],
+);
+
+// 复习事件：学习者对单张卡提交一次评分的不可变事实（阶段 5 工单 04）。
+// 真实约束在 0014 migration：UNIQUE(user_id, client_event_id)、rating CHECK、
+// is_initial_review NOT NULL、UPDATE/DELETE 由触发器拒绝（不可变）、
+// state_before / state_after 为完整 JSON 快照（审计与重建依据）。不创建 XP/进度缓存/解锁表。
+// 0015 migration 追加复合外键保证关系一致性（事件引用的 session/item/card 必须属于同一条计划项）：
+//   (session_id, session_item_id) → study_session_items(session_id, id)；
+//   (session_item_id, card_id) → study_session_items(id, card_id)。
+// 见下方 foreignKey 声明，与真实约束保持一致。
+export const reviewEvents = pgTable(
+  "review_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => studySessions.id, { onDelete: "restrict" }),
+    sessionItemId: uuid("session_item_id")
+      .notNull()
+      .references(() => studySessionItems.id, { onDelete: "restrict" }),
+    cardId: uuid("card_id")
+      .notNull()
+      .references(() => learningCards.id, { onDelete: "restrict" }),
+    clientEventId: text("client_event_id").notNull(),
+    requestHash: text("request_hash").notNull(),
+    rating: text("rating").notNull(),
+    isInitialReview: boolean("is_initial_review").notNull(),
+    schedulerVersion: text("scheduler_version").notNull(),
+    schedulerParametersVersion: text("scheduler_parameters_version").notNull(),
+    stateBefore: jsonb("state_before").notNull(),
+    stateAfter: jsonb("state_after").notNull(),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }).notNull(),
+    responseJson: jsonb("response_json").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("review_events_user_client_event_unique").on(t.userId, t.clientEventId),
+    index("review_events_card_reviewed_idx").on(t.cardId, t.reviewedAt),
+    index("review_events_session_id_idx").on(t.sessionId),
+    index("review_events_session_item_idx").on(t.sessionItemId),
+    index("review_events_user_id_idx").on(t.userId),
+    index("review_events_card_is_initial_idx").on(t.cardId, t.isInitialReview),
+    // 关系一致性复合外键（0015 migration）：事件的 session/item 必须指向同一条计划项，
+    // 且 item 与卡必须匹配该计划项绑定的卡。
+    foreignKey({
+      columns: [t.sessionId, t.sessionItemId],
+      foreignColumns: [studySessionItems.sessionId, studySessionItems.id],
+    }),
+    foreignKey({
+      columns: [t.sessionItemId, t.cardId],
+      foreignColumns: [studySessionItems.id, studySessionItems.cardId],
+    }),
   ],
 );

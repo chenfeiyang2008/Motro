@@ -1600,6 +1600,123 @@
           "study"
         ]
       }
+    },
+    "/api/v1/study/sessions/{sessionId}/items/{itemId}/reveal": {
+      "post": {
+        "operationId": "StudyController_reveal",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "itemId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevealResultDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "展示确认：把当前 cursor 所指的 pending 计划项标记为 shown（幂等；重复 reveal 返回已 shown 状态，不产生 ReviewEvent/不改 FSRS/不推进 cursor）",
+        "tags": [
+          "study"
+        ]
+      }
+    },
+    "/api/v1/study/sessions/{sessionId}/reviews": {
+      "post": {
+        "operationId": "StudyController_submitReview",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitReviewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmitReviewResultDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "评分提交：对当前 cursor 所指、已 reveal 的计划项提交四级评分；幂等键去重（同请求重放，不同请求 409 IDEMPOTENCY_CONFLICT），事务内原子结算 FSRS 与 cursor",
+        "tags": [
+          "study"
+        ]
+      }
+    },
+    "/api/v1/study/progress": {
+      "get": {
+        "operationId": "StudyController_progress",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgressDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "进度概览（只读）：主课程 current release 各单元解锁 + 首测完成 + 稳定派生状态，由事件与快照完全重建",
+        "tags": [
+          "study"
+        ]
+      }
     }
   },
   "info": {
@@ -3459,6 +3576,436 @@
         "required": [
           "session",
           "items"
+        ]
+      },
+      "RevealResultDto": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "description": "计划项 ID"
+          },
+          "position": {
+            "type": "number",
+            "description": "计划项在会话内的 position"
+          },
+          "courseItemId": {
+            "type": "string",
+            "description": "计划项绑定的稳定课程词项 ID"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "shown",
+              "completed",
+              "skipped_by_server"
+            ],
+            "description": "reveal 后的计划项状态（应为 shown；幂等重放仍返回 shown）"
+          },
+          "itemKind": {
+            "type": "string",
+            "enum": [
+              "due_review",
+              "initial_review",
+              "new_learning"
+            ],
+            "description": "计划项分类"
+          },
+          "alreadyShown": {
+            "type": "boolean",
+            "description": "本次是否为幂等重放（true 表示该项已处于 shown）"
+          },
+          "isNewLearning": {
+            "type": "boolean",
+            "description": "是否为 new_learning（需确认学习面实际展示）"
+          }
+        },
+        "required": [
+          "itemId",
+          "position",
+          "courseItemId",
+          "state",
+          "itemKind",
+          "alreadyShown",
+          "isNewLearning"
+        ]
+      },
+      "SubmitReviewDto": {
+        "type": "object",
+        "properties": {
+          "sessionItemId": {
+            "type": "string",
+            "description": "会话计划项 ID（必须是当前 cursor 所指的 pending 项，且已 reveal）"
+          },
+          "cardId": {
+            "type": "string",
+            "description": "该计划项绑定的学习卡 ID（必须等于 item.card_id）"
+          },
+          "rating": {
+            "type": "string",
+            "enum": [
+              "again",
+              "hard",
+              "good",
+              "easy"
+            ],
+            "description": "四级评分"
+          },
+          "clientEventId": {
+            "type": "string",
+            "description": "客户端为「同一评分意图」生成的唯一 ID；重试复用同一 ID 以保证幂等"
+          }
+        },
+        "required": [
+          "sessionItemId",
+          "cardId",
+          "rating",
+          "clientEventId"
+        ]
+      },
+      "ReviewMemorySummaryDto": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "description": "评分后的记忆状态"
+          },
+          "stability": {
+            "type": "number",
+            "description": "FSRS 稳定性"
+          },
+          "difficulty": {
+            "type": "number",
+            "description": "FSRS 难度"
+          },
+          "scheduledDays": {
+            "type": "number",
+            "description": "预计间隔天数"
+          },
+          "dueAt": {
+            "type": "string",
+            "description": "下一次到期时间（服务器权威）"
+          },
+          "stateVersion": {
+            "type": "number",
+            "description": "状态版本（乐观并发计数）"
+          },
+          "schedulerVersion": {
+            "type": "string",
+            "description": "调度器版本"
+          },
+          "schedulerParametersVersion": {
+            "type": "string",
+            "description": "调度参数版本"
+          }
+        },
+        "required": [
+          "state",
+          "stability",
+          "difficulty",
+          "scheduledDays",
+          "dueAt",
+          "stateVersion",
+          "schedulerVersion",
+          "schedulerParametersVersion"
+        ]
+      },
+      "ReviewSessionItemStateDto": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "description": "计划项 ID"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "shown",
+              "completed",
+              "skipped_by_server"
+            ],
+            "description": "计划项状态（评分后将推进到 completed）"
+          }
+        },
+        "required": [
+          "itemId",
+          "state"
+        ]
+      },
+      "ReviewUnlockUnitDto": {
+        "type": "object",
+        "properties": {
+          "position": {
+            "type": "number",
+            "description": "单元 position"
+          },
+          "unlocked": {
+            "type": "boolean",
+            "description": "本单元是否已解锁"
+          },
+          "requiredItemCount": {
+            "type": "number",
+            "description": "本单元课程词项总数（current release 快照）"
+          },
+          "initialCompletedItemCount": {
+            "type": "number",
+            "description": "本单元已完成双向首测的词项数（含本次提交首测的投影）"
+          }
+        },
+        "required": [
+          "position",
+          "unlocked",
+          "requiredItemCount",
+          "initialCompletedItemCount"
+        ]
+      },
+      "ReviewUnlockStateDto": {
+        "type": "object",
+        "properties": {
+          "highestUnlockedUnit": {
+            "type": "number",
+            "description": "当前可学习（最高已解锁）的单元 position"
+          },
+          "units": {
+            "description": "current release 各单元派生解锁状态（按 position 升序）",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewUnlockUnitDto"
+            }
+          }
+        },
+        "required": [
+          "highestUnlockedUnit",
+          "units"
+        ]
+      },
+      "ReviewNextItemDto": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "object",
+            "description": "下一计划项 ID；会话完成时为空"
+          },
+          "position": {
+            "type": "object",
+            "description": "下一计划项 position"
+          },
+          "courseItemId": {
+            "type": "object",
+            "description": "下一计划项绑定的稳定课程词项 ID（安全摘要，无答案内容）"
+          },
+          "itemKind": {
+            "type": "string",
+            "enum": [
+              "due_review",
+              "initial_review",
+              "new_learning"
+            ],
+            "description": "下一计划项分类；会话完成时为 null"
+          }
+        },
+        "required": [
+          "itemId",
+          "position",
+          "courseItemId",
+          "itemKind"
+        ]
+      },
+      "SubmitReviewResultDto": {
+        "type": "object",
+        "properties": {
+          "idempotentReplay": {
+            "type": "boolean",
+            "description": "本次是否为幂等重放（true=已存在同幂等键事件的回放）"
+          },
+          "reviewEventId": {
+            "type": "string",
+            "description": "ReviewEvent ID"
+          },
+          "rating": {
+            "type": "string",
+            "enum": [
+              "again",
+              "hard",
+              "good",
+              "easy"
+            ],
+            "description": "接受的评分"
+          },
+          "isInitialReview": {
+            "type": "boolean",
+            "description": "本事件是否被记录为首测（该方向首次有效评分）"
+          },
+          "memorySummary": {
+            "description": "FSRS 更新后的记忆摘要",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReviewMemorySummaryDto"
+              }
+            ]
+          },
+          "sessionItem": {
+            "description": "当前会话计划项状态",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReviewSessionItemStateDto"
+              }
+            ]
+          },
+          "newCursor": {
+            "type": "object",
+            "description": "新 cursor（下一个待展示项的 position；会话完成时为 null）"
+          },
+          "sessionCompleted": {
+            "type": "boolean",
+            "description": "会话是否已完成"
+          },
+          "unlock": {
+            "description": "由当前事实派生的单元解锁状态",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReviewUnlockStateDto"
+              }
+            ]
+          },
+          "next": {
+            "description": "若有下一项，返回下一项安全摘要；无则留空",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReviewNextItemDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "idempotentReplay",
+          "reviewEventId",
+          "rating",
+          "isInitialReview",
+          "memorySummary",
+          "sessionItem",
+          "newCursor",
+          "sessionCompleted",
+          "unlock",
+          "next"
+        ]
+      },
+      "ProgressItemStateDto": {
+        "type": "object",
+        "properties": {
+          "courseItemId": {
+            "type": "string",
+            "description": "稳定课程词项 ID"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "en_to_zh",
+              "zh_to_en"
+            ],
+            "description": "方向"
+          },
+          "initialReviewed": {
+            "type": "boolean",
+            "description": "该方向是否已完成首测"
+          },
+          "scheduledDays": {
+            "type": "number",
+            "description": "最近一次有效评分后的间隔天数（new 卡为 0）"
+          },
+          "stable": {
+            "type": "boolean",
+            "description": "是否已稳定（两方向间隔都 >= 21）"
+          },
+          "state": {
+            "type": "string",
+            "description": "卡状态"
+          }
+        },
+        "required": [
+          "courseItemId",
+          "direction",
+          "initialReviewed",
+          "scheduledDays",
+          "stable",
+          "state"
+        ]
+      },
+      "ProgressUnitDto": {
+        "type": "object",
+        "properties": {
+          "position": {
+            "type": "number",
+            "description": "单元 position"
+          },
+          "title": {
+            "type": "string",
+            "description": "单元标题（current release 快照）"
+          },
+          "unlocked": {
+            "type": "boolean",
+            "description": "本单元是否已解锁"
+          },
+          "itemCount": {
+            "type": "number",
+            "description": "本单元课程词项总数"
+          },
+          "initialCompletedItemCount": {
+            "type": "number",
+            "description": "本单元已完成双向首测的词项数"
+          },
+          "cards": {
+            "description": "本单元各方向卡的首测/稳定派生状态",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProgressItemStateDto"
+            }
+          }
+        },
+        "required": [
+          "position",
+          "title",
+          "unlocked",
+          "itemCount",
+          "initialCompletedItemCount",
+          "cards"
+        ]
+      },
+      "ProgressDto": {
+        "type": "object",
+        "properties": {
+          "courseId": {
+            "type": "string",
+            "description": "主课程 ID"
+          },
+          "releaseId": {
+            "type": "string",
+            "description": "主课程当前版本 release ID"
+          },
+          "releaseNumber": {
+            "type": "number",
+            "description": "主课程当前版本号"
+          },
+          "highestUnlockedUnit": {
+            "type": "number",
+            "description": "当前最高已解锁单元 position"
+          },
+          "units": {
+            "description": "按 position 升序的单元进度",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProgressUnitDto"
+            }
+          }
+        },
+        "required": [
+          "courseId",
+          "releaseId",
+          "releaseNumber",
+          "highestUnlockedUnit",
+          "units"
         ]
       }
     }

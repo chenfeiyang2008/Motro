@@ -371,12 +371,16 @@ describe("learning cards and exposures", () => {
     const isoConfig = { ...config, database: dbName };
     try {
       const applied = await migrate(isoConfig, MIGRATIONS_DIR);
-      expect(applied.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
+      expect(applied.map((m) => m.version)).toEqual([
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+      ]);
 
       const verify = createPool({ ...isoConfig, max: 1 });
       try {
         const recorded = await listAppliedMigrations(isoConfig);
-        expect(recorded.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
+        expect(recorded.map((m) => m.version)).toEqual([
+          1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+        ]);
 
         const tables = await verify.query<{ tablename: string }>(
           `SELECT tablename FROM pg_tables
@@ -858,15 +862,15 @@ describe("learning cards and exposures", () => {
     }
   });
 
-  it("学习展示 / 学习卡不产生 review_events、XP、排行榜等游戏数据；0012 会话表存在", async () => {
+  it("学习展示 / 学习卡不产生 review_events、XP、排行榜等游戏数据；0012 会话表与 0014 事件表存在", async () => {
     const pool = createPool({ ...config, max: 1 });
     try {
-      // 学习展示/卡不产生评分事件、FSRS 现状表、XP、挑战等游戏计分表。
+      // 学习展示/卡不产生 XP、挑战等游戏计分表（阶段 5 不实现）。
       const tables = await pool.query<{ tablename: string }>(
         `SELECT tablename FROM pg_tables
          WHERE schemaname = 'public'
            AND tablename IN (
-             'review_events','card_reviews','memory_states','fsrs_states',
+             'card_reviews','memory_states','fsrs_states',
              'xp_entries','xp_ledger','daily_plans',
              'game_rule_sets','badges','user_levels','streak_days','streak_protections',
              'quest_instances','quest_progress_events','challenge_weeks','quiz_attempts',
@@ -877,15 +881,25 @@ describe("learning cards and exposures", () => {
       expect(tables.rows).toEqual([]);
 
       // 工单 03 已建立 study_sessions / study_session_items（会话与计划项快照）。
+      // 工单 04 已建立 review_events（不可变评分事实表）。
       const sessions = await pool.query<{ tablename: string }>(
         `SELECT tablename FROM pg_tables
          WHERE schemaname = 'public'
-           AND tablename IN ('study_sessions','study_session_items')`,
+           AND tablename IN ('study_sessions','study_session_items','review_events')`,
       );
       expect(sessions.rows.map((r) => r.tablename).sort()).toEqual([
+        "review_events",
         "study_session_items",
         "study_sessions",
       ]);
+
+      // 学习展示本身不产生任何 review event（对本测试用户无任何事件行；其他评分测试各自隔离）。
+      const events = await pool.query<{ n: string }>(
+        `SELECT count(*)::text AS n FROM review_events
+         WHERE user_id = (SELECT id FROM users WHERE username = $1)`,
+        [learnerAUsername],
+      );
+      expect(Number(events.rows[0]?.n ?? 0)).toBe(0);
     } finally {
       await pool.end();
     }

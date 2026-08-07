@@ -229,12 +229,16 @@ describe("phase 4 closeout", () => {
 
     const isoConfig = { ...config, database: dbName };
     const applied = await migrate(isoConfig, MIGRATIONS_DIR);
-    expect(applied.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
+    expect(applied.map((m) => m.version)).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+    ]);
 
     const verify = createPool({ ...isoConfig, max: 1 });
     try {
       const recorded = await listAppliedMigrations(isoConfig);
-      expect(recorded.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
+      expect(recorded.map((m) => m.version)).toEqual([
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+      ]);
 
       const tables = await verify.query<{ tablename: string }>(
         `SELECT tablename FROM pg_tables
@@ -242,7 +246,8 @@ describe("phase 4 closeout", () => {
            AND tablename IN ('users','auth_sessions','audit_events','lexical_entries',
              'courses','course_drafts','draft_units','draft_course_items',
              'course_releases','released_units','released_course_items','course_enrollments',
-             'learning_cards','learning_exposures','study_sessions','study_session_items')`,
+             'learning_cards','learning_exposures','study_sessions','study_session_items',
+             'review_events')`,
       );
       expect(tables.rows.map((r) => r.tablename).sort()).toEqual(
         [
@@ -260,6 +265,7 @@ describe("phase 4 closeout", () => {
           "course_enrollments",
           "learning_cards",
           "learning_exposures",
+          "review_events",
           "study_session_items",
           "study_sessions",
         ].sort(),
@@ -775,13 +781,13 @@ describe("phase 4 closeout", () => {
   it("没有学习核心业务数据表（学习卡/展示/会话表存在；review_events / FSRS / XP / 挑战表不存在）", async () => {
     const pool = createPool({ ...config, max: 1 });
     try {
-      // 阶段 5 工单 01/02 已引入 learning_cards / learning_exposures；工单 03 引入 study_sessions。
-      // 其余学习核心表（评分事件、FSRS 状态、XP、挑战）仍不存在。
+      // 阶段 5 工单 01/02 已引入 learning_cards / learning_exposures；工单 03 引入 study_sessions；
+      // 工单 04 引入 review_events（不可变评分事件）。其余学习分（FSRS 状态、XP、挑战）仍不存在。
       const tables = await pool.query<{ tablename: string }>(
         `SELECT tablename FROM pg_tables
          WHERE schemaname = 'public'
            AND tablename IN (
-             'review_events','card_reviews','memory_states','fsrs_states',
+             'card_reviews','memory_states','fsrs_states',
              'xp_entries','xp_ledger','daily_plans',
              'challenge_quizzes','quiz_questions','quiz_responses','challenge_points',
              'weekly_challenge_boards','game_rule_sets','badges','user_levels'

@@ -10,3 +10,4 @@ export * from "./enrollment.js";
 export * from "./learning-card.js";
 export * from "./scheduling/index.js";
 export * from "./planning/index.js";
+export * from "./progress.js";

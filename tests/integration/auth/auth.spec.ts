@@ -280,12 +280,21 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")("auth inte
       payload: { username, password: "disable-pass-12345" },
     });
 
-    const list = await admin.req("GET", "/api/v1/admin/users", {});
-    const users = (list.json() as { items: { id: string; username: string }[] }).items;
-    const target = users.find((u) => u.username === username);
-    expect(target).toBeTruthy();
+    // 用数据库按 username 直查目标 id：admin 列表按 created_at ASC 截断 100 行，
+    // 共享库累积用户超 100 后新用户不在首页，列表接口并非本用例目标。
+    const pool = createPool({ ...config, max: 1 });
+    let targetId: string;
+    try {
+      const row = await pool.query<{ id: string }>("SELECT id FROM users WHERE username = $1", [
+        username,
+      ]);
+      expect(row.rows[0]).toBeTruthy();
+      targetId = row.rows[0]!.id;
+    } finally {
+      await pool.end();
+    }
 
-    const disable = await admin.req("POST", `/api/v1/admin/users/${target!.id}/disable`, {});
+    const disable = await admin.req("POST", `/api/v1/admin/users/${targetId}/disable`, {});
     expect(disable.statusCode).toBe(200);
     const me = await client.req("GET", "/api/v1/auth/me", {});
     expect(me.statusCode).toBe(401);
@@ -302,10 +311,20 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")("auth inte
       payload: { currentPassword: otp, newPassword: "reset-pass-12345" },
     });
 
-    const list = await admin.req("GET", "/api/v1/admin/users", {});
-    const users = (list.json() as { items: { id: string; username: string }[] }).items;
-    const target = users.find((u) => u.username === username);
-    const reset = await admin.req("POST", `/api/v1/admin/users/${target!.id}/reset-password`, {
+    // 同停用用例：admin 列表截断 100 行，直查数据库取目标 id。
+    const pool = createPool({ ...config, max: 1 });
+    let targetId: string;
+    try {
+      const row = await pool.query<{ id: string }>("SELECT id FROM users WHERE username = $1", [
+        username,
+      ]);
+      expect(row.rows[0]).toBeTruthy();
+      targetId = row.rows[0]!.id;
+    } finally {
+      await pool.end();
+    }
+
+    const reset = await admin.req("POST", `/api/v1/admin/users/${targetId}/reset-password`, {
       headers: { "idempotency-key": `reset-${username}` },
     });
     expect(reset.statusCode).toBe(200);

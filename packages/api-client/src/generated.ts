@@ -572,6 +572,57 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/study/sessions/{sessionId}/items/{itemId}/reveal": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 展示确认：把当前 cursor 所指的 pending 计划项标记为 shown（幂等；重复 reveal 返回已 shown 状态，不产生 ReviewEvent/不改 FSRS/不推进 cursor） */
+    post: operations["StudyController_reveal"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/study/sessions/{sessionId}/reviews": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 评分提交：对当前 cursor 所指、已 reveal 的计划项提交四级评分；幂等键去重（同请求重放，不同请求 409 IDEMPOTENCY_CONFLICT），事务内原子结算 FSRS 与 cursor */
+    post: operations["StudyController_submitReview"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/study/progress": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 进度概览（只读）：主课程 current release 各单元解锁 + 首测完成 + 稳定派生状态，由事件与快照完全重建 */
+    get: operations["StudyController_progress"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1235,6 +1286,165 @@ export interface components {
       session: components["schemas"]["StudySessionDto"];
       /** @description 按 position 排序的计划项 */
       items: components["schemas"]["StudySessionItemDto"][];
+    };
+    RevealResultDto: {
+      /** @description 计划项 ID */
+      itemId: string;
+      /** @description 计划项在会话内的 position */
+      position: number;
+      /** @description 计划项绑定的稳定课程词项 ID */
+      courseItemId: string;
+      /**
+       * @description reveal 后的计划项状态（应为 shown；幂等重放仍返回 shown）
+       * @enum {string}
+       */
+      state: "pending" | "shown" | "completed" | "skipped_by_server";
+      /**
+       * @description 计划项分类
+       * @enum {string}
+       */
+      itemKind: "due_review" | "initial_review" | "new_learning";
+      /** @description 本次是否为幂等重放（true 表示该项已处于 shown） */
+      alreadyShown: boolean;
+      /** @description 是否为 new_learning（需确认学习面实际展示） */
+      isNewLearning: boolean;
+    };
+    SubmitReviewDto: {
+      /** @description 会话计划项 ID（必须是当前 cursor 所指的 pending 项，且已 reveal） */
+      sessionItemId: string;
+      /** @description 该计划项绑定的学习卡 ID（必须等于 item.card_id） */
+      cardId: string;
+      /**
+       * @description 四级评分
+       * @enum {string}
+       */
+      rating: "again" | "hard" | "good" | "easy";
+      /** @description 客户端为「同一评分意图」生成的唯一 ID；重试复用同一 ID 以保证幂等 */
+      clientEventId: string;
+    };
+    ReviewMemorySummaryDto: {
+      /** @description 评分后的记忆状态 */
+      state: string;
+      /** @description FSRS 稳定性 */
+      stability: number;
+      /** @description FSRS 难度 */
+      difficulty: number;
+      /** @description 预计间隔天数 */
+      scheduledDays: number;
+      /** @description 下一次到期时间（服务器权威） */
+      dueAt: string;
+      /** @description 状态版本（乐观并发计数） */
+      stateVersion: number;
+      /** @description 调度器版本 */
+      schedulerVersion: string;
+      /** @description 调度参数版本 */
+      schedulerParametersVersion: string;
+    };
+    ReviewSessionItemStateDto: {
+      /** @description 计划项 ID */
+      itemId: string;
+      /**
+       * @description 计划项状态（评分后将推进到 completed）
+       * @enum {string}
+       */
+      state: "pending" | "shown" | "completed" | "skipped_by_server";
+    };
+    ReviewUnlockUnitDto: {
+      /** @description 单元 position */
+      position: number;
+      /** @description 本单元是否已解锁 */
+      unlocked: boolean;
+      /** @description 本单元课程词项总数（current release 快照） */
+      requiredItemCount: number;
+      /** @description 本单元已完成双向首测的词项数（含本次提交首测的投影） */
+      initialCompletedItemCount: number;
+    };
+    ReviewUnlockStateDto: {
+      /** @description 当前可学习（最高已解锁）的单元 position */
+      highestUnlockedUnit: number;
+      /** @description current release 各单元派生解锁状态（按 position 升序） */
+      units: components["schemas"]["ReviewUnlockUnitDto"][];
+    };
+    ReviewNextItemDto: {
+      /** @description 下一计划项 ID；会话完成时为空 */
+      itemId: Record<string, never>;
+      /** @description 下一计划项 position */
+      position: Record<string, never>;
+      /** @description 下一计划项绑定的稳定课程词项 ID（安全摘要，无答案内容） */
+      courseItemId: Record<string, never>;
+      /**
+       * @description 下一计划项分类；会话完成时为 null
+       * @enum {string}
+       */
+      itemKind: "due_review" | "initial_review" | "new_learning";
+    };
+    SubmitReviewResultDto: {
+      /** @description 本次是否为幂等重放（true=已存在同幂等键事件的回放） */
+      idempotentReplay: boolean;
+      /** @description ReviewEvent ID */
+      reviewEventId: string;
+      /**
+       * @description 接受的评分
+       * @enum {string}
+       */
+      rating: "again" | "hard" | "good" | "easy";
+      /** @description 本事件是否被记录为首测（该方向首次有效评分） */
+      isInitialReview: boolean;
+      /** @description FSRS 更新后的记忆摘要 */
+      memorySummary: components["schemas"]["ReviewMemorySummaryDto"];
+      /** @description 当前会话计划项状态 */
+      sessionItem: components["schemas"]["ReviewSessionItemStateDto"];
+      /** @description 新 cursor（下一个待展示项的 position；会话完成时为 null） */
+      newCursor: Record<string, never>;
+      /** @description 会话是否已完成 */
+      sessionCompleted: boolean;
+      /** @description 由当前事实派生的单元解锁状态 */
+      unlock: components["schemas"]["ReviewUnlockStateDto"];
+      /** @description 若有下一项，返回下一项安全摘要；无则留空 */
+      next: components["schemas"]["ReviewNextItemDto"];
+    };
+    ProgressItemStateDto: {
+      /** @description 稳定课程词项 ID */
+      courseItemId: string;
+      /**
+       * @description 方向
+       * @enum {string}
+       */
+      direction: "en_to_zh" | "zh_to_en";
+      /** @description 该方向是否已完成首测 */
+      initialReviewed: boolean;
+      /** @description 最近一次有效评分后的间隔天数（new 卡为 0） */
+      scheduledDays: number;
+      /** @description 是否已稳定（两方向间隔都 >= 21） */
+      stable: boolean;
+      /** @description 卡状态 */
+      state: string;
+    };
+    ProgressUnitDto: {
+      /** @description 单元 position */
+      position: number;
+      /** @description 单元标题（current release 快照） */
+      title: string;
+      /** @description 本单元是否已解锁 */
+      unlocked: boolean;
+      /** @description 本单元课程词项总数 */
+      itemCount: number;
+      /** @description 本单元已完成双向首测的词项数 */
+      initialCompletedItemCount: number;
+      /** @description 本单元各方向卡的首测/稳定派生状态 */
+      cards: components["schemas"]["ProgressItemStateDto"][];
+    };
+    ProgressDto: {
+      /** @description 主课程 ID */
+      courseId: string;
+      /** @description 主课程当前版本 release ID */
+      releaseId: string;
+      /** @description 主课程当前版本号 */
+      releaseNumber: number;
+      /** @description 当前最高已解锁单元 position */
+      highestUnlockedUnit: number;
+      /** @description 按 position 升序的单元进度 */
+      units: components["schemas"]["ProgressUnitDto"][];
     };
   };
   responses: never;
@@ -2263,6 +2473,72 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["StudySessionDetailDto"];
+        };
+      };
+    };
+  };
+  StudyController_reveal: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        sessionId: string;
+        itemId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RevealResultDto"];
+        };
+      };
+    };
+  };
+  StudyController_submitReview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        sessionId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SubmitReviewDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SubmitReviewResultDto"];
+        };
+      };
+    };
+  };
+  StudyController_progress: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProgressDto"];
         };
       };
     };

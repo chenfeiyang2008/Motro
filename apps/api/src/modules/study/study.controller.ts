@@ -7,9 +7,11 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
   Query,
   Req,
+  Res,
   UseGuards,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
@@ -20,11 +22,20 @@ import {
   LearningCardListQueryDto,
   LearningCardSummaryDto,
   LearningExposureDto,
+  ProgressDto,
+  RevealResultDto,
   StudySessionDetailDto,
   StudySessionDto,
+  SubmitReviewDto,
+  SubmitReviewResultDto,
   TodayDto,
 } from "./dto.js";
-import { StudyService } from "./study.service.js";
+import {
+  IdempotencyConflictError,
+  ReviewItemNotFoundError,
+  ReviewValidationError,
+  StudyService,
+} from "./study.service.js";
 
 @ApiTags("study")
 @Controller("study")
@@ -96,5 +107,91 @@ export class StudyController {
   @ApiOkResponse({ type: StudySessionDetailDto })
   activeDetail(@Req() req: AuthenticatedRequest) {
     return this.studyService.getActiveSessionDetail(req.user.id);
+  }
+
+  @Post("sessions/:sessionId/items/:itemId/reveal")
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      "展示确认：把当前 cursor 所指的 pending 计划项标记为 shown（幂等；重复 reveal 返回已 shown 状态，不产生 ReviewEvent/不改 FSRS/不推进 cursor）",
+  })
+  @ApiOkResponse({ type: RevealResultDto })
+  async reveal(
+    @Req() req: AuthenticatedRequest,
+    @Param("sessionId") sessionId: string,
+    @Param("itemId") itemId: string,
+  ) {
+    return await this.studyService.revealItem(req.user.id, sessionId, itemId);
+  }
+
+  @Post("sessions/:sessionId/reviews")
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      "评分提交：对当前 cursor 所指、已 reveal 的计划项提交四级评分；幂等键去重（同请求重放，不同请求 409 IDEMPOTENCY_CONFLICT），事务内原子结算 FSRS 与 cursor",
+  })
+  @ApiOkResponse({ type: SubmitReviewResultDto })
+  async submitReview(
+    @Req() req: AuthenticatedRequest,
+    @Param("sessionId") sessionId: string,
+    @Body() dto: SubmitReviewDto,
+    @Res({ passthrough: true }) res: import("fastify").FastifyReply,
+  ) {
+    try {
+      return await this.studyService.submitReview(req.user.id, sessionId, {
+        sessionItemId: dto.sessionItemId,
+        cardId: dto.cardId,
+        rating: dto.rating,
+        clientEventId: dto.clientEventId,
+      });
+    } catch (err) {
+      if (err instanceof IdempotencyConflictError) {
+        res.status(HttpStatus.CONFLICT);
+        return {
+          error: {
+            code: "IDEMPOTENCY_CONFLICT",
+            message: "幂等键已被其他评分占用，请使用不同 clientEventId",
+            requestId: req.id,
+            retryable: false,
+          },
+        };
+      }
+      if (err instanceof ReviewValidationError) {
+        res.status(HttpStatus.UNPROCESSABLE_ENTITY);
+        return {
+          error: {
+            code: "VALIDATION_FAILED",
+            message: err.message,
+            requestId: req.id,
+            retryable: false,
+          },
+        };
+      }
+      if (err instanceof ReviewItemNotFoundError) {
+        res.status(HttpStatus.NOT_FOUND);
+        return {
+          error: {
+            code: "REVIEW_ITEM_NOT_FOUND",
+            message: err.message,
+            requestId: req.id,
+            retryable: false,
+          },
+        };
+      }
+      throw err;
+    }
+  }
+
+  @Get("progress")
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      "进度概览（只读）：主课程 current release 各单元解锁 + 首测完成 + 稳定派生状态，由事件与快照完全重建",
+  })
+  @ApiOkResponse({ type: ProgressDto })
+  progress(@Req() req: AuthenticatedRequest) {
+    return this.studyService.getProgress(req.user.id);
   }
 }
