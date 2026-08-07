@@ -62,15 +62,26 @@ Liquid Glass is a functional navigation/control layer, not a translucent treatme
 - Provide an opaque `bg.surface` fallback for browsers without `backdrop-filter`, `prefers-reduced-transparency: reduce`, and `prefers-contrast: more`. The fallback preserves the same labels, selected state, focus ring, layout and 44px target sizes; never make muted text by reducing its opacity.
 - Test Glass against the resting and scrolling content under it, including the most colorful permitted course content. Never accept a material solely because it looks correct on an empty canvas.
 
-### 3.5 Glass component states
+### 3.5 Glass optical rendering
+
+For Web, reproduce the **functional hierarchy and perceptual cues**, not Apple platform compositor internals. A valid regular Glass region is composed in this order: (1) actual backdrop participation, with blur only where supported; (2) an adaptive translucent base that preserves label contrast; (3) a subtle inner/outer edge that distinguishes the boundary; and (4) a restrained elevation shadow. These cues together express the optical behavior Apple describes as background refraction, reflected ambient color/light, and edge lensing.
+
+- **Refraction is background-only.** A softly altered backdrop may appear to bend at the outer boundary, but text, icons, focus indicators and hit targets in the functional layer must never distort, move, or lose contrast. Do not simulate a lens by applying filters or transforms to the control content.
+- **Reflection is contextual, not decoration.** A faint reflected light/color response may react to actual backdrop changes or to a direct hover/press interaction. It must remain low contrast, be absent when it harms readability, and never appear as a persistent white shine, rainbow sheen, or autonomous sweep. A static CSS gradient is not sufficient evidence of Liquid Glass.
+- **Edge treatment is a boundary, not an outline style.** Use one quiet rim that communicates separation from content; avoid doubled strokes, glowing blue borders, and a separate glossy tile around every destination. The opaque fallback keeps an equivalent boundary using the standard border token.
+- **No browser-costly imitation.** Do not animate `filter`, `backdrop-filter`, or a large full-screen blur on every pointer or scroll frame. Limit simultaneous Glass regions, keep the Dock/rail/header as one group, and animate only composited state properties when possible. If the material cannot remain responsive on a target device, retain the semantic grouping with the opaque fallback.
+
+### 3.6 Glass component states
 
 - A Glass control exposes real `default`, `hover` (pointer-capable devices only), `focus-visible`, `pressed`, `selected`, and `disabled` states. The focus indication must be independently visible; do not use a brighter Glass rim as the only keyboard-focus cue.
 - Selected navigation combines brand color with a semantic label/icon state or visible indicator. The selected state must remain identifiable in the opaque fallback and without color perception.
 - Keep labels and icons in tested high-contrast foreground colors. Do not choose a material or label color just because it looks right over one screenshot; the background and accessibility preferences can alter material appearance.
 - In a compact toolbar, use conventional controls and concentric radii relative to the containing Glass region. Do not approximate an Apple control by adding extra glossy outlines, ornamental highlights, or competing colored buttons.
-- Glass may morph subtly during a user-initiated control activation or navigation selection. The transition must be 120–220ms, interruptible, and removed under reduced motion; it must never delay an action or become a looping effect.
+- Glass may morph subtly during a user-initiated control activation or navigation selection. Within one related group, a selected item may continuously reshape into its destination or expand into its contextual menu; unrelated controls never melt together. The transition must be 120–220ms, interruptible, and removed under reduced motion; it must never delay an action or become a looping effect.
+- Press feedback is shorter than a navigation transition and does not bounce. It may slightly change the material's perceived depth or edge response, but must preserve the control's layout, pointer target, label baseline and keyboard focus location.
+- Test motion at normal scrolling speed and repeated keyboard selection. It must not stutter, trigger repeated layout shifts, or leave a partially morphed state when an interaction is interrupted.
 
-### 3.6 Iconography
+### 3.7 Iconography
 
 Use one pinned Lucide version through the project wrapper. Default sizes are 16, 20 and 24px with consistent stroke width. Every icon-only control has an accessible name and tooltip where meaning is not universal. Do not use Emoji or AI-generated icons.
 
@@ -140,6 +151,7 @@ Ant Design is allowed only in admin surfaces and must map to Motro tokens. Prefe
 - Under `prefers-reduced-motion: reduce`, remove non-essential movement and keep immediate state changes.
 - Under `prefers-reduced-transparency: reduce`, `prefers-contrast: more`, or missing backdrop support, replace Glass with opaque surfaces; never merely lower text opacity or remove an edge.
 - A scroll edge may increase functional separation of a Glass header or Dock when content passes behind it, but it must not obscure progress, mutate layout, or create a decorative animated gradient.
+- For an eligible Glass group, use one continuous navigation-selection or contextual-menu transition rather than several independent fades. Keep press feedback shorter than selection motion; do not animate backdrop filters continuously to manufacture smoothness.
 
 ## 7. Accessibility
 
@@ -169,5 +181,6 @@ For every key surface at 390/768/1440px:
 3. Run keyboard-only and screen-reader spot checks; verify focus and reduced motion.
 4. Run Impeccable `critique`, then `distill` or `quieter`, then `polish`, without enabling `live`, hooks, image generation or external agents.
 5. Run Web Design Guidelines review and resolve findings or document intentional exceptions.
-6. For every Glass region, test resting and scrolling backgrounds (including the strongest permitted content color), unsupported-backdrop fallback, reduced transparency and increased contrast; verify labels, focus rings, selected states, pointer/keyboard states and target sizes remain AA-compliant.
-7. Update screenshot baselines only after a human accepts the intended visual change.
+6. For every Glass region, test resting and scrolling backgrounds (including the strongest permitted content color), unsupported-backdrop fallback, reduced transparency and increased contrast; verify labels, focus rings, selected states, pointer/keyboard states and target sizes remain AA-compliant. Confirm that any reflection/refraction cue is background-only, low-contrast, and absent when the fallback is active.
+7. Test representative direct interactions at normal scroll speed and with repeated keyboard activation. Verify that Glass transitions are interruptible, do not cause layout shifts or dropped frames, and fully reduce to immediate state changes when motion is reduced.
+8. Update screenshot baselines only after a human accepts the intended visual change.
