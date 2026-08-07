@@ -359,7 +359,7 @@ describe("learning cards and exposures", () => {
     return { statusCode: res.statusCode, body: res.json() as ExposureBody };
   }
 
-  it("0001–0011 migration 从空库顺序应用（一次性隔离数据库）：learning_cards / learning_exposures + 唯一约束 + 展示不可变触发器", async () => {
+  it("0001–0013 migration 从空库顺序应用（一次性隔离数据库）：learning_cards / learning_exposures + 唯一约束 + 展示不可变触发器", async () => {
     const dbName = `motro_lc_${Date.now().toString(36)}_${randomBytes(2).toString("hex")}`;
     const adminPool = createPool({ ...config, database: "postgres", max: 1 });
     try {
@@ -371,12 +371,12 @@ describe("learning cards and exposures", () => {
     const isoConfig = { ...config, database: dbName };
     try {
       const applied = await migrate(isoConfig, MIGRATIONS_DIR);
-      expect(applied.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+      expect(applied.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
 
       const verify = createPool({ ...isoConfig, max: 1 });
       try {
         const recorded = await listAppliedMigrations(isoConfig);
-        expect(recorded.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+        expect(recorded.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
 
         const tables = await verify.query<{ tablename: string }>(
           `SELECT tablename FROM pg_tables
@@ -858,15 +858,16 @@ describe("learning cards and exposures", () => {
     }
   });
 
-  it("学习展示 / 学习卡不产生 review_events、XP 或排行榜等学习业务数据", async () => {
+  it("学习展示 / 学习卡不产生 review_events、XP、排行榜等游戏数据；0012 会话表存在", async () => {
     const pool = createPool({ ...config, max: 1 });
     try {
+      // 学习展示/卡不产生评分事件、FSRS 现状表、XP、挑战等游戏计分表。
       const tables = await pool.query<{ tablename: string }>(
         `SELECT tablename FROM pg_tables
          WHERE schemaname = 'public'
            AND tablename IN (
              'review_events','card_reviews','memory_states','fsrs_states',
-             'xp_entries','xp_ledger','daily_plans','study_sessions','study_session_items',
+             'xp_entries','xp_ledger','daily_plans',
              'game_rule_sets','badges','user_levels','streak_days','streak_protections',
              'quest_instances','quest_progress_events','challenge_weeks','quiz_attempts',
              'quiz_question_snapshots','quiz_responses','challenge_score_events',
@@ -874,6 +875,17 @@ describe("learning cards and exposures", () => {
            )`,
       );
       expect(tables.rows).toEqual([]);
+
+      // 工单 03 已建立 study_sessions / study_session_items（会话与计划项快照）。
+      const sessions = await pool.query<{ tablename: string }>(
+        `SELECT tablename FROM pg_tables
+         WHERE schemaname = 'public'
+           AND tablename IN ('study_sessions','study_session_items')`,
+      );
+      expect(sessions.rows.map((r) => r.tablename).sort()).toEqual([
+        "study_session_items",
+        "study_sessions",
+      ]);
     } finally {
       await pool.end();
     }

@@ -4,6 +4,7 @@
 import {
   boolean,
   doublePrecision,
+  foreignKey,
   index,
   integer,
   pgTable,
@@ -271,5 +272,69 @@ export const learningExposures = pgTable(
     uniqueIndex("learning_exposures_user_item_unique").on(t.userId, t.courseItemId),
     index("learning_exposures_user_lexical_idx").on(t.userId, t.lexicalEntryId),
     index("learning_exposures_course_item_idx").on(t.courseItemId),
+  ],
+);
+
+// 每日计划学习会话（阶段 5 工单 03）。
+// 真实约束在 0012 migration：状态 CHECK、预算 1–120、partial unique (user_id) WHERE active、
+// release_id 冻结创建时刻的 current release、plan_rule_version 冻结计划规则。
+// 0013 migration 追加复合外键 (course_id, release_id) → course_releases(course_id, id)，
+// 禁止跨课程 release 快照（见下方 foreignKey 声明，与真实约束保持一致）。
+export const studySessions = pgTable(
+  "study_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    courseId: uuid("course_id")
+      .notNull()
+      .references(() => courses.id, { onDelete: "restrict" }),
+    releaseId: uuid("release_id")
+      .notNull()
+      .references(() => courseReleases.id, { onDelete: "restrict" }),
+    status: text("status").notNull().default("active"),
+    dailyBudgetMinutes: integer("daily_budget_minutes").notNull(),
+    planRuleVersion: text("plan_rule_version").notNull(),
+    cursor: integer("cursor").notNull().default(1),
+    plannedAt: timestamp("planned_at", { withTimezone: true }).notNull().defaultNow(),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("study_sessions_user_id_idx").on(t.userId),
+    index("study_sessions_release_id_idx").on(t.releaseId),
+    // 复合外键：会话的 (course_id, release_id) 必须指向同一课程的 release（0013 migration）。
+    foreignKey({
+      columns: [t.courseId, t.releaseId],
+      foreignColumns: [courseReleases.courseId, courseReleases.id],
+    }),
+  ],
+);
+
+// 会话计划项（阶段 5 工单 03）：可恢复计划快照，非调度真相来源。
+// 真实约束在 0012 migration：position/session 唯一、item_kind/state CHECK、card 引用 learning_cards。
+export const studySessionItems = pgTable(
+  "study_session_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => studySessions.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    cardId: uuid("card_id")
+      .notNull()
+      .references(() => learningCards.id, { onDelete: "restrict" }),
+    courseItemId: uuid("course_item_id").notNull(),
+    itemKind: text("item_kind").notNull(),
+    state: text("state").notNull().default("pending"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("study_session_items_session_position_unique").on(t.sessionId, t.position),
+    index("study_session_items_session_id_idx").on(t.sessionId),
+    index("study_session_items_card_id_idx").on(t.cardId),
   ],
 );

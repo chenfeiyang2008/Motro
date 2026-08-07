@@ -521,6 +521,57 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/study/today": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 今日概览：主课程、预算、计划候选数（due/initial/new）、是否有 active 会话、是否无任务（只读） */
+    get: operations["StudyController_today"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/study/sessions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 创建或恢复当前用户唯一 active 会话（幂等；刷新/重复调用返回同一会话；无候选返回 noWork，不创建空会话） */
+    post: operations["StudyController_createOrResume"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/study/sessions/active": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 读取当前用户 active 会话详情（会话头 + 按 position 有序计划项）；无 active 会话 → 404 */
+    get: operations["StudyController_activeDetail"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1105,6 +1156,85 @@ export interface components {
       firstExposedAt: string;
       /** @description 本次是否为幂等重放（false=首次写入，true=已存在） */
       alreadyExisted: boolean;
+    };
+    TodayCountsDto: {
+      /** @description 到期复习卡数（state=review 且 due_at <= now） */
+      dueCount: number;
+      /** @description 首次复习卡数（state=learning） */
+      initialCount: number;
+      /** @description 新卡数（state=new，仅 first unit 内） */
+      newCount: number;
+    };
+    TodayDto: {
+      /** @description 主课程 ID */
+      courseId: string;
+      /** @description 主课程当前版本 release ID */
+      releaseId: string;
+      /** @description 主课程当前版本号 */
+      releaseNumber: number;
+      /** @description 用户每日预算（分钟） */
+      dailyBudgetMinutes: number;
+      /** @description 计划候选数 */
+      counts: components["schemas"]["TodayCountsDto"];
+      /** @description 当前是否存在可恢复的 active 会话 */
+      hasActiveSession: boolean;
+      /** @description true 表示本次查询下无任何候选卡（预算和卡计数为 0） */
+      noWork: boolean;
+    };
+    StudySessionDto: {
+      /** @description 会话 ID */
+      sessionId: string;
+      /** @description 课程 ID */
+      courseId: string;
+      /** @description 会话创建时冻结的 current release ID */
+      releaseId: string;
+      /** @description 主课程当前版本号 */
+      releaseNumber: number;
+      /**
+       * @description 会话状态
+       * @enum {string}
+       */
+      status: "active" | "completed" | "abandoned";
+      /** @description 用户每日预算（分钟） */
+      dailyBudgetMinutes: number;
+      /** @description 计划规则版本 */
+      planRuleVersion: string;
+      /** @description 计划创建时间 */
+      plannedAt: string;
+      /** @description 会话开始时间 */
+      startedAt: string;
+      /** @description 计划项数（总预算截断后的实际项数） */
+      itemCount: number;
+      /** @description 当前 cursor（下一个待展示项的 position） */
+      cursor: number;
+    };
+    StudySessionItemDto: {
+      /** @description 计划项 ID */
+      itemId: string;
+      /** @description 会话内展示顺序位置 */
+      position: number;
+      /** @description 学习卡 ID */
+      cardId: string;
+      /** @description 稳定课程词项 ID */
+      courseItemId: string;
+      /** @description 课程 ID */
+      courseId: string;
+      /**
+       * @description 计划项分类
+       * @enum {string}
+       */
+      itemKind: "due_review" | "initial_review" | "new_learning";
+      /**
+       * @description 计划项状态
+       * @enum {string}
+       */
+      state: "pending" | "shown" | "completed" | "skipped_by_server";
+    };
+    StudySessionDetailDto: {
+      /** @description 会话头 */
+      session: components["schemas"]["StudySessionDto"];
+      /** @description 按 position 排序的计划项 */
+      items: components["schemas"]["StudySessionItemDto"][];
     };
   };
   responses: never;
@@ -2076,6 +2206,63 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["LearningExposureDto"];
+        };
+      };
+    };
+  };
+  StudyController_today: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TodayDto"];
+        };
+      };
+    };
+  };
+  StudyController_createOrResume: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StudySessionDto"];
+        };
+      };
+    };
+  };
+  StudyController_activeDetail: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StudySessionDetailDto"];
         };
       };
     };

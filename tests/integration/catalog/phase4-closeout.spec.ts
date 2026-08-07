@@ -218,7 +218,7 @@ describe("phase 4 closeout", () => {
     };
   }
 
-  it("0001–0011 migration 从空库顺序应用（一次性隔离数据库），产生全部表、唯一主课程索引与学习卡约束", async () => {
+  it("0001–0013 migration 从空库顺序应用（一次性隔离数据库），产生全部表、唯一主课程索引与学习卡约束", async () => {
     const dbName = `motro_p4_${Date.now().toString(36)}_${randomBytes(2).toString("hex")}`;
     const adminPool = createPool({ ...config, database: "postgres", max: 1 });
     try {
@@ -229,12 +229,12 @@ describe("phase 4 closeout", () => {
 
     const isoConfig = { ...config, database: dbName };
     const applied = await migrate(isoConfig, MIGRATIONS_DIR);
-    expect(applied.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+    expect(applied.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
 
     const verify = createPool({ ...isoConfig, max: 1 });
     try {
       const recorded = await listAppliedMigrations(isoConfig);
-      expect(recorded.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+      expect(recorded.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
 
       const tables = await verify.query<{ tablename: string }>(
         `SELECT tablename FROM pg_tables
@@ -242,7 +242,7 @@ describe("phase 4 closeout", () => {
            AND tablename IN ('users','auth_sessions','audit_events','lexical_entries',
              'courses','course_drafts','draft_units','draft_course_items',
              'course_releases','released_units','released_course_items','course_enrollments',
-             'learning_cards','learning_exposures')`,
+             'learning_cards','learning_exposures','study_sessions','study_session_items')`,
       );
       expect(tables.rows.map((r) => r.tablename).sort()).toEqual(
         [
@@ -260,6 +260,8 @@ describe("phase 4 closeout", () => {
           "course_enrollments",
           "learning_cards",
           "learning_exposures",
+          "study_session_items",
+          "study_sessions",
         ].sort(),
       );
 
@@ -279,6 +281,16 @@ describe("phase 4 closeout", () => {
       );
       expect(schedulerParamsCol.rowCount).toBe(1);
       expect(schedulerParamsCol.rows[0]?.is_nullable).toBe("NO");
+
+      // 0013：study_sessions 复合外键 (course_id, release_id) → course_releases(course_id, id)，
+      // 拒绝跨课程 release 快照。
+      const compositeFk = await verify.query<{ def: string }>(
+        `SELECT pg_get_constraintdef(oid) AS def
+         FROM pg_constraint WHERE conname = 'study_sessions_course_release_fk'`,
+      );
+      expect(compositeFk.rows[0]?.def).toBe(
+        "FOREIGN KEY (course_id, release_id) REFERENCES course_releases(course_id, id)",
+      );
     } finally {
       await verify.end();
     }
@@ -760,16 +772,17 @@ describe("phase 4 closeout", () => {
     }
   });
 
-  it("没有学习核心业务数据表（学习卡/展示表存在；review_events / FSRS / XP / 计划 / 挑战表不存在）", async () => {
+  it("没有学习核心业务数据表（学习卡/展示/会话表存在；review_events / FSRS / XP / 挑战表不存在）", async () => {
     const pool = createPool({ ...config, max: 1 });
     try {
-      // 阶段 5 工单 01 已引入 learning_cards / learning_exposures；其余学习核心表仍不存在。
+      // 阶段 5 工单 01/02 已引入 learning_cards / learning_exposures；工单 03 引入 study_sessions。
+      // 其余学习核心表（评分事件、FSRS 状态、XP、挑战）仍不存在。
       const tables = await pool.query<{ tablename: string }>(
         `SELECT tablename FROM pg_tables
          WHERE schemaname = 'public'
            AND tablename IN (
              'review_events','card_reviews','memory_states','fsrs_states',
-             'xp_entries','xp_ledger','daily_plans','study_sessions',
+             'xp_entries','xp_ledger','daily_plans',
              'challenge_quizzes','quiz_questions','quiz_responses','challenge_points',
              'weekly_challenge_boards','game_rule_sets','badges','user_levels'
            )`,

@@ -502,10 +502,10 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
     it("报名/设主不创建学习产物（learning_cards 表存在但不产生行；review_events/xp 无表）", async () => {
       const pool = createPool({ ...config, max: 1 });
       try {
-        // 阶段 5 已引入 learning_cards/learning_exposures；复习/XP/计划表仍不存在。
+        // 阶段 5 已引入 learning_cards/learning_exposures；复习/XP/每日计划表仍不存在。
         const tables = await pool.query<{ tablename: string }>(
           `SELECT tablename FROM pg_tables
-         WHERE schemaname = 'public' AND tablename IN ('review_events','xp_entries','daily_plans','study_sessions')`,
+         WHERE schemaname = 'public' AND tablename IN ('review_events','xp_entries','daily_plans')`,
         );
         expect(tables.rows).toEqual([]);
       } finally {

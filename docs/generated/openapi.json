@@ -1519,6 +1519,87 @@
           "study"
         ]
       }
+    },
+    "/api/v1/study/today": {
+      "get": {
+        "operationId": "StudyController_today",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TodayDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "今日概览：主课程、预算、计划候选数（due/initial/new）、是否有 active 会话、是否无任务（只读）",
+        "tags": [
+          "study"
+        ]
+      }
+    },
+    "/api/v1/study/sessions": {
+      "post": {
+        "operationId": "StudyController_createOrResume",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudySessionDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "创建或恢复当前用户唯一 active 会话（幂等；刷新/重复调用返回同一会话；无候选返回 noWork，不创建空会话）",
+        "tags": [
+          "study"
+        ]
+      }
+    },
+    "/api/v1/study/sessions/active": {
+      "get": {
+        "operationId": "StudyController_activeDetail",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudySessionDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "读取当前用户 active 会话详情（会话头 + 按 position 有序计划项）；无 active 会话 → 404",
+        "tags": [
+          "study"
+        ]
+      }
     }
   },
   "info": {
@@ -3166,6 +3247,218 @@
           "releaseId",
           "firstExposedAt",
           "alreadyExisted"
+        ]
+      },
+      "TodayCountsDto": {
+        "type": "object",
+        "properties": {
+          "dueCount": {
+            "type": "number",
+            "description": "到期复习卡数（state=review 且 due_at <= now）"
+          },
+          "initialCount": {
+            "type": "number",
+            "description": "首次复习卡数（state=learning）"
+          },
+          "newCount": {
+            "type": "number",
+            "description": "新卡数（state=new，仅 first unit 内）"
+          }
+        },
+        "required": [
+          "dueCount",
+          "initialCount",
+          "newCount"
+        ]
+      },
+      "TodayDto": {
+        "type": "object",
+        "properties": {
+          "courseId": {
+            "type": "string",
+            "description": "主课程 ID"
+          },
+          "releaseId": {
+            "type": "string",
+            "description": "主课程当前版本 release ID"
+          },
+          "releaseNumber": {
+            "type": "number",
+            "description": "主课程当前版本号"
+          },
+          "dailyBudgetMinutes": {
+            "type": "number",
+            "description": "用户每日预算（分钟）"
+          },
+          "counts": {
+            "description": "计划候选数",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TodayCountsDto"
+              }
+            ]
+          },
+          "hasActiveSession": {
+            "type": "boolean",
+            "description": "当前是否存在可恢复的 active 会话"
+          },
+          "noWork": {
+            "type": "boolean",
+            "description": "true 表示本次查询下无任何候选卡（预算和卡计数为 0）"
+          }
+        },
+        "required": [
+          "courseId",
+          "releaseId",
+          "releaseNumber",
+          "dailyBudgetMinutes",
+          "counts",
+          "hasActiveSession",
+          "noWork"
+        ]
+      },
+      "StudySessionDto": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "description": "会话 ID"
+          },
+          "courseId": {
+            "type": "string",
+            "description": "课程 ID"
+          },
+          "releaseId": {
+            "type": "string",
+            "description": "会话创建时冻结的 current release ID"
+          },
+          "releaseNumber": {
+            "type": "number",
+            "description": "主课程当前版本号"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "completed",
+              "abandoned"
+            ],
+            "description": "会话状态"
+          },
+          "dailyBudgetMinutes": {
+            "type": "number",
+            "description": "用户每日预算（分钟）"
+          },
+          "planRuleVersion": {
+            "type": "string",
+            "description": "计划规则版本"
+          },
+          "plannedAt": {
+            "type": "string",
+            "description": "计划创建时间"
+          },
+          "startedAt": {
+            "type": "string",
+            "description": "会话开始时间"
+          },
+          "itemCount": {
+            "type": "number",
+            "description": "计划项数（总预算截断后的实际项数）"
+          },
+          "cursor": {
+            "type": "number",
+            "description": "当前 cursor（下一个待展示项的 position）"
+          }
+        },
+        "required": [
+          "sessionId",
+          "courseId",
+          "releaseId",
+          "releaseNumber",
+          "status",
+          "dailyBudgetMinutes",
+          "planRuleVersion",
+          "plannedAt",
+          "startedAt",
+          "itemCount",
+          "cursor"
+        ]
+      },
+      "StudySessionItemDto": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "description": "计划项 ID"
+          },
+          "position": {
+            "type": "number",
+            "description": "会话内展示顺序位置"
+          },
+          "cardId": {
+            "type": "string",
+            "description": "学习卡 ID"
+          },
+          "courseItemId": {
+            "type": "string",
+            "description": "稳定课程词项 ID"
+          },
+          "courseId": {
+            "type": "string",
+            "description": "课程 ID"
+          },
+          "itemKind": {
+            "type": "string",
+            "enum": [
+              "due_review",
+              "initial_review",
+              "new_learning"
+            ],
+            "description": "计划项分类"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "shown",
+              "completed",
+              "skipped_by_server"
+            ],
+            "description": "计划项状态"
+          }
+        },
+        "required": [
+          "itemId",
+          "position",
+          "cardId",
+          "courseItemId",
+          "courseId",
+          "itemKind",
+          "state"
+        ]
+      },
+      "StudySessionDetailDto": {
+        "type": "object",
+        "properties": {
+          "session": {
+            "description": "会话头",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StudySessionDto"
+              }
+            ]
+          },
+          "items": {
+            "description": "按 position 排序的计划项",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StudySessionItemDto"
+            }
+          }
+        },
+        "required": [
+          "session",
+          "items"
         ]
       }
     }

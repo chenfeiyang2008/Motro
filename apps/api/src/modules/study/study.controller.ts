@@ -1,6 +1,6 @@
-// /study 端点（阶段 5 工单 01：学习卡与学习展示）。
+// /study 端点（阶段 5 工单 01/03：学习卡、学习展示、每日计划与学习会话）。
 // 只读当前登录用户自己的数据：学习卡只来自已报名课程的 current release（绝不读草稿），
-// 学习展示幂等且不可变。管理员经此路径也只会访问自己的 learner 数据。
+// 学习展示幂等且不可变；计划与会话只读/创建当前用户自己的主课程计划。
 import {
   Body,
   Controller,
@@ -20,6 +20,9 @@ import {
   LearningCardListQueryDto,
   LearningCardSummaryDto,
   LearningExposureDto,
+  StudySessionDetailDto,
+  StudySessionDto,
+  TodayDto,
 } from "./dto.js";
 import { StudyService } from "./study.service.js";
 
@@ -59,5 +62,39 @@ export class StudyController {
   @ApiOkResponse({ type: LearningExposureDto })
   expose(@Req() req: AuthenticatedRequest, @Body() dto: CreateExposureDto) {
     return this.studyService.recordExposure(req.user.id, dto.courseItemId, req.id);
+  }
+
+  @Get("today")
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      "今日概览：主课程、预算、计划候选数（due/initial/new）、是否有 active 会话、是否无任务（只读）",
+  })
+  @ApiOkResponse({ type: TodayDto })
+  today(@Req() req: AuthenticatedRequest) {
+    return this.studyService.getToday(req.user.id);
+  }
+
+  @Post("sessions")
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      "创建或恢复当前用户唯一 active 会话（幂等；刷新/重复调用返回同一会话；无候选返回 noWork，不创建空会话）",
+  })
+  @ApiOkResponse({ type: StudySessionDto })
+  createOrResume(@Req() req: AuthenticatedRequest) {
+    return this.studyService.createOrResumeSession(req.user.id);
+  }
+
+  @Get("sessions/active")
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      "读取当前用户 active 会话详情（会话头 + 按 position 有序计划项）；无 active 会话 → 404",
+  })
+  @ApiOkResponse({ type: StudySessionDetailDto })
+  activeDetail(@Req() req: AuthenticatedRequest) {
+    return this.studyService.getActiveSessionDetail(req.user.id);
   }
 }
