@@ -54,14 +54,23 @@ Every foreground/background pair must be verified for WCAG 2.2 AA. Semantic colo
 
 Liquid Glass is a functional navigation/control layer, not a translucent treatment for all surfaces. It follows the product-level rules in [`DESIGN.md`](../../DESIGN.md#liquid-glass-材质), which take precedence.
 
-- Use **regular Glass** for the mobile learner Dock, desktop learner sidebar, app/study headers and compact toolbars. It needs a translucent fill, sufficient blur or backdrop adaptation, a subtle edge, and restrained elevation; its labels and focus indicator must remain legible over the actual content beneath it.
-- Use **clear Glass** only above visually rich media. The learner's ordinary light canvas, study cards, course copy, forms, plans and fact panels use standard opaque content surfaces instead. Clear Glass requires a tested dimming layer when the underlying content is bright.
-- Keep one coherent Glass group per navigation region. Do not turn every card, metric, list row or secondary button into Glass. Do not layer Glass panels inside Glass panels.
+- **Allocate the layers before styling.** The content layer contains plans, facts, course copy, forms and learning cards, and uses the standard opaque surface. The functional foreground layer contains navigation and direct contextual controls, and is where Glass is encouraged. Content may scroll and remain perceptible beneath a Glass region, but the foreground labels must stay legible in both resting and scrolling states.
+- Use **regular Glass** by default for the mobile learner Dock, desktop learner sidebar, app/study headers, compact toolbars, popovers and text-dense functional groups. It must adapt to the luminance of the actual backdrop through a translucent fill and adequate blur, plus a subtle edge and restrained elevation. A fixed translucent color alone is not a valid regular Glass treatment.
+- Use **clear Glass** only above visually rich media. The learner's ordinary light canvas, study cards, course copy, forms, plans and fact panels use standard opaque content surfaces instead. Clear Glass requires a tested dimming layer when the underlying content is bright (use a roughly 35% dark layer as the starting point, then verify contrast).
+- Keep one coherent Glass group per navigation region. Related destinations or contextual controls share that group and spacing; do not turn every card, metric, list row or secondary button into Glass, and do not layer Glass panels inside Glass panels. A content-layer slider or toggle may briefly adopt Glass while directly manipulated, but returns to the standard content layer otherwise.
 - Brand color is reserved for one primary action background and selected navigation labels/icons. Do not tint several Glass controls with brand blue at once.
-- Provide an opaque `bg.surface` fallback for browsers without `backdrop-filter`, `prefers-reduced-transparency: reduce`, and `prefers-contrast: more`. The fallback preserves the same labels, focus ring, layout and 44px target sizes.
-- Test Glass against the resting and scrolling content under it; never accept a material solely because it looks correct on an empty canvas.
+- Provide an opaque `bg.surface` fallback for browsers without `backdrop-filter`, `prefers-reduced-transparency: reduce`, and `prefers-contrast: more`. The fallback preserves the same labels, selected state, focus ring, layout and 44px target sizes; never make muted text by reducing its opacity.
+- Test Glass against the resting and scrolling content under it, including the most colorful permitted course content. Never accept a material solely because it looks correct on an empty canvas.
 
-### 3.5 Iconography
+### 3.5 Glass component states
+
+- A Glass control exposes real `default`, `hover` (pointer-capable devices only), `focus-visible`, `pressed`, `selected`, and `disabled` states. The focus indication must be independently visible; do not use a brighter Glass rim as the only keyboard-focus cue.
+- Selected navigation combines brand color with a semantic label/icon state or visible indicator. The selected state must remain identifiable in the opaque fallback and without color perception.
+- Keep labels and icons in tested high-contrast foreground colors. Do not choose a material or label color just because it looks right over one screenshot; the background and accessibility preferences can alter material appearance.
+- In a compact toolbar, use conventional controls and concentric radii relative to the containing Glass region. Do not approximate an Apple control by adding extra glossy outlines, ornamental highlights, or competing colored buttons.
+- Glass may morph subtly during a user-initiated control activation or navigation selection. The transition must be 120–220ms, interruptible, and removed under reduced motion; it must never delay an action or become a looping effect.
+
+### 3.6 Iconography
 
 Use one pinned Lucide version through the project wrapper. Default sizes are 16, 20 and 24px with consistent stroke width. Every icon-only control has an accessible name and tooltip where meaning is not universal. Do not use Emoji or AI-generated icons.
 
@@ -78,7 +87,7 @@ Breakpoints respond to content rather than device names. Test required reference
 ### 4.2 Learner navigation
 
 - Mobile bottom navigation has at most five destinations: 首页、课程、排行榜、我的; no empty fifth item. It may be a bottom-safe-area-aware, capsule-shaped Liquid Glass Dock when it is one coherent navigation group rather than a floating action button.
-- Desktop uses the same information architecture in a stable, left-edge-attached Liquid Glass side rail or top bar. Active destination is indicated by label, icon and color—not color alone.
+- Desktop uses the same information architecture in a stable, left-edge-attached Liquid Glass side rail or top bar. It remains one continuous regular Glass group, rather than a rounded panel floating within the page. Active destination is indicated by label, icon and color—not color alone.
 - Study sessions replace global navigation with a minimal header: exit/back, session progress and optional pause. Challenge quizzes use the same focus pattern with exit, `n / 10` and an accessible five-minute countdown. Exiting with unsaved local interaction requires confirmation; accepted events never require confirmation.
 
 ### 4.3 Admin navigation
@@ -130,6 +139,7 @@ Ant Design is allowed only in admin surfaces and must map to Motro tokens. Prefe
 - Rating submission can use a short state confirmation; it must not delay the next card. Quiz feedback is immediate and inline; never award speed points or obscure whether a question was score-eligible.
 - Under `prefers-reduced-motion: reduce`, remove non-essential movement and keep immediate state changes.
 - Under `prefers-reduced-transparency: reduce`, `prefers-contrast: more`, or missing backdrop support, replace Glass with opaque surfaces; never merely lower text opacity or remove an edge.
+- A scroll edge may increase functional separation of a Glass header or Dock when content passes behind it, but it must not obscure progress, mutate layout, or create a decorative animated gradient.
 
 ## 7. Accessibility
 
@@ -159,5 +169,5 @@ For every key surface at 390/768/1440px:
 3. Run keyboard-only and screen-reader spot checks; verify focus and reduced motion.
 4. Run Impeccable `critique`, then `distill` or `quieter`, then `polish`, without enabling `live`, hooks, image generation or external agents.
 5. Run Web Design Guidelines review and resolve findings or document intentional exceptions.
-6. For every Glass region, test resting and scrolling backgrounds, unsupported-backdrop fallback, reduced transparency and increased contrast; verify labels, focus rings and selected states remain AA-compliant.
+6. For every Glass region, test resting and scrolling backgrounds (including the strongest permitted content color), unsupported-backdrop fallback, reduced transparency and increased contrast; verify labels, focus rings, selected states, pointer/keyboard states and target sizes remain AA-compliant.
 7. Update screenshot baselines only after a human accepts the intended visual change.

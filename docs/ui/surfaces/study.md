@@ -8,7 +8,7 @@
 
 **Confirmed visual direction — focused session:**
 
-- Hide global learner navigation for the whole session. The only chrome is a compact regular Liquid Glass header containing exit/back and a textual, visible progress indicator with its progress bar.
+- Hide global learner navigation for the whole session. The only chrome is a compact regular Liquid Glass header containing exit/back and a textual, visible progress indicator with its progress bar. It is one functional group: the card may scroll or transition beneath it, but neither the progress text nor its keyboard focus state may rely on backdrop contrast alone.
 - The central learning card is an opaque standard content surface, not Liquid Glass. It presents one direction, one prompt and one decision at a time; avoid decorative secondary cards and empty metric areas.
 - Before reveal, use only `显示答案` as the primary action. After reveal, show Again / Hard / Good / Easy as one equally weighted, labeled group; color supports comprehension but never carries the rating alone.
 - After a card transition, keyboard focus moves to the next available decision. `1`–`4` shortcuts remain available only for a revealed card, and reduced-motion/reduced-transparency settings preserve a legible, immediate state change.
