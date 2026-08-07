@@ -470,6 +470,57 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/study/cards/summary": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 当前用户主课程的学习卡摘要（幂等补齐 current release 双向卡后统计） */
+    get: operations["StudyController_summary"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/study/cards": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 当前用户自己的学习卡状态列表（默认主课程，可按已报名课程过滤） */
+    get: operations["StudyController_cards"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/study/exposures": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 记录当前用户某课程词项学习面首次展示（幂等；只允许已报名课程 current release 词项，不改 FSRS，不产生复习/XP） */
+    post: operations["StudyController_expose"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -958,6 +1009,102 @@ export interface components {
     SetPrimaryCourseDto: {
       /** @description 要设为主课程的已报名课程 ID */
       courseId: string;
+    };
+    LearningCardSummaryCountsDto: {
+      /** @description 卡总数 */
+      total: number;
+      /** @description new 状态卡数（待首测） */
+      new: number;
+      /** @description learning 状态卡数 */
+      learning: number;
+      /** @description review 状态卡数 */
+      review: number;
+      /** @description 英文→中文方向卡数 */
+      enToZh: number;
+      /** @description 中文→英文方向卡数 */
+      zhToEn: number;
+    };
+    LearningCardSummaryDto: {
+      /** @description 主课程 ID */
+      courseId: string;
+      /** @description 主课程当前版本 release ID */
+      releaseId: string;
+      /** @description 主课程当前版本号 */
+      releaseNumber: number;
+      /** @description 当前版本课程词项数 */
+      itemCount: number;
+      /** @description 学习卡计数（按方向/状态） */
+      cards: components["schemas"]["LearningCardSummaryCountsDto"];
+      /** @description 已记录学习展示的词项数（每词项至多一次） */
+      exposedItemCount: number;
+    };
+    LearningCardListItemDto: {
+      /** @description 学习卡 ID */
+      cardId: string;
+      /** @description 课程 ID */
+      courseId: string;
+      /** @description 查询时刻课程的 current release ID */
+      releaseId: string;
+      /** @description 稳定课程词项 ID */
+      courseItemId: string;
+      /**
+       * @description 卡方向
+       * @enum {string}
+       */
+      direction: "en_to_zh" | "zh_to_en";
+      /**
+       * @description 记忆状态
+       * @enum {string}
+       */
+      state: "new" | "learning" | "review";
+      /** @description FSRS 稳定性 */
+      stability: number;
+      /** @description FSRS 难度 */
+      difficulty: number;
+      /** @description 预计间隔天数 */
+      scheduledDays: number;
+      /** @description 距上次复习经过天数 */
+      elapsedDays: number;
+      /** @description 复习次数 */
+      reps: number;
+      /** @description 遗忘次数 */
+      lapses: number;
+      /** @description 上次复习时间（new 卡为 null） */
+      lastReviewAt: string | null;
+      /** @description 到期时间（new 卡为创建时刻，待首测） */
+      dueAt: string;
+      /** @description 调度器版本（阶段 5 工单 01 恒为 fsrs-v6） */
+      schedulerVersion: string;
+      /** @description 词项英文拼写（来自 current release 快照） */
+      englishSpelling: string;
+      /** @description 词项中文释义（来自 current release 快照） */
+      meaning: string;
+      /** @description 该词项是否已记录学习展示 */
+      exposed: boolean;
+    };
+    LearningCardListDto: {
+      /** @description 按单元/词项位置排序的学习卡状态 */
+      items: components["schemas"]["LearningCardListItemDto"][];
+    };
+    CreateExposureDto: {
+      /** @description 已发布课程词项的稳定 course_item_id（必须是已报名课程 current release 中的词项） */
+      courseItemId: string;
+    };
+    LearningExposureDto: {
+      /** @description 学习展示记录 ID */
+      exposureId: string;
+      /** @description 稳定课程词项 ID */
+      courseItemId: string;
+      /** @description 引用的全局词条 ID */
+      lexicalEntryId: string;
+      /** @description 课程 ID */
+      courseId: string;
+      /** @description 首次展示时该课程的 current release ID（首次事实不可变） */
+      releaseId: string;
+      /** @description 首次展示时间（重复提交返回原值） */
+      firstExposedAt: string;
+      /** @description 本次是否为幂等重放（false=首次写入，true=已存在） */
+      alreadyExisted: boolean;
     };
   };
   responses: never;
@@ -1865,6 +2012,70 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["CatalogCourseDetailDto"];
+        };
+      };
+    };
+  };
+  StudyController_summary: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LearningCardSummaryDto"];
+        };
+      };
+    };
+  };
+  StudyController_cards: {
+    parameters: {
+      query?: {
+        /** @description 按已报名课程过滤；省略时默认主课程。必须属于当前用户，否则 404 */
+        courseId?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LearningCardListDto"];
+        };
+      };
+    };
+  };
+  StudyController_expose: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateExposureDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LearningExposureDto"];
         };
       };
     };

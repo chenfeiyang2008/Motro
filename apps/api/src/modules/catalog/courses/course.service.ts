@@ -16,6 +16,7 @@ import {
   buildEnrollmentState,
   nextReleaseNumber,
   normalizeSlug,
+  resolveReleasedUnitId,
   validateCourseDescription,
   validateCourseLevel,
   validateCourseTitle,
@@ -722,17 +723,28 @@ export class CourseService {
         )
       ).rows;
 
+      // 服务内映射：draft unit → 该 unit 在本次发布中生成的 released_unit 主键。
+      // 同一 draft unit 只复制一条 released_units；同单元多个 course 词项全部复用该 id
+      // 写 released_course_items。先前逐行依赖「INSERT RETURNING」在第二行即因
+      // ON CONFLICT DO NOTHING 无返回行而跳过词项复制（P1 缺陷），现改为服务内映射。
+      // 不引入 ON CONFLICT DO UPDATE（released_units/released_course_items 有不可变 UPDATE trigger）。
+      const releasedUnitIds = new Map<string, string>();
       for (const row of copyRows) {
         if (!row.unit_id) continue;
-        const unitInsert = await client.query<{ id: string }>(
-          `INSERT INTO released_units (release_id, unit_id, position, title, description)
-           VALUES ($1, $2, $3, $4, $5)
-           ON CONFLICT (release_id, unit_id) DO NOTHING
-           RETURNING id`,
-          [releaseId, row.unit_id, row.unit_position, row.unit_title, row.unit_description],
-        );
-        const releasedUnitId = unitInsert.rows[0]?.id;
-        if (!releasedUnitId) continue;
+        let releasedUnitId: string;
+        if (releasedUnitIds.has(row.unit_id)) {
+          releasedUnitId = releasedUnitIds.get(row.unit_id)!;
+        } else {
+          const unitInsert = await client.query<{ id: string }>(
+            `INSERT INTO released_units (release_id, unit_id, position, title, description)
+             VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (release_id, unit_id) DO NOTHING
+             RETURNING id`,
+            [releaseId, row.unit_id, row.unit_position, row.unit_title, row.unit_description],
+          );
+          // 失败路径：INSERT 未返回 id → 抛异常让外层发布事务回滚，绝不提交不完整 release。
+          releasedUnitId = resolveReleasedUnitId(row.unit_id, unitInsert, releasedUnitIds);
+        }
         if (row.item_id) {
           await client.query(
             `INSERT INTO released_course_items

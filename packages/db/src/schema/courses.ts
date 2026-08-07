@@ -3,6 +3,7 @@
 // release rows 由显式 SQL 触发器禁止 UPDATE/DELETE。
 import {
   boolean,
+  doublePrecision,
   index,
   integer,
   pgTable,
@@ -195,5 +196,76 @@ export const courseEnrollments = pgTable(
     uniqueIndex("course_enrollments_user_course_unique").on(t.userId, t.courseId),
     index("course_enrollments_user_id_idx").on(t.userId),
     index("course_enrollments_course_id_idx").on(t.courseId),
+  ],
+);
+
+// 学习卡：每 (user, course_item, direction) 一张可调度记忆对象（阶段 5 工单 01）。
+// 真实约束在 0010 migration：方向/状态 CHECK、UNIQUE(user, course_item, direction)、
+// course_item_id 只经应用层绑定 current release 已发布词项（无父表可设外键）。
+export const learningCards = pgTable(
+  "learning_cards",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    courseId: uuid("course_id")
+      .notNull()
+      .references(() => courses.id, { onDelete: "restrict" }),
+    courseItemId: uuid("course_item_id").notNull(),
+    direction: text("direction").notNull(),
+    state: text("state").notNull().default("new"),
+    stability: doublePrecision("stability").notNull().default(0),
+    difficulty: doublePrecision("difficulty").notNull().default(0),
+    scheduledDays: integer("scheduled_days").notNull().default(0),
+    elapsedDays: integer("elapsed_days").notNull().default(0),
+    reps: integer("reps").notNull().default(0),
+    lapses: integer("lapses").notNull().default(0),
+    lastReviewAt: timestamp("last_review_at", { withTimezone: true }),
+    dueAt: timestamp("due_at", { withTimezone: true }).notNull().defaultNow(),
+    schedulerVersion: text("scheduler_version").notNull().default("fsrs-v6"),
+    stateVersion: integer("state_version").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("learning_cards_user_item_direction_unique").on(
+      t.userId,
+      t.courseItemId,
+      t.direction,
+    ),
+    index("learning_cards_user_due_idx").on(t.userId, t.dueAt),
+    index("learning_cards_course_item_idx").on(t.courseItemId),
+    index("learning_cards_course_id_idx").on(t.courseId),
+  ],
+);
+
+// 学习展示：首次看过学习面的事实（阶段 5 工单 01）。
+// 真实约束在 0010 migration：UNIQUE(user, course_item)、UPDATE/DELETE 由触发器拒绝（不可变）。
+export const learningExposures = pgTable(
+  "learning_exposures",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    courseItemId: uuid("course_item_id").notNull(),
+    lexicalEntryId: uuid("lexical_entry_id").notNull(),
+    courseId: uuid("course_id")
+      .notNull()
+      .references(() => courses.id, { onDelete: "restrict" }),
+    releaseId: uuid("release_id")
+      .notNull()
+      .references(() => courseReleases.id, { onDelete: "restrict" }),
+    releasedItemId: uuid("released_item_id")
+      .notNull()
+      .references(() => releasedCourseItems.id, { onDelete: "restrict" }),
+    firstExposedAt: timestamp("first_exposed_at", { withTimezone: true }).notNull().defaultNow(),
+    requestId: text("request_id"),
+  },
+  (t) => [
+    uniqueIndex("learning_exposures_user_item_unique").on(t.userId, t.courseItemId),
+    index("learning_exposures_user_lexical_idx").on(t.userId, t.lexicalEntryId),
+    index("learning_exposures_course_item_idx").on(t.courseItemId),
   ],
 );

@@ -1418,6 +1418,107 @@
           "catalog"
         ]
       }
+    },
+    "/api/v1/study/cards/summary": {
+      "get": {
+        "operationId": "StudyController_summary",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LearningCardSummaryDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "当前用户主课程的学习卡摘要（幂等补齐 current release 双向卡后统计）",
+        "tags": [
+          "study"
+        ]
+      }
+    },
+    "/api/v1/study/cards": {
+      "get": {
+        "operationId": "StudyController_cards",
+        "parameters": [
+          {
+            "name": "courseId",
+            "required": false,
+            "in": "query",
+            "description": "按已报名课程过滤；省略时默认主课程。必须属于当前用户，否则 404",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LearningCardListDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "当前用户自己的学习卡状态列表（默认主课程，可按已报名课程过滤）",
+        "tags": [
+          "study"
+        ]
+      }
+    },
+    "/api/v1/study/exposures": {
+      "post": {
+        "operationId": "StudyController_expose",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateExposureDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LearningExposureDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "记录当前用户某课程词项学习面首次展示（幂等；只允许已报名课程 current release 词项，不改 FSRS，不产生复习/XP）",
+        "tags": [
+          "study"
+        ]
+      }
     }
   },
   "info": {
@@ -2811,6 +2912,260 @@
         },
         "required": [
           "courseId"
+        ]
+      },
+      "LearningCardSummaryCountsDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number",
+            "description": "卡总数"
+          },
+          "new": {
+            "type": "number",
+            "description": "new 状态卡数（待首测）"
+          },
+          "learning": {
+            "type": "number",
+            "description": "learning 状态卡数"
+          },
+          "review": {
+            "type": "number",
+            "description": "review 状态卡数"
+          },
+          "enToZh": {
+            "type": "number",
+            "description": "英文→中文方向卡数"
+          },
+          "zhToEn": {
+            "type": "number",
+            "description": "中文→英文方向卡数"
+          }
+        },
+        "required": [
+          "total",
+          "new",
+          "learning",
+          "review",
+          "enToZh",
+          "zhToEn"
+        ]
+      },
+      "LearningCardSummaryDto": {
+        "type": "object",
+        "properties": {
+          "courseId": {
+            "type": "string",
+            "description": "主课程 ID"
+          },
+          "releaseId": {
+            "type": "string",
+            "description": "主课程当前版本 release ID"
+          },
+          "releaseNumber": {
+            "type": "number",
+            "description": "主课程当前版本号"
+          },
+          "itemCount": {
+            "type": "number",
+            "description": "当前版本课程词项数"
+          },
+          "cards": {
+            "description": "学习卡计数（按方向/状态）",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LearningCardSummaryCountsDto"
+              }
+            ]
+          },
+          "exposedItemCount": {
+            "type": "number",
+            "description": "已记录学习展示的词项数（每词项至多一次）"
+          }
+        },
+        "required": [
+          "courseId",
+          "releaseId",
+          "releaseNumber",
+          "itemCount",
+          "cards",
+          "exposedItemCount"
+        ]
+      },
+      "LearningCardListItemDto": {
+        "type": "object",
+        "properties": {
+          "cardId": {
+            "type": "string",
+            "description": "学习卡 ID"
+          },
+          "courseId": {
+            "type": "string",
+            "description": "课程 ID"
+          },
+          "releaseId": {
+            "type": "string",
+            "description": "查询时刻课程的 current release ID"
+          },
+          "courseItemId": {
+            "type": "string",
+            "description": "稳定课程词项 ID"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "en_to_zh",
+              "zh_to_en"
+            ],
+            "description": "卡方向"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "new",
+              "learning",
+              "review"
+            ],
+            "description": "记忆状态"
+          },
+          "stability": {
+            "type": "number",
+            "description": "FSRS 稳定性"
+          },
+          "difficulty": {
+            "type": "number",
+            "description": "FSRS 难度"
+          },
+          "scheduledDays": {
+            "type": "number",
+            "description": "预计间隔天数"
+          },
+          "elapsedDays": {
+            "type": "number",
+            "description": "距上次复习经过天数"
+          },
+          "reps": {
+            "type": "number",
+            "description": "复习次数"
+          },
+          "lapses": {
+            "type": "number",
+            "description": "遗忘次数"
+          },
+          "lastReviewAt": {
+            "type": "string",
+            "nullable": true,
+            "description": "上次复习时间（new 卡为 null）"
+          },
+          "dueAt": {
+            "type": "string",
+            "description": "到期时间（new 卡为创建时刻，待首测）"
+          },
+          "schedulerVersion": {
+            "type": "string",
+            "description": "调度器版本（阶段 5 工单 01 恒为 fsrs-v6）"
+          },
+          "englishSpelling": {
+            "type": "string",
+            "description": "词项英文拼写（来自 current release 快照）"
+          },
+          "meaning": {
+            "type": "string",
+            "description": "词项中文释义（来自 current release 快照）"
+          },
+          "exposed": {
+            "type": "boolean",
+            "description": "该词项是否已记录学习展示"
+          }
+        },
+        "required": [
+          "cardId",
+          "courseId",
+          "releaseId",
+          "courseItemId",
+          "direction",
+          "state",
+          "stability",
+          "difficulty",
+          "scheduledDays",
+          "elapsedDays",
+          "reps",
+          "lapses",
+          "lastReviewAt",
+          "dueAt",
+          "schedulerVersion",
+          "englishSpelling",
+          "meaning",
+          "exposed"
+        ]
+      },
+      "LearningCardListDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "按单元/词项位置排序的学习卡状态",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LearningCardListItemDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "CreateExposureDto": {
+        "type": "object",
+        "properties": {
+          "courseItemId": {
+            "type": "string",
+            "description": "已发布课程词项的稳定 course_item_id（必须是已报名课程 current release 中的词项）"
+          }
+        },
+        "required": [
+          "courseItemId"
+        ]
+      },
+      "LearningExposureDto": {
+        "type": "object",
+        "properties": {
+          "exposureId": {
+            "type": "string",
+            "description": "学习展示记录 ID"
+          },
+          "courseItemId": {
+            "type": "string",
+            "description": "稳定课程词项 ID"
+          },
+          "lexicalEntryId": {
+            "type": "string",
+            "description": "引用的全局词条 ID"
+          },
+          "courseId": {
+            "type": "string",
+            "description": "课程 ID"
+          },
+          "releaseId": {
+            "type": "string",
+            "description": "首次展示时该课程的 current release ID（首次事实不可变）"
+          },
+          "firstExposedAt": {
+            "type": "string",
+            "description": "首次展示时间（重复提交返回原值）"
+          },
+          "alreadyExisted": {
+            "type": "boolean",
+            "description": "本次是否为幂等重放（false=首次写入，true=已存在）"
+          }
+        },
+        "required": [
+          "exposureId",
+          "courseItemId",
+          "lexicalEntryId",
+          "courseId",
+          "releaseId",
+          "firstExposedAt",
+          "alreadyExisted"
         ]
       }
     }

@@ -218,7 +218,7 @@ describe("phase 4 closeout", () => {
     };
   }
 
-  it("0001–0009 migration 从空库顺序应用（一次性隔离数据库），产生全部阶段 4 表与唯一主课程索引", async () => {
+  it("0001–0010 migration 从空库顺序应用（一次性隔离数据库），产生全部表、唯一主课程索引与学习卡约束", async () => {
     const dbName = `motro_p4_${Date.now().toString(36)}_${randomBytes(2).toString("hex")}`;
     const adminPool = createPool({ ...config, database: "postgres", max: 1 });
     try {
@@ -229,19 +229,20 @@ describe("phase 4 closeout", () => {
 
     const isoConfig = { ...config, database: dbName };
     const applied = await migrate(isoConfig, MIGRATIONS_DIR);
-    expect(applied.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(applied.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 
     const verify = createPool({ ...isoConfig, max: 1 });
     try {
       const recorded = await listAppliedMigrations(isoConfig);
-      expect(recorded.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+      expect(recorded.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 
       const tables = await verify.query<{ tablename: string }>(
         `SELECT tablename FROM pg_tables
          WHERE schemaname = 'public'
            AND tablename IN ('users','auth_sessions','audit_events','lexical_entries',
              'courses','course_drafts','draft_units','draft_course_items',
-             'course_releases','released_units','released_course_items','course_enrollments')`,
+             'course_releases','released_units','released_course_items','course_enrollments',
+             'learning_cards','learning_exposures')`,
       );
       expect(tables.rows.map((r) => r.tablename).sort()).toEqual(
         [
@@ -257,6 +258,8 @@ describe("phase 4 closeout", () => {
           "released_units",
           "released_course_items",
           "course_enrollments",
+          "learning_cards",
+          "learning_exposures",
         ].sort(),
       );
 
@@ -633,15 +636,131 @@ describe("phase 4 closeout", () => {
     expect(deniedEntry.statusCode).toBe(403);
   });
 
-  it("没有学习业务数据表（learning_cards / review_events / FSRS / XP / 挑战）", async () => {
+  it("P1 修复：同一单元多个词项发布复制全部词项；草稿修改后快照不变；历史/幂等仍通过", async () => {
+    // 旧 doPublishRelease 在同一单元多词项时只复制第一个词项到 released_course_items（P1 缺陷）。
+    // 手工构造「1 单元 2 词项」并发布，验证全部词项进入快照。
+    const entryA = await admin.req("POST", "/api/v1/admin/lexical-entries", {
+      payload: { canonicalSpelling: uniq("p1worda"), confirmDuplicate: false },
+    });
+    expect(entryA.statusCode).toBe(201);
+    const entryAId = (body(entryA) as { id?: string }).id as string;
+    const entryB = await admin.req("POST", "/api/v1/admin/lexical-entries", {
+      payload: { canonicalSpelling: uniq("p1wordb"), confirmDuplicate: false },
+    });
+    expect(entryB.statusCode).toBe(201);
+    const entryBId = (body(entryB) as { id?: string }).id as string;
+
+    const slug = uniq("p1course");
+    const created = await admin.req("POST", "/api/v1/admin/courses", {
+      payload: { slug, title: "同单元多词项课程", level: "a1", description: "" },
+    });
+    expect(created.statusCode).toBe(201);
+    const courseId = (body(created) as { courseId?: string }).courseId as string;
+    let version = (body(created) as { draftVersion?: number }).draftVersion ?? 1;
+
+    const unitId = randomUUID();
+    const u = await admin.req("POST", `/api/v1/admin/courses/${courseId}/draft/units/${unitId}`, {
+      payload: { title: "单单元", description: "", draftVersion: version },
+    });
+    expect(u.statusCode).toBe(201);
+    version = (body(u) as { version?: number }).version ?? version;
+
+    const itemA = randomUUID();
+    const ia = await admin.req("POST", `/api/v1/admin/courses/${courseId}/draft/items/${itemA}`, {
+      payload: { unitId, lexicalEntryId: entryAId, meaning: "放弃", draftVersion: version },
+    });
+    expect(ia.statusCode).toBe(201);
+    version = (body(ia) as { version?: number }).version ?? version;
+    const itemB = randomUUID();
+    const ib = await admin.req("POST", `/api/v1/admin/courses/${courseId}/draft/items/${itemB}`, {
+      payload: { unitId, lexicalEntryId: entryBId, meaning: "坚持", draftVersion: version },
+    });
+    expect(ib.statusCode).toBe(201);
+    version = (body(ib) as { version?: number }).version ?? version;
+
+    const pubKey = uniq("p1pub");
+    const pub = await admin.req("POST", `/api/v1/admin/courses/${courseId}/releases`, {
+      headers: { "idempotency-key": pubKey },
+      payload: { draftVersion: version, releaseNote: "发布" },
+    });
+    expect(pub.statusCode).toBe(201);
+
+    // 版本历史与幂等重试继续通过。
+    const history = body(
+      await admin.req("GET", `/api/v1/admin/courses/${courseId}/releases`, {}),
+    ) as { items: { id: string; releaseNumber: number }[] };
+    expect(history.items).toHaveLength(1);
+    expect(history.items[0]?.releaseNumber).toBe(1);
+    const replayPub = await admin.req("POST", `/api/v1/admin/courses/${courseId}/releases`, {
+      headers: { "idempotency-key": pubKey },
+      payload: { draftVersion: version, releaseNote: "发布" },
+    });
+    expect([200, 201]).toContain(replayPub.statusCode);
+    expect((body(replayPub) as { releaseId?: string }).releaseId).toBe(history.items[0]?.id);
+
     const pool = createPool({ ...config, max: 1 });
     try {
+      // 快照必须包含两个词项，且稳定 course_item_id、英文、中文释义、顺序都存在。
+      const released = await pool.query<{
+        course_item_id: string;
+        english_spelling: string;
+        meaning: string;
+        position: number;
+      }>(
+        `SELECT rci.course_item_id, rci.english_spelling, rci.meaning, rci.position
+         FROM released_course_items rci
+         WHERE rci.release_id = $1
+         ORDER BY rci.position ASC, rci.course_item_id ASC`,
+        [history.items[0]?.id],
+      );
+      expect(released.rows).toHaveLength(2);
+      const byId = new Map(released.rows.map((r) => [r.course_item_id, r]));
+      const rowA = byId.get(itemA);
+      const rowB = byId.get(itemB);
+      expect(rowA).toBeTruthy();
+      expect(rowB).toBeTruthy();
+      expect(rowA!.english_spelling.length).toBeGreaterThan(0);
+      expect(rowB!.english_spelling.length).toBeGreaterThan(0);
+      expect(rowA!.meaning).toBe("放弃");
+      expect(rowB!.meaning).toBe("坚持");
+      expect(rowA!.position).toBeGreaterThanOrEqual(1);
+      expect(rowB!.position).toBeGreaterThanOrEqual(1);
+      // 同单元发布应只有一条 released_units。
+      const units = await pool.query<{ n: number }>(
+        "SELECT count(*)::int AS n FROM released_units WHERE release_id = $1",
+        [history.items[0]?.id],
+      );
+      expect(units.rows[0]?.n).toBe(1);
+    } finally {
+      await pool.end();
+    }
+
+    // 草稿修改后已发布快照仍不变。
+    await admin.req("PATCH", `/api/v1/admin/courses/${courseId}/draft/items/${itemA}`, {
+      payload: { meaning: "修订后的释义", draftVersion: version },
+    });
+    const pool2 = createPool({ ...config, max: 1 });
+    try {
+      const still = await pool2.query<{ meaning: string }>(
+        "SELECT meaning FROM released_course_items WHERE course_item_id = $1",
+        [itemA],
+      );
+      expect(still.rows[0]?.meaning).toBe("放弃");
+    } finally {
+      await pool2.end();
+    }
+  });
+
+  it("没有学习核心业务数据表（学习卡/展示表存在；review_events / FSRS / XP / 计划 / 挑战表不存在）", async () => {
+    const pool = createPool({ ...config, max: 1 });
+    try {
+      // 阶段 5 工单 01 已引入 learning_cards / learning_exposures；其余学习核心表仍不存在。
       const tables = await pool.query<{ tablename: string }>(
         `SELECT tablename FROM pg_tables
          WHERE schemaname = 'public'
            AND tablename IN (
-             'learning_cards','review_events','card_reviews','memory_states','fsrs_states',
-             'xp_entries','xp_ledger','daily_plans','study_sessions','learning_exposures',
+             'review_events','card_reviews','memory_states','fsrs_states',
+             'xp_entries','xp_ledger','daily_plans','study_sessions',
              'challenge_quizzes','quiz_questions','quiz_responses','challenge_points',
              'weekly_challenge_boards','game_rule_sets','badges','user_levels'
            )`,

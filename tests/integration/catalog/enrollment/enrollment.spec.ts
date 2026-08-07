@@ -499,12 +499,13 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
       expect(d.isPrimary).toBe(true);
     });
 
-    it("报名/设主不创建学习产物（learning_cards / review_events / xp_entries 无对应表）", async () => {
+    it("报名/设主不创建学习产物（learning_cards 表存在但不产生行；review_events/xp 无表）", async () => {
       const pool = createPool({ ...config, max: 1 });
       try {
+        // 阶段 5 已引入 learning_cards/learning_exposures；复习/XP/计划表仍不存在。
         const tables = await pool.query<{ tablename: string }>(
           `SELECT tablename FROM pg_tables
-         WHERE schemaname = 'public' AND tablename IN ('learning_cards','review_events','xp_entries')`,
+         WHERE schemaname = 'public' AND tablename IN ('review_events','xp_entries','daily_plans','study_sessions')`,
         );
         expect(tables.rows).toEqual([]);
       } finally {
@@ -520,6 +521,19 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
       expect(d).not.toHaveProperty("sessionId");
       expect(d).not.toHaveProperty("learningCardCount");
       expect(d).not.toHaveProperty("xp");
+
+      // 报名/设主不产生学习卡行（卡由学习接口按需同步）。
+      const pool2 = createPool({ ...config, max: 1 });
+      try {
+        const cards = await pool2.query<{ n: string }>(
+          `SELECT count(*)::text AS n FROM learning_cards
+           WHERE user_id = $1 AND course_id = $2`,
+          [learnerUserId, courseId],
+        );
+        expect(Number(cards.rows[0]?.n ?? 0)).toBe(0);
+      } finally {
+        await pool2.end();
+      }
     });
 
     it("不安全方法缺少 CSRF 头 → 403", async () => {
