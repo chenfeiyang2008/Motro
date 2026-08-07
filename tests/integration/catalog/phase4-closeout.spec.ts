@@ -218,7 +218,7 @@ describe("phase 4 closeout", () => {
     };
   }
 
-  it("0001–0010 migration 从空库顺序应用（一次性隔离数据库），产生全部表、唯一主课程索引与学习卡约束", async () => {
+  it("0001–0011 migration 从空库顺序应用（一次性隔离数据库），产生全部表、唯一主课程索引与学习卡约束", async () => {
     const dbName = `motro_p4_${Date.now().toString(36)}_${randomBytes(2).toString("hex")}`;
     const adminPool = createPool({ ...config, database: "postgres", max: 1 });
     try {
@@ -229,12 +229,12 @@ describe("phase 4 closeout", () => {
 
     const isoConfig = { ...config, database: dbName };
     const applied = await migrate(isoConfig, MIGRATIONS_DIR);
-    expect(applied.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    expect(applied.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
 
     const verify = createPool({ ...isoConfig, max: 1 });
     try {
       const recorded = await listAppliedMigrations(isoConfig);
-      expect(recorded.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+      expect(recorded.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
 
       const tables = await verify.query<{ tablename: string }>(
         `SELECT tablename FROM pg_tables
@@ -270,6 +270,15 @@ describe("phase 4 closeout", () => {
            AND indexname = 'course_enrollments_one_active_primary_per_user'`,
       );
       expect(idx.rowCount).toBe(1);
+
+      // 0011：learning_cards 新增调度参数版本列（NOT NULL，固定默认回填既有行）。
+      const schedulerParamsCol = await verify.query(
+        `SELECT is_nullable
+         FROM information_schema.columns
+         WHERE table_name = 'learning_cards' AND column_name = 'scheduler_parameters_version'`,
+      );
+      expect(schedulerParamsCol.rowCount).toBe(1);
+      expect(schedulerParamsCol.rows[0]?.is_nullable).toBe("NO");
     } finally {
       await verify.end();
     }

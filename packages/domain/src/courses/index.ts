@@ -8,3 +8,4 @@ export * from "./publishing/index.js";
 export * from "./catalog.js";
 export * from "./enrollment.js";
 export * from "./learning-card.js";
+export * from "./scheduling/index.js";

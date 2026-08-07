@@ -359,7 +359,7 @@ describe("learning cards and exposures", () => {
     return { statusCode: res.statusCode, body: res.json() as ExposureBody };
   }
 
-  it("0010 migration 从空库顺序应用（一次性隔离数据库）：learning_cards / learning_exposures + 唯一约束 + 展示不可变触发器", async () => {
+  it("0001–0011 migration 从空库顺序应用（一次性隔离数据库）：learning_cards / learning_exposures + 唯一约束 + 展示不可变触发器", async () => {
     const dbName = `motro_lc_${Date.now().toString(36)}_${randomBytes(2).toString("hex")}`;
     const adminPool = createPool({ ...config, database: "postgres", max: 1 });
     try {
@@ -371,12 +371,12 @@ describe("learning cards and exposures", () => {
     const isoConfig = { ...config, database: dbName };
     try {
       const applied = await migrate(isoConfig, MIGRATIONS_DIR);
-      expect(applied.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+      expect(applied.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
 
       const verify = createPool({ ...isoConfig, max: 1 });
       try {
         const recorded = await listAppliedMigrations(isoConfig);
-        expect(recorded.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+        expect(recorded.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
 
         const tables = await verify.query<{ tablename: string }>(
           `SELECT tablename FROM pg_tables
@@ -413,6 +413,18 @@ describe("learning cards and exposures", () => {
         expect(triggers.rows.map((r) => r.tgname).sort()).toEqual([
           "learning_exposures_no_delete",
           "learning_exposures_no_update",
+        ]);
+
+        // 0011：learning_cards 调度参数版本列 + 学习步骤列，均 NOT NULL。
+        const cols = await verify.query<{ column_name: string; is_nullable: string }>(
+          `SELECT column_name, is_nullable FROM information_schema.columns
+           WHERE table_name = 'learning_cards'
+             AND column_name IN ('scheduler_parameters_version', 'learning_steps')
+           ORDER BY column_name`,
+        );
+        expect(cols.rows).toEqual([
+          { column_name: "learning_steps", is_nullable: "NO" },
+          { column_name: "scheduler_parameters_version", is_nullable: "NO" },
         ]);
       } finally {
         await verify.end();

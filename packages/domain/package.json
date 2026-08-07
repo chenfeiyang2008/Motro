@@ -18,5 +18,8 @@
   },
   "engines": {
     "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "ts-fsrs": "5.4.1"
   }
 }

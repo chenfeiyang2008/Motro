@@ -1,6 +1,7 @@
 // 学习卡与学习展示的纯领域规则（阶段 5 工单 01）。
 // 只描述不依赖数据库的不变量：方向校验、初始卡状态、方向对规则、卡身份键、展示状态映射。
 // FSRS 调度计算属于工单 02，本文件不实现任何调度逻辑。
+import { INITIAL_PARAMETERS_PLACEHOLDER } from "./scheduling/parameters.js";
 
 export const CARD_DIRECTIONS = ["en_to_zh", "zh_to_en"] as const;
 export type CardDirection = (typeof CARD_DIRECTIONS)[number];
@@ -9,6 +10,12 @@ export const CARD_STATES = ["new", "learning", "review"] as const;
 export type CardState = (typeof CARD_STATES)[number];
 
 export const SCHEDULER_VERSION = "fsrs-v6";
+
+/**
+ * 初始学习卡尚未调度时使用的参数版本占位（见 migration 0011 与 scheduling/parameters.ts）。
+ * 该字符串必须与调度边界里识别的占位一致：只允许未调度初始卡首次进入默认参数集。
+ */
+export const INITIAL_SCHEDULER_PARAMETERS_VERSION = INITIAL_PARAMETERS_PLACEHOLDER;
 
 /** 方向校验：英文→中文与中文→英文是两个允许的独立方向。 */
 export function validateCardDirection(direction: string): string[] {
@@ -42,6 +49,7 @@ export interface InitialCardState {
   lastReviewAt: string | null;
   dueAt: string;
   schedulerVersion: string;
+  schedulerParametersVersion: string;
   stateVersion: number;
 }
 
@@ -63,6 +71,7 @@ export function buildInitialCardState(input: InitialCardStateInput): InitialCard
     lastReviewAt: null,
     dueAt: now.toISOString(),
     schedulerVersion: SCHEDULER_VERSION,
+    schedulerParametersVersion: INITIAL_SCHEDULER_PARAMETERS_VERSION,
     stateVersion: 0,
   };
 }

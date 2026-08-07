@@ -3,6 +3,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CARD_DIRECTIONS,
+  INITIAL_SCHEDULER_PARAMETERS_VERSION,
   SCHEDULER_VERSION,
   buildDirectionalCardsForItem,
   buildExposureRecord,
@@ -52,6 +53,7 @@ describe("buildInitialCardState", () => {
       lastReviewAt: null,
       dueAt: now.toISOString(),
       schedulerVersion: SCHEDULER_VERSION,
+      schedulerParametersVersion: INITIAL_SCHEDULER_PARAMETERS_VERSION,
       stateVersion: 0,
     });
   });

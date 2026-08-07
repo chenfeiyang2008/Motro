@@ -221,9 +221,13 @@ export const learningCards = pgTable(
     elapsedDays: integer("elapsed_days").notNull().default(0),
     reps: integer("reps").notNull().default(0),
     lapses: integer("lapses").notNull().default(0),
+    learningSteps: integer("learning_steps").notNull().default(0),
     lastReviewAt: timestamp("last_review_at", { withTimezone: true }),
     dueAt: timestamp("due_at", { withTimezone: true }).notNull().defaultNow(),
     schedulerVersion: text("scheduler_version").notNull().default("fsrs-v6"),
+    schedulerParametersVersion: text("scheduler_parameters_version")
+      .notNull()
+      .default("fsrs-v6/default"),
     stateVersion: integer("state_version").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
