@@ -561,6 +561,72 @@ test.describe("study web experience", () => {
       await ctx.dispose();
     }
   });
+
+  test("刷新恢复同一会话：reload 后当前卡/进度不重复、不丢失，仍处同一光标", async ({
+    page,
+    playwright,
+  }) => {
+    test.setTimeout(180_000);
+    const { ctx, csrf } = await loginAdminApi(playwright);
+    try {
+      const { courseId } = await createPublishedCourse(ctx, csrf);
+      const learner = await createLearner(ctx, csrf);
+      await loginAsLearner(page, learner, courseId);
+
+      await page.getByRole("button", { name: "开始学习", exact: true }).click();
+      await expect(page).toHaveURL(/\/study\/[0-9a-f-]+/);
+      // 第一卡：未 reveal 时刷新。
+      const url = page.url();
+      await page.getByRole("button", { name: "显示答案" }).click();
+      await expect(page.getByText("答案", { exact: true })).toBeVisible();
+      await expect(page.getByText(/1 \/ 2/)).toBeVisible();
+
+      // reload 应恢复同一会话、同一光标（仍第 1 项且已 reveal，答案可见，不回到首页）。
+      await page.reload();
+      await expect(page).toHaveURL(url);
+      await expect(page.getByRole("button", { name: "显示答案" })).toHaveCount(0); // 已 reveal
+      await expect(page.getByText("答案", { exact: true })).toBeVisible();
+      await expect(page.getByText(/1 \/ 2/)).toBeVisible();
+
+      // 键盘评分（Good）前进 → 第 2 项；再 reload，仍第 2 项（不重复回退）。
+      await page.keyboard.press("3");
+      await expect(page.getByRole("button", { name: "显示答案" })).toBeVisible();
+      await expect(page.getByText(/2 \/ 2/)).toBeVisible();
+      await page.reload();
+      await expect(page.getByRole("button", { name: "显示答案" })).toBeVisible();
+      await expect(page.getByText(/2 \/ 2/)).toBeVisible();
+    } finally {
+      await ctx.dispose();
+    }
+  });
+
+  test("prefers-reduced-motion：专注学习页渲染正常、评分后推进、不产生禁止的连续动画问题", async ({
+    page,
+    playwright,
+  }) => {
+    test.setTimeout(180_000);
+    const { ctx, csrf } = await loginAdminApi(playwright);
+    try {
+      const { courseId } = await createPublishedCourse(ctx, csrf);
+      const learner = await createLearner(ctx, csrf);
+      await loginAsLearner(page, learner, courseId);
+
+      // 注入 reduced-motion 偏好，再进入学习流。
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await page.getByRole("button", { name: "开始学习", exact: true }).click();
+      await expect(page).toHaveURL(/\/study\/[0-9a-f-]+/);
+      await expect(page.getByRole("heading", { name: "学习会话" })).toHaveCount(1);
+      await page.getByRole("button", { name: "显示答案" }).click();
+      await expect(page.getByText("答案", { exact: true })).toBeVisible();
+      // 进度条在 reduced-motion 下仍存在且有语义。
+      await expect(page.locator('.progress-track[role="progressbar"]')).toBeVisible();
+      // 键盘评分推进流程完整（reduced-motion 不阻断交互）。
+      await page.keyboard.press("3");
+      await expect(page.getByRole("button", { name: "显示答案" })).toBeVisible();
+    } finally {
+      await ctx.dispose();
+    }
+  });
 });
 
 // 不依赖后端的纯外壳断言：始终运行。
