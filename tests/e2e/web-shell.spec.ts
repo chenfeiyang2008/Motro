@@ -1,11 +1,28 @@
 // Web 外壳 E2E：路由、错误页、响应式与键盘可达性。不依赖 API 或数据库。
 import { expect, test } from "@playwright/test";
 
+const API = process.env.API_PUBLIC_URL ?? "http://127.0.0.1:3000";
+
+let apiUp = false;
+test.beforeAll(async () => {
+  try {
+    const res = await fetch(`${API}/api/v1/health/live`);
+    apiUp = res.ok;
+  } catch {
+    apiUp = false;
+  }
+});
+
 test.describe("web shell", () => {
-  test("学习者首页渲染占位内容", async ({ page }) => {
+  test("未登录首页：API 可用时跳到登录页；API 不可用（纯外壳）仍渲染首页标题", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Motro" })).toBeVisible();
-    await expect(page.getByText("学习端占位页")).toBeVisible();
+    if (apiUp) {
+      // 真实 compose 环境：首页会话守卫认为未登录 → 跳 /login。
+      await expect(page).toHaveURL(/\/login/, { timeout: 15000 });
+    } else {
+      // 无 API 的 web-shell job：getStudyToday 网络失败 → 诚实错误态，仍保留首页标题结构。
+      await expect(page.getByRole("heading", { name: "今天的学习" })).toBeVisible();
+    }
   });
 
   test("未登录访问管理端路由跳转到登录页", async ({ page }) => {

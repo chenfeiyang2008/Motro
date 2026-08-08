@@ -3542,6 +3542,27 @@
               "skipped_by_server"
             ],
             "description": "计划项状态"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "en_to_zh",
+              "zh_to_en"
+            ],
+            "description": "该计划项复习方向"
+          },
+          "englishSpelling": {
+            "type": "string",
+            "description": "英文拼写（来自会话冻结 release 快照，绝不来自 current release）"
+          },
+          "meaning": {
+            "type": "string",
+            "description": "中文释义（来自会话冻结 release 快照，绝不来自 current release）"
+          },
+          "hint": {
+            "type": "string",
+            "nullable": true,
+            "description": "提示（可空；来自冻结 release 快照）"
           }
         },
         "required": [
@@ -3551,7 +3572,11 @@
           "courseItemId",
           "courseId",
           "itemKind",
-          "state"
+          "state",
+          "direction",
+          "englishSpelling",
+          "meaning",
+          "hint"
         ]
       },
       "StudySessionDetailDto": {

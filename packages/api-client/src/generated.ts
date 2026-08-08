@@ -1280,6 +1280,17 @@ export interface components {
        * @enum {string}
        */
       state: "pending" | "shown" | "completed" | "skipped_by_server";
+      /**
+       * @description 该计划项复习方向
+       * @enum {string}
+       */
+      direction: "en_to_zh" | "zh_to_en";
+      /** @description 英文拼写（来自会话冻结 release 快照，绝不来自 current release） */
+      englishSpelling: string;
+      /** @description 中文释义（来自会话冻结 release 快照，绝不来自 current release） */
+      meaning: string;
+      /** @description 提示（可空；来自冻结 release 快照） */
+      hint: string | null;
     };
     StudySessionDetailDto: {
       /** @description 会话头 */

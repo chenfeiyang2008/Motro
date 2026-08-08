@@ -213,6 +213,22 @@ export class StudySessionItemDto {
     description: "计划项状态",
   })
   state!: string;
+
+  @ApiProperty({ enum: ["en_to_zh", "zh_to_en"], description: "该计划项复习方向" })
+  direction!: string;
+
+  @ApiProperty({
+    description: "英文拼写（来自会话冻结 release 快照，绝不来自 current release）",
+  })
+  englishSpelling!: string;
+
+  @ApiProperty({
+    description: "中文释义（来自会话冻结 release 快照，绝不来自 current release）",
+  })
+  meaning!: string;
+
+  @ApiProperty({ type: String, nullable: true, description: "提示（可空；来自冻结 release 快照）" })
+  hint!: string | null;
 }
 
 export class StudySessionDto {

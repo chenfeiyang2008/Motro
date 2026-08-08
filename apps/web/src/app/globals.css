@@ -9,18 +9,63 @@ body {
 }
 
 body {
-  font-family: "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
-  background: #f7f9fc;
-  color: #182230;
+  /* 语义 token：颜色只在 token 层引用字面值，组件消费 token。 */
+  --color-brand-600: #f5781f;
+  --color-brand-700: #e76812;
+  --color-brand-800: #de640f;
+  --color-brand-900: #b84d22;
+  --color-brand-050: #fff2e8;
+  --color-text-on-brand: #182230;
+  --color-focus: #182230;
+  --color-bg-page: #f7f9fc;
+  --color-bg-surface: #ffffff;
+  --color-text-primary: #182230;
+  --color-text-secondary: #5d6b7a;
+  --color-border: #dce3ec;
+  --color-success: #23875b;
+  --color-warning: #c47a16;
+  --color-error: #c84545;
+
+  /* 间距/圆角/字体 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --radius-control: 8px;
+  --radius-panel: 12px;
+
+  /* 英学习内容用自托管 Lexend（若随包发布）；缺失时回退到系统无衬线并保持 -600 字重。 */
+  --font-english: "Lexend", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+  --font-zh: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+
+  font-family: var(--font-zh);
+  background: var(--color-bg-page);
+  color: var(--color-text-primary);
   min-height: 100vh;
 }
 
 :focus-visible {
-  outline: 3px solid #2f6fed;
+  outline: 3px solid var(--color-focus);
   outline-offset: 2px;
 }
 
-/* 跳过链接：opacity 隐藏不脱离 Tab 顺序（WebKit 也聚焦），聚焦时显示。 */
+/* 语义隐藏：视觉不可见但保留给读屏/辅助技术的标准 sr-only 技巧。 */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* 视觉链路：opacity 隐藏不脱离 Tab 顺序（WebKit 也聚焦），聚焦时显示。 */
 .skip-link {
   position: absolute;
   top: 0;
@@ -28,7 +73,7 @@ body {
   opacity: 0;
   pointer-events: none;
   padding: 8px 12px;
-  background: #ffffff;
+  background: var(--color-bg-surface);
   z-index: 100;
 }
 
@@ -38,7 +83,36 @@ body {
 }
 
 main {
-  padding: 24px;
+  /* 响应式页面边距（docs/ui/web-ui-spec.md）：<600px → 16px；600–1023px → 24px；>=1024px → 32px。 */
+  padding: 16px;
+}
+
+@media (min-width: 600px) {
+  main {
+    padding: 24px;
+  }
+}
+
+@media (min-width: 1024px) {
+  main {
+    padding: 32px;
+  }
+}
+
+/* 交互控件禁用双击缩放延迟，移动端点击响应更快（不禁止单指滚动/双指缩放）。 */
+button,
+[role="button"],
+a,
+input,
+select,
+textarea,
+summary {
+  touch-action: manipulation;
+}
+
+/* 语义 border 颜色（把早期 #dce3ec 统一为 token）。 */
+.tokens-demo {
+  --border-default: var(--color-border);
 }
 
 /* 表单基础：44px 触控区、清晰标签与错误 */
@@ -59,12 +133,12 @@ main {
   font-size: 16px;
   padding: 0 12px;
   border-radius: 8px;
-  border: 1px solid #dce3ec;
+  border: 1px solid var(--color-border);
 }
 
 .auth-form input {
-  background: #ffffff;
-  color: #182230;
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
 }
 
 .auth-form button,
@@ -73,18 +147,19 @@ button.primary {
   font-size: 16px;
   border-radius: 8px;
   border: none;
-  background: #2f6fed;
-  color: #ffffff;
+  background: var(--color-brand-600);
+  color: var(--color-text-on-brand);
   cursor: pointer;
 }
 
-.auth-form button:disabled {
+.auth-form button:disabled,
+button.primary:disabled {
   opacity: 0.6;
   cursor: default;
 }
 
 .auth-error {
-  color: #c84545;
+  color: var(--color-error);
   margin: 0;
 }
 
@@ -454,8 +529,10 @@ button.secondary.danger {
   cursor: pointer;
 }
 
-.search-result:hover {
-  background: #eaf1ff;
+@media (hover: hover) and (pointer: fine) {
+  .search-result:hover {
+    background: #eaf1ff;
+  }
 }
 
 /* 发布准备页 */
@@ -597,8 +674,10 @@ button.secondary.danger {
   text-decoration: none;
 }
 
-.course-card-link:hover {
-  background: #eaf1ff;
+@media (hover: hover) and (pointer: fine) {
+  .course-card-link:hover {
+    background: #eaf1ff;
+  }
 }
 
 .course-card h2 {
@@ -685,4 +764,668 @@ button.secondary.danger {
   font-weight: 600;
   color: #5d6b7a;
   min-width: 24px;
+}
+
+/* ============================================================
+   学习者全局导航（Liquid Glass 功能层）
+   移动端：底部安全区感知的胶囊 Dock；桌面端：左贴边连续侧栏。
+   同一连续 Glass 分组，不把每个按钮拆成独立玻璃块。
+   ============================================================ */
+
+.learner-chrome {
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-blur: saturate(1.4) blur(16px);
+  position: fixed;
+  z-index: 50;
+  display: flex;
+}
+
+.learner-dock {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  justify-content: center;
+  padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
+}
+
+.learner-dock .learner-nav {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 4px;
+  border-radius: 999px;
+}
+
+.learner-rail {
+  top: 0;
+  left: 0;
+  bottom: 0;
+  flex-direction: column;
+  width: 224px;
+  padding: 24px 12px;
+}
+
+.learner-rail .learner-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.learner-chrome .learner-nav {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid rgba(220, 227, 236, 0.8);
+  box-shadow:
+    0 1px 2px rgba(24, 34, 48, 0.06),
+    0 6px 20px rgba(24, 34, 48, 0.08);
+}
+
+.learner-nav a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  color: var(--color-text-primary);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .learner-nav a:hover {
+    background: rgba(24, 34, 48, 0.05);
+  }
+}
+
+.learner-nav a[aria-current="page"] {
+  background: var(--color-brand-050);
+  color: var(--color-brand-900);
+  font-weight: 600;
+}
+
+.learner-chrome .learner-nav a:focus-visible {
+  outline-color: var(--color-focus);
+}
+
+/* 响应式：窄屏显示底部 Dock，宽屏显示左贴边侧栏。 */
+@media (max-width: 1023px) {
+  .learner-rail {
+    display: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  .learner-dock {
+    display: none;
+  }
+}
+
+/* 移动端为 Dock 预留底部空间；桌面端为侧栏预留左边空间。 */
+.learner-layout {
+  min-height: 100vh;
+}
+
+.learner-content {
+  padding-bottom: calc(80px + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 1024px) {
+  .learner-content {
+    padding-left: 224px;
+    padding-bottom: 0;
+  }
+}
+
+/* 不透明高对比降级：reduced-transparency / contrast-more / 不支持 backdrop-filter */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .learner-chrome .learner-nav {
+    background: var(--color-bg-surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 1px solid var(--color-border);
+    box-shadow: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .learner-chrome .learner-nav {
+    background: var(--color-bg-surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 1px solid var(--color-border);
+    box-shadow: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .learner-chrome .learner-nav {
+    background: var(--color-bg-surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 2px solid var(--color-border);
+    box-shadow: none;
+  }
+}
+
+/* ============================================================
+   首页：今日计划
+   计划面板是不透明标准内容面（不是 Glass）。
+   ============================================================ */
+
+.learner-home {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.learner-home h1 {
+  font-size: 28px;
+  line-height: 36px;
+  margin: 0 0 4px;
+}
+
+.home-sub {
+  color: var(--color-text-secondary);
+  margin: 0 0 24px;
+}
+
+.plan-panel {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.plan-course {
+  margin: 0;
+}
+
+.plan-course strong {
+  font-size: 18px;
+}
+
+.plan-course-meta {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  margin: 2px 0 0;
+}
+
+.plan-counts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+}
+
+.plan-counts li {
+  background: var(--color-bg-page);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  padding: 12px 16px;
+}
+
+.plan-count-label {
+  display: block;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.plan-count-value {
+  display: block;
+  font-weight: 600;
+  font-size: 20px;
+}
+
+.plan-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.learner-home .primary {
+  background: var(--color-brand-600);
+  color: var(--color-text-on-brand);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .learner-home .primary:hover {
+    background: var(--color-brand-700);
+  }
+}
+
+.learner-home .primary:active {
+  background: var(--color-brand-800);
+}
+
+.plan-note {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  margin: 0;
+}
+
+.plan-empty {
+  color: var(--color-text-secondary);
+}
+
+.home-actions {
+  margin-top: 8px;
+}
+
+/* ============================================================
+   学习页（专注）
+   全局导航隐藏；只有最小 Glass header；卡是不透明内容面。
+   ============================================================ */
+
+.study-shell {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 0;
+}
+
+.study-header {
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-blur: saturate(1.4) blur(16px);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: var(--radius-panel);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid rgba(220, 227, 236, 0.8);
+  box-shadow:
+    0 1px 2px rgba(24, 34, 48, 0.06),
+    0 6px 20px rgba(24, 34, 48, 0.08);
+  margin-bottom: 24px;
+}
+
+.study-header-exit {
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border-radius: var(--radius-control);
+  background: transparent;
+  border: none;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font-size: 16px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .study-header-exit:hover {
+    background: rgba(24, 34, 48, 0.05);
+  }
+}
+
+.study-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.study-progress-text {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.study-progress-role {
+  /* 供读屏朗读文字进度；视觉上隐藏但不脱离可访问性 */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  clip: rect(0 0 0 0);
+  overflow: hidden;
+}
+
+.progress-track {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(24, 34, 48, 0.12);
+  min-width: 60px;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-brand-600);
+  transition: width 180ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-fill {
+    transition: none;
+  }
+}
+
+.study-card {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  padding: 32px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-height: 320px;
+}
+
+.study-direction {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* 英文拼写/英文答案 */
+.study-text-english {
+  font-family: var(--font-english);
+}
+/* 中文释义/中文答案 */
+.study-text-zh {
+  font-family: var(--font-zh);
+}
+
+.study-prompt {
+  font-size: clamp(32px, 6vw, 48px);
+  line-height: 1.15;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.study-hint {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  margin: 0;
+}
+
+.study-reveal-btn {
+  min-height: 44px;
+  align-self: flex-start;
+}
+
+.study-answer {
+  border-top: 1px solid var(--color-border);
+  padding-top: 20px;
+}
+
+.study-answer-label {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  margin: 0 0 8px;
+}
+
+.study-answer-value {
+  font-size: 24px;
+  line-height: 1.3;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.study-ratings {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.study-rating {
+  min-height: 44px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 8px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .study-rating:hover:not(:disabled) {
+    background: var(--color-brand-050);
+  }
+}
+
+.study-rating:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.study-rating:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.study-rating-key {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.study-error {
+  color: var(--color-error);
+  margin: 12px 0 0;
+}
+
+.study-error-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.study-live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  clip: rect(0 0 0 0);
+  overflow: hidden;
+}
+
+@media (max-width: 599px) {
+  .study-ratings {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .study-header {
+    background: var(--color-bg-surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 1px solid var(--color-border);
+    box-shadow: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .study-header {
+    background: var(--color-bg-surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 1px solid var(--color-border);
+    box-shadow: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .study-header {
+    background: var(--color-bg-surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 2px solid var(--color-border);
+    box-shadow: none;
+  }
+}
+
+/* ============================================================
+   结果页
+   安静总结；不透明内容面；不展示 XP。
+   ============================================================ */
+
+.learner-result {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.learner-result h1 {
+  font-size: 28px;
+  line-height: 36px;
+  margin: 0 0 8px;
+}
+
+.result-panel {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.result-counts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+}
+
+.result-counts li {
+  background: var(--color-bg-page);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  padding: 12px 16px;
+}
+
+.result-count-label {
+  display: block;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.result-count-value {
+  display: block;
+  font-weight: 600;
+  font-size: 20px;
+}
+
+.result-next {
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.result-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.learner-result .primary {
+  background: var(--color-brand-600);
+  color: var(--color-text-on-brand);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .learner-result .primary:hover {
+    background: var(--color-brand-700);
+  }
+}
+
+.learner-result .primary:active {
+  background: var(--color-brand-800);
+}
+
+/* 触控 44px 兜底 */
+.learner-nav a,
+.study-header-exit,
+.study-rating,
+.plan-actions a,
+.plan-actions button,
+.result-actions a,
+.result-actions button {
+  min-height: 44px;
+}
+
+/* 对话确认：阻断流程的确认对话框（学习页退出确认）。 */
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(24, 34, 48, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+}
+
+.dialog-backdrop > [role="dialog"] {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  padding: 24px;
+  max-width: 400px;
+  width: calc(100% - 32px);
+  box-shadow: 0 12px 32px rgba(24, 34, 48, 0.16);
+}
+
+.dialog-backdrop h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}
+
+.dialog-backdrop p {
+  color: var(--color-text-secondary);
+  margin: 0 0 16px;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  align-items: center;
+}
+
+.form-error {
+  color: var(--color-error);
+  margin: 8px 0 0;
+}
+
+.plan-sticker {
+  font-weight: 600;
+  margin: 0;
+}
+
+/* 结果/首页主操作链接复用 primary 视觉。 */
+.learner-home .primary,
+.learner-result .primary {
+  text-decoration: none;
 }

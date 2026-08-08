@@ -52,6 +52,17 @@ export type CreateItemPayload = components["schemas"]["CreateItemDto"];
 export type UpdateItemPayload = components["schemas"]["UpdateItemDto"];
 export type ReorderItemsPayload = components["schemas"]["ReorderItemsDto"];
 
+// ---- 学习者：学习端 /study（只读 + 学习会话） ----
+
+export type StudyToday = components["schemas"]["TodayDto"];
+export type StudySession = components["schemas"]["StudySessionDto"];
+export type StudySessionDetail = components["schemas"]["StudySessionDetailDto"];
+export type StudySessionItem = components["schemas"]["StudySessionItemDto"];
+export type RevealResult = components["schemas"]["RevealResultDto"];
+export type SubmitReviewResult = components["schemas"]["SubmitReviewResultDto"];
+export type StudyProgress = components["schemas"]["ProgressDto"];
+export type SubmitReviewPayload = components["schemas"]["SubmitReviewDto"];
+
 export interface ApiError {
   code?: string;
   message?: string;
@@ -78,7 +89,18 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<ApiResult<
     const csrf = readCsrfCookie();
     if (csrf) headers["x-csrf-token"] = csrf;
   }
-  const res = await fetch(path, { ...init, headers, credentials: "same-origin" });
+  // 网络异常（断网/代理断开/连接拒绝）统一归一为可重试的 NETWORK_ERROR，
+  // 不向上抛 fetch rejection，避免调用方崩溃或 submitting 永久为 true。
+  let res: Response;
+  try {
+    res = await fetch(path, { ...init, headers, credentials: "same-origin" });
+  } catch {
+    return {
+      ok: false,
+      status: 0,
+      error: { code: "NETWORK_ERROR", message: "网络连接失败，请重试", retryable: true },
+    };
+  }
   let data: T | { error?: ApiError } | undefined;
   try {
     data = (await res.json()) as T | { error?: ApiError };
@@ -332,4 +354,54 @@ export function setPrimaryCourse(courseId: string): Promise<ApiResult<CatalogCou
     method: "PUT",
     body: JSON.stringify({ courseId }),
   });
+}
+
+// ---- 学习者：学习端 /study ----
+// 只读今日概览/进度；开始/恢复唯一 active 会话；以服务端为评分/时间/cursor/FSRS/解锁权威。
+
+/** GET /study/today：今日概览（主课程、预算、候选计数、active 会话、是否无任务）。无主课程 → 404。 */
+export function getStudyToday(): Promise<ApiResult<StudyToday>> {
+  return apiFetch<StudyToday>("/api/v1/study/today", { method: "GET" });
+}
+
+/** POST /study/sessions：创建或恢复唯一 active 会话（幂等）；无候选返回 { noWork }。 */
+export function createOrResumeStudySession(): Promise<
+  ApiResult<StudySession | { noWork: boolean }>
+> {
+  return apiFetch<StudySession | { noWork: boolean }>("/api/v1/study/sessions", { method: "POST" });
+}
+
+/** GET /study/sessions/active：当前 active 会话详情（含有序计划项）。无 active 会话 → 404。 */
+export function getActiveStudySession(): Promise<ApiResult<StudySessionDetail>> {
+  return apiFetch<StudySessionDetail>("/api/v1/study/sessions/active", { method: "GET" });
+}
+
+/** POST /study/sessions/:sessionId/items/:itemId/reveal：确认已展示当前项（幂等）。 */
+export function revealStudyItem(
+  sessionId: string,
+  itemId: string,
+): Promise<ApiResult<RevealResult>> {
+  return apiFetch<RevealResult>(
+    `/api/v1/study/sessions/${encodeURIComponent(sessionId)}/items/${encodeURIComponent(itemId)}/reveal`,
+    { method: "POST" },
+  );
+}
+
+/** POST /study/sessions/:sessionId/reviews：提交四级评分（幂等；重试复用同一 clientEventId）。 */
+export function submitStudyReview(
+  sessionId: string,
+  payload: SubmitReviewPayload,
+): Promise<ApiResult<SubmitReviewResult>> {
+  return apiFetch<SubmitReviewResult>(
+    `/api/v1/study/sessions/${encodeURIComponent(sessionId)}/reviews`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+/** GET /study/progress：主课程各单元解锁 + 首测 + 稳定派生状态（只读）。 */
+export function getStudyProgress(): Promise<ApiResult<StudyProgress>> {
+  return apiFetch<StudyProgress>("/api/v1/study/progress", { method: "GET" });
 }

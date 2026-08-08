@@ -139,6 +139,11 @@ interface SessionItemRow {
   course_id: string;
   item_kind: string;
   state: string;
+  /** 会话详情透出的方向/冻结 release 内容（评分路径不 SELECT 这些列，故可选）。 */
+  direction?: string;
+  english_spelling?: string | null;
+  meaning?: string | null;
+  hint?: string | null;
 }
 
 // ---- 评分/进度领域错误 ----
@@ -501,15 +506,29 @@ export class StudyService {
     const session = await this.findActiveSession(userId);
     if (!session) throw new NotFoundException("没有 active 学习会话");
 
+    // 词面/释义/方向/提示一律来自会话冻结 release 快照（ss.release_id），
+    // 绝不按 courses.current_release_id 读取，保证旧会话语义不随指针切换变化。
+    // 用 INNER JOIN 强一致读取冻结 release 的 released_course_items：
+    // 任一计划项在该冻结 release 中缺失（快照被破坏/关联丢失）时不得静默变成空词卡成功响应，
+    // 而应让下方命中检测抛出受控错误。
     const items = await this.pool.query<SessionItemRow>(
       `SELECT ssi.id AS item_id, ssi.position, ssi.card_id, ssi.course_item_id,
-              ssi.item_kind, ssi.state, ss.course_id
-       FROM study_session_items ssi
-       JOIN study_sessions ss ON ss.id = ssi.session_id
+              ssi.item_kind, ssi.state, ss.course_id,
+              lc.direction, rci.english_spelling, rci.meaning, rci.hint
+       FROM study_sessions ss
+       JOIN study_session_items ssi ON ssi.session_id = ss.id
+       JOIN learning_cards lc ON lc.id = ssi.card_id
+       INNER JOIN released_course_items rci
+         ON rci.release_id = ss.release_id AND rci.course_item_id = ssi.course_item_id
        WHERE ssi.session_id = $1
        ORDER BY ssi.position ASC`,
       [session.sessionId],
     );
+    if (items.rows.length !== session.itemCount) {
+      // 冻结 release 快照缺失：某计划项找不到词面内容。这不能静默降级为空字符串，
+      // 抛受控服务端错误（会话仍存在，但数据不一致），避免客户端拿到空词卡。
+      throw new NotFoundException("会话计划项的冻结 release 快照不完整，无法提供本次学习内容");
+    }
     return {
       session,
       items: items.rows.map((r) => ({
@@ -520,6 +539,10 @@ export class StudyService {
         courseId: r.course_id,
         itemKind: r.item_kind,
         state: r.state,
+        direction: r.direction ?? "en_to_zh",
+        englishSpelling: r.english_spelling ?? "",
+        meaning: r.meaning ?? "",
+        hint: r.hint ?? null,
       })),
     };
   }

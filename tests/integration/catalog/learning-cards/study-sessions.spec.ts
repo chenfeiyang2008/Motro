@@ -833,6 +833,172 @@ describe("daily plan and study session", () => {
     expect(again.releaseId).toBe(frozen);
   });
 
+  it("会话冻结 release 内容内联：v1 会话在 v2 发布切换后仍返回 v1 词面/答案/方向；新会话用 v2", async () => {
+    // 阶段 5 工单 05：GET /study/sessions/active 必须让每个计划项直接携带「会话冻结 release」
+    // 的展示快照（direction/englishSpelling/meaning/hint），绝不读 current release。
+    // 场景：创建 v1 会话 → 发布 v2（改词项释义，且冻结 release 同时含一个原 v1 释义）→ 切 current
+    //   → 既有 active 会话仍返回 v1 释义；关闭后新会话用 v2 释义。
+    const { client, userId } = await freshLearner();
+    const { courseId, itemIds } = await createPublishedCourse({
+      title: "内联快照课程",
+      itemsPerUnit: 1,
+    });
+    const itemId = itemIds[0]!;
+    await enrollPrimary(client, courseId);
+    await getToday(client);
+
+    const s1 = beSession(await createSession(client));
+    let detail = (await activeDetail(client)).body as {
+      session: SessionBody;
+      items: Array<{
+        itemId: string;
+        courseItemId: string;
+        direction: string;
+        englishSpelling: string;
+        meaning: string;
+        hint: string | null;
+      }>;
+    };
+    // 1 词项 → 双向 2 个计划项（en_to_zh + zh_to_en），按 direction 定位，不假设呈现顺序。
+    const v1En = detail.items.find((i) => i.direction === "en_to_zh")!;
+    const v1Zh = detail.items.find((i) => i.direction === "zh_to_en")!;
+    expect(v1En).toBeTruthy();
+    expect(v1Zh).toBeTruthy();
+    expect(v1En.englishSpelling).toMatch(/^ssword-/);
+    expect(v1En.meaning).toBe("放弃"); // 全部词项在 createPublishedCourse 里都填 "放弃"
+    expect(v1Zh.meaning).toBe("放弃");
+    expect(v1En.englishSpelling).toBe(v1Zh.englishSpelling);
+    const frozenSpelling = v1En.englishSpelling;
+    const frozenEnItemId = v1En.itemId;
+    const frozenZhItemId = v1Zh.itemId;
+
+    // 发布 v2：同一词项释义改为「内联修订」，并切为 current。
+    const draft = body(await admin.req("GET", `/api/v1/admin/courses/${courseId}/draft`, {})) as {
+      version: number;
+    };
+    await admin.req("PATCH", `/api/v1/admin/courses/${courseId}/draft/items/${itemId}`, {
+      payload: { meaning: "内联修订", draftVersion: draft.version },
+    });
+    const draft2 = body(await admin.req("GET", `/api/v1/admin/courses/${courseId}/draft`, {})) as {
+      version: number;
+    };
+    const repub = await admin.req("POST", `/api/v1/admin/courses/${courseId}/releases`, {
+      headers: { "idempotency-key": uniq("ssinline") },
+      payload: { draftVersion: draft2.version, releaseNote: "v2" },
+    });
+    expect(repub.statusCode).toBe(201);
+
+    // 既有 active 会话刷新：release 冻结，词面/答案仍是 v1"放弃"，不是 v2"内联修订"。
+    const again = beSession(await createSession(client));
+    expect(again.sessionId).toBe(s1.sessionId);
+    detail = (await activeDetail(client)).body as typeof detail;
+    expect(detail.session.releaseId).toBe(s1.releaseId);
+    const frozenEn = detail.items.find((i) => i.itemId === frozenEnItemId)!;
+    const frozenZh = detail.items.find((i) => i.itemId === frozenZhItemId)!;
+    expect(frozenEn.meaning).toBe("放弃"); // 冻结快照忽略 v2"内联修订"
+    expect(frozenZh.meaning).toBe("放弃");
+    expect(frozenEn.englishSpelling).toBe(frozenSpelling);
+
+    // 会话关闭后再建新会话：新会话快照用新的 current release，词面变为 v2"内联修订"。
+    const pool = createPool({ ...config, max: 1 });
+    try {
+      await pool.query(
+        `UPDATE study_sessions SET status = 'abandoned' WHERE user_id = $1 AND status = 'active'`,
+        [userId],
+      );
+    } finally {
+      await pool.end();
+    }
+    const s2 = beSession(await createSession(client));
+    expect(s2.releaseId).not.toBe(s1.releaseId);
+    const v2Detail = (await activeDetail(client)).body as typeof detail;
+    expect(v2Detail.session.releaseId).toBe(s2.releaseId);
+    for (const v2It of v2Detail.items) {
+      expect(v2It.meaning).toBe("内联修订"); // 新会话用新的 current release
+      expect(v2It.englishSpelling).toBe(frozenSpelling);
+      expect(v2It.courseItemId).toBe(itemId);
+    }
+  });
+
+  it("会话冻结 release 内容内联：active 详情绝不返回 current release 草稿内容或暴露草稿", async () => {
+    // 草稿不回读：任一冻结 release 快照的展示内容必须来自 released_course_items 快照，
+    // 与 courses.current_release_id / 未发布的草稿无关。这里校验 active 会话返回的非空快照字段
+    // 都能在冻结 release 的 released_course_items 中按（release_id, course_item_id）命中。
+    const { client } = await freshLearner();
+    const { courseId } = await createPublishedCourse({ title: "快照来源课程", itemsPerUnit: 1 });
+    await enrollPrimary(client, courseId);
+    await getToday(client);
+    beSession(await createSession(client));
+
+    const detail = (await activeDetail(client)).body as {
+      session: SessionBody;
+      items: Array<{
+        itemId: string;
+        courseItemId: string;
+        englishSpelling: string;
+        meaning: string;
+      }>;
+    };
+    const pool = createPool({ ...config, max: 1 });
+    try {
+      for (const it of detail.items) {
+        const hit = await pool.query<{ n: string }>(
+          `SELECT count(*)::text AS n FROM released_course_items
+           WHERE release_id = $1 AND course_item_id = $2 AND english_spelling = $3 AND meaning = $4`,
+          [detail.session.releaseId, it.courseItemId, it.englishSpelling, it.meaning],
+        );
+        expect(Number(hit.rows[0]?.n ?? 0)).toBe(1); // 展示内容与该冻结 release 快照逐字一致
+      }
+    } finally {
+      await pool.end();
+    }
+  });
+
+  it("会话冻结 release 快照缺失不静默降级：删除冻结词项后 active 详情返回受控错误而非空词卡", async () => {
+    // P2-1：active 详情必须强一致读取冻结 release 的 released_course_items。
+    // 某计划项在冻结 release 缺失时（快照损坏/关联丢失），绝不能向客户端返回空 englishSpelling/meaning
+    // 作为"正常学习项"，而应抛受控服务端错误。这里先删除冻结 release 中该会话计划项的词项行，
+    // 再读 active 详情：INNER JOIN 使行数不匹配 → 服务端返回 404，而非 200 空词卡。
+    const { client, userId } = await freshLearner();
+    const { courseId } = await createPublishedCourse({ title: "快照缺失课程", itemsPerUnit: 1 });
+    await enrollPrimary(client, courseId);
+    await getToday(client);
+    await createSession(client);
+
+    const detail = (await activeDetail(client)).body as {
+      session: SessionBody;
+      items: Array<{ itemId: string; courseItemId: string }>;
+    };
+    expect(detail.items.length).toBeGreaterThan(0);
+    expect((await activeDetail(client)).statusCode).toBe(200);
+
+    // release 行自身不可变（发布快照冻结），P2-1 的缺失场景来自计划项与冻结 release 的关联丢失：
+    // 把某个计划项的 course_item_id 改成一个冻结 release 中不存在的 id（该列无外键，可写）。
+    // 这样 getActiveSessionDetail 的 INNER JOIN 将无法命中该冻结词面 → 行数不匹配 → 受控 404，
+    // 而不是静默返回空 englishSpelling/meaning 的空词卡成功响应。
+    const alien = randomUUID();
+    const pool = createPool({ ...config, max: 1 });
+    try {
+      await pool.query(
+        `UPDATE study_session_items SET course_item_id = $2
+         WHERE session_id = $1 AND course_item_id = ANY($3::uuid[])`,
+        [detail.session.sessionId, alien, detail.items.map((i) => i.courseItemId)],
+      );
+    } finally {
+      await pool.end();
+    }
+
+    // 会话仍在(active)、计划项仍在，但冻结词面关联已断 → 必须 404 受控错误，且绝无空词卡 200。
+    const after = await activeDetail(client);
+    expect(after.statusCode).toBe(404);
+    // 404 错误信封绝不含成功计划的 items（不回落到空字符串 200 成功响应）。
+    const afterRaw = after.body as { error?: { code?: string } };
+    expect(afterRaw.error?.code).toBe("NOT_FOUND");
+    expect(Array.isArray((afterRaw as { items?: unknown }).items)).toBe(false);
+    // 会话仍为 active，并未因读取被破坏。
+    expect(await countActiveSessions(userId)).toBe(1);
+  });
+
   it("数据权限边界：非本人会话不可见（他人 active 不影响本用户）", async () => {
     const { client: first, userId } = await freshLearner();
     const { courseId } = await createPublishedCourse({ title: "隔离课程", itemsPerUnit: 1 });
