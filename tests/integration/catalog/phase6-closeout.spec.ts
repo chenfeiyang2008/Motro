@@ -318,11 +318,11 @@ describe("phase 6 learning core closeout", () => {
     try {
       const applied = await migrate(isoConfig, MIGRATIONS_DIR);
       expect(applied.map((m) => m.version)).toEqual([
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
       ]);
       const recorded = await listAppliedMigrations(isoConfig);
       expect(recorded.map((m) => m.version)).toEqual([
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
       ]);
 
       const verify = createPool({ ...isoConfig, max: 1 });
@@ -409,7 +409,7 @@ describe("phase 6 learning core closeout", () => {
              'xp_entries','xp_ledger','user_levels','user_level_progress','badges','user_badges',
              'streaks','streak_days','streak_protection','weekly_challenge_boards','challenge_weeks',
              'challenge_quizzes','quiz_questions','quiz_responses','challenge_points','game_rule_sets',
-             'import_batches','import_files','enrichment_drafts','wikipedia_drafts','deepseek_drafts',
+             'enrichment_drafts','wikipedia_drafts','deepseek_drafts',
              'raw_wordlists','daily_plans','card_reviews','memory_states','fsrs_states'
            )`,
       );

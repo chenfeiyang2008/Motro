@@ -170,6 +170,7 @@ button.primary:disabled {
   align-items: flex-start;
   max-width: 1120px;
   margin: 0 auto;
+  min-width: 0;
 }
 
 .admin-sidebar {
@@ -214,6 +215,7 @@ button.primary:disabled {
 .admin-content {
   flex: 1;
   min-width: 0;
+  max-width: 100%;
 }
 
 .admin-auth-loading {
@@ -1417,6 +1419,184 @@ button.secondary.danger {
 .form-error {
   color: var(--color-error);
   margin: 8px 0 0;
+}
+
+.form-success {
+  color: var(--color-success);
+  margin: 8px 0 0;
+}
+
+/* ============================================================
+   管理端导入页（阶段 6 工单 01）
+   只展示文件元数据/来源声明/状态；不显示磁盘路径或存储键。
+   ============================================================ */
+
+.admin-imports {
+  min-width: 0;
+  max-width: 880px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.import-intro {
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.import-upload-panel,
+.import-list-panel,
+.import-detail-panel {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.import-upload-panel h2,
+.import-list-panel h2,
+.import-detail-panel h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.import-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.import-field label {
+  font-weight: 600;
+}
+
+.import-field input[type="file"] {
+  min-height: 44px;
+}
+
+.import-field textarea {
+  min-height: 72px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  font-size: 16px;
+  font-family: inherit;
+}
+
+.import-file-name {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  margin: 0;
+}
+
+.import-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.import-placeholder-note {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  margin: 0;
+}
+
+.import-retry-hint {
+  color: var(--color-warning);
+  font-size: 14px;
+  margin: 0;
+}
+
+.import-empty {
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.import-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  min-width: 0;
+}
+
+.import-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
+}
+
+.import-table th,
+.import-table td {
+  text-align: left;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+}
+
+.import-table th {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.import-link {
+  color: var(--color-text-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.import-link:hover {
+  text-decoration: underline;
+}
+
+.import-source-cell {
+  color: var(--color-text-secondary);
+  max-width: 240px;
+}
+
+.import-detail-list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.import-detail-row {
+  display: flex;
+  gap: 12px;
+}
+
+.import-detail-row dt {
+  width: 140px;
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.import-detail-row dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.import-hash-cell {
+  font-family: var(--font-english);
+  font-size: 13px;
+}
+
+@media (max-width: 599px) {
+  .import-detail-row {
+    flex-direction: column;
+    gap: 2px;
+  }
+  .import-table {
+    font-size: 13px;
+  }
 }
 
 .plan-sticker {

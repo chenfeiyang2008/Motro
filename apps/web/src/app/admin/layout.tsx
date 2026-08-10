@@ -16,6 +16,10 @@ const NAV_GROUPS = [
       { href: "/admin/courses", label: "课程" },
     ],
   },
+  {
+    label: "导入",
+    items: [{ href: "/admin/imports", label: "导入" }],
+  },
 ];
 
 type AuthState = "loading" | "admin" | "forbidden";

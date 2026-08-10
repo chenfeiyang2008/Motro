@@ -69,7 +69,7 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
           "SELECT version FROM schema_migrations ORDER BY version",
         );
         expect(rows.rows.map((r) => r.version)).toEqual([
-          1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+          1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
         ]);
 
         // 0011：learning_cards 调度参数版本列存在且 NOT NULL。

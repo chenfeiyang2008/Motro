@@ -22,5 +22,8 @@ data/
 backups/
 secrets/
 
+# Local import file storage (server-only writable import root)
+.local-import-files/
+
 # Local UI skill runtime state; installed skill definitions remain tracked.
 .impeccable/

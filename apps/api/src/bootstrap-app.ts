@@ -3,6 +3,7 @@ import { HttpException, HttpStatus, type INestApplication, ValidationPipe } from
 import { NestFactory } from "@nestjs/core";
 import { FastifyAdapter, type NestFastifyApplication } from "@nestjs/platform-fastify";
 import cookie from "@fastify/cookie";
+import multipart from "@fastify/multipart";
 import { loadConfig, type AppConfig } from "@motro/config";
 import { randomBytes } from "node:crypto";
 import type { FastifyRequest } from "fastify";
@@ -12,6 +13,9 @@ import { GlobalExceptionFilter } from "./common/global-exception.filter.js";
 import { CSRF_COOKIE, csrfCookieOptions } from "./auth/cookies.js";
 
 const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+// multipart 上传上限：由配置的 IMPORT_MAX_FILE_BYTES 控制（更严格），此值只是 Fastify
+// 请求体层面的兜底，防止超大 multipart 耗尽内存；两者取较小者生效。
+const DEFAULT_MULTIPART_BODY_LIMIT = 20 * 1024 * 1024;
 
 export async function createApp(config?: AppConfig): Promise<NestFastifyApplication> {
   const cfg = config ?? loadConfig();
@@ -42,6 +46,10 @@ export async function createApp(config?: AppConfig): Promise<NestFastifyApplicat
 
   const fastify = app.getHttpAdapter().getInstance();
   await fastify.register(cookie);
+  await fastify.register(multipart, {
+    limits: { fileSize: DEFAULT_MULTIPART_BODY_LIMIT, files: 1 },
+    throwFileSizeLimit: true,
+  });
 
   fastify.addHook("onSend", async (request: FastifyRequest, reply) => {
     reply.header("x-request-id", request.id);

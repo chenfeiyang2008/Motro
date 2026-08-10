@@ -1717,6 +1717,184 @@
           "study"
         ]
       }
+    },
+    "/api/v1/admin/imports": {
+      "post": {
+        "operationId": "ImportController_create",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "本次上传意图的幂等键；重试必须复用同一键",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportUploadBodyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "幂等重放或内容去重返回既有批次",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportBatchDto"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "新批次创建成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportBatchDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "malformed 或安全文件拒绝",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "IDEMPOTENCY_CONFLICT / IDEMPOTENCY_IN_PROGRESS / IMPORT_CONTENT_CONFLICT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "字段或领域校验失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "统一内部错误信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "管理员上传原始文件并创建导入批次（multipart；Idempotency-Key 幂等；本票不解析文件内容）",
+        "tags": [
+          "admin imports"
+        ]
+      },
+      "get": {
+        "operationId": "ImportController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportBatchListDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "导入批次列表（管理员共享；元数据，不含磁盘路径/存储键）",
+        "tags": [
+          "admin imports"
+        ]
+      }
+    },
+    "/api/v1/admin/imports/{id}": {
+      "get": {
+        "operationId": "ImportController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportBatchDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "非法 UUID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "批次不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "单个导入批次详情（管理员共享；元数据，不含磁盘路径/存储键）",
+        "tags": [
+          "admin imports"
+        ]
+      }
     }
   },
   "info": {
@@ -4031,6 +4209,222 @@
           "releaseNumber",
           "highestUnlockedUnit",
           "units"
+        ]
+      },
+      "ImportUploadBodyDto": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "description": "原始文件（txt/csv/json）"
+          },
+          "sourceDeclaration": {
+            "type": "string",
+            "description": "来源声明（必填）"
+          }
+        },
+        "required": [
+          "file",
+          "sourceDeclaration"
+        ]
+      },
+      "StoredFileMetaDto": {
+        "type": "object",
+        "properties": {
+          "fileId": {
+            "type": "string",
+            "description": "不透明文件 ID"
+          },
+          "originalFilename": {
+            "type": "string",
+            "description": "原文件名（仅元数据，绝不参与路径构造）"
+          },
+          "sniffedMime": {
+            "type": "string",
+            "description": "嗅探到的 MIME 类型"
+          },
+          "byteSize": {
+            "type": "number",
+            "description": "字节大小"
+          },
+          "sha256Hex": {
+            "type": "string",
+            "description": "SHA-256（十六进制）"
+          },
+          "uploadedBy": {
+            "type": "string",
+            "description": "上传人用户 ID"
+          },
+          "purpose": {
+            "type": "string",
+            "description": "保留用途（本票固定 original_import）"
+          },
+          "status": {
+            "type": "string",
+            "description": "文件状态"
+          },
+          "format": {
+            "type": "string",
+            "description": "格式（txt/csv/json/xlsx）"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "创建时间（RFC 3339 UTC）"
+          }
+        },
+        "required": [
+          "fileId",
+          "originalFilename",
+          "sniffedMime",
+          "byteSize",
+          "sha256Hex",
+          "uploadedBy",
+          "purpose",
+          "status",
+          "format",
+          "createdAt"
+        ]
+      },
+      "ImportBatchDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "批次 ID"
+          },
+          "file": {
+            "description": "批次关联的文件元数据（不含磁盘路径/存储键）",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StoredFileMetaDto"
+              }
+            ]
+          },
+          "format": {
+            "type": "string",
+            "description": "批次格式"
+          },
+          "sourceDeclaration": {
+            "type": "string",
+            "description": "管理员来源声明"
+          },
+          "status": {
+            "type": "string",
+            "description": "批次状态（uploaded/validating/ready/committed/failed）"
+          },
+          "version": {
+            "type": "number",
+            "description": "乐观并发版本"
+          },
+          "uploadedBy": {
+            "type": "string",
+            "description": "上传人用户 ID"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "创建时间（RFC 3339 UTC）"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "更新时间（RFC 3339 UTC）"
+          }
+        },
+        "required": [
+          "id",
+          "file",
+          "format",
+          "sourceDeclaration",
+          "status",
+          "version",
+          "uploadedBy",
+          "createdAt"
+        ]
+      },
+      "ImportErrorFieldDto": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "出错字段路径"
+          },
+          "code": {
+            "type": "string",
+            "description": "错误码"
+          }
+        },
+        "required": [
+          "path",
+          "code"
+        ]
+      },
+      "ImportErrorDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "错误码"
+          },
+          "message": {
+            "type": "string",
+            "description": "安全的用户文案"
+          },
+          "requestId": {
+            "type": "string",
+            "description": "可关联的请求 ID（服务端日志）"
+          },
+          "retryable": {
+            "type": "boolean",
+            "description": "是否为可重试错误"
+          },
+          "fieldErrors": {
+            "description": "字段级错误（可选）",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportErrorFieldDto"
+            }
+          },
+          "existingBatchId": {
+            "type": "string",
+            "description": "内容冲突时既有批次的 ID"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "requestId",
+          "retryable"
+        ]
+      },
+      "ImportErrorEnvelopeDto": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "description": "错误信封",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImportErrorDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "ImportBatchListDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "批次列表（按创建时间倒序）",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportBatchDto"
+            }
+          }
+        },
+        "required": [
+          "items"
         ]
       }
     }

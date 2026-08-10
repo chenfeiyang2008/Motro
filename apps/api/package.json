@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",
+    "@fastify/multipart": "10.1.0",
     "@motro/config": "workspace:*",
     "@motro/db": "workspace:*",
     "@motro/domain": "workspace:^",

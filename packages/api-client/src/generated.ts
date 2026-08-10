@@ -623,6 +623,41 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/admin/imports": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 导入批次列表（管理员共享；元数据，不含磁盘路径/存储键） */
+    get: operations["ImportController_list"];
+    put?: never;
+    /** 管理员上传原始文件并创建导入批次（multipart；Idempotency-Key 幂等；本票不解析文件内容） */
+    post: operations["ImportController_create"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/imports/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 单个导入批次详情（管理员共享；元数据，不含磁盘路径/存储键） */
+    get: operations["ImportController_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1456,6 +1491,85 @@ export interface components {
       highestUnlockedUnit: number;
       /** @description 按 position 升序的单元进度 */
       units: components["schemas"]["ProgressUnitDto"][];
+    };
+    ImportUploadBodyDto: {
+      /**
+       * Format: binary
+       * @description 原始文件（txt/csv/json）
+       */
+      file: string;
+      /** @description 来源声明（必填） */
+      sourceDeclaration: string;
+    };
+    StoredFileMetaDto: {
+      /** @description 不透明文件 ID */
+      fileId: string;
+      /** @description 原文件名（仅元数据，绝不参与路径构造） */
+      originalFilename: string;
+      /** @description 嗅探到的 MIME 类型 */
+      sniffedMime: string;
+      /** @description 字节大小 */
+      byteSize: number;
+      /** @description SHA-256（十六进制） */
+      sha256Hex: string;
+      /** @description 上传人用户 ID */
+      uploadedBy: string;
+      /** @description 保留用途（本票固定 original_import） */
+      purpose: string;
+      /** @description 文件状态 */
+      status: string;
+      /** @description 格式（txt/csv/json/xlsx） */
+      format: string;
+      /** @description 创建时间（RFC 3339 UTC） */
+      createdAt: string;
+    };
+    ImportBatchDto: {
+      /** @description 批次 ID */
+      id: string;
+      /** @description 批次关联的文件元数据（不含磁盘路径/存储键） */
+      file: components["schemas"]["StoredFileMetaDto"];
+      /** @description 批次格式 */
+      format: string;
+      /** @description 管理员来源声明 */
+      sourceDeclaration: string;
+      /** @description 批次状态（uploaded/validating/ready/committed/failed） */
+      status: string;
+      /** @description 乐观并发版本 */
+      version: number;
+      /** @description 上传人用户 ID */
+      uploadedBy: string;
+      /** @description 创建时间（RFC 3339 UTC） */
+      createdAt: string;
+      /** @description 更新时间（RFC 3339 UTC） */
+      updatedAt?: string;
+    };
+    ImportErrorFieldDto: {
+      /** @description 出错字段路径 */
+      path: string;
+      /** @description 错误码 */
+      code: string;
+    };
+    ImportErrorDto: {
+      /** @description 错误码 */
+      code: string;
+      /** @description 安全的用户文案 */
+      message: string;
+      /** @description 可关联的请求 ID（服务端日志） */
+      requestId: string;
+      /** @description 是否为可重试错误 */
+      retryable: boolean;
+      /** @description 字段级错误（可选） */
+      fieldErrors?: components["schemas"]["ImportErrorFieldDto"][];
+      /** @description 内容冲突时既有批次的 ID */
+      existingBatchId?: string;
+    };
+    ImportErrorEnvelopeDto: {
+      /** @description 错误信封 */
+      error: components["schemas"]["ImportErrorDto"];
+    };
+    ImportBatchListDto: {
+      /** @description 批次列表（按创建时间倒序） */
+      items: components["schemas"]["ImportBatchDto"][];
     };
   };
   responses: never;
@@ -2550,6 +2664,136 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ProgressDto"];
+        };
+      };
+    };
+  };
+  ImportController_list: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ImportBatchListDto"];
+        };
+      };
+    };
+  };
+  ImportController_create: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description 本次上传意图的幂等键；重试必须复用同一键 */
+        "Idempotency-Key": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": components["schemas"]["ImportUploadBodyDto"];
+      };
+    };
+    responses: {
+      /** @description 幂等重放或内容去重返回既有批次 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ImportBatchDto"];
+        };
+      };
+      /** @description 新批次创建成功 */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ImportBatchDto"];
+        };
+      };
+      /** @description malformed 或安全文件拒绝 */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
+        };
+      };
+      /** @description IDEMPOTENCY_CONFLICT / IDEMPOTENCY_IN_PROGRESS / IMPORT_CONTENT_CONFLICT */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
+        };
+      };
+      /** @description 字段或领域校验失败 */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
+        };
+      };
+      /** @description 统一内部错误信封 */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
+        };
+      };
+    };
+  };
+  ImportController_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ImportBatchDto"];
+        };
+      };
+      /** @description 非法 UUID */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
+        };
+      };
+      /** @description 批次不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
         };
       };
     };

@@ -84,7 +84,10 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<ApiResult<
   const headers: Record<string, string> = {
     ...(init?.headers as Record<string, string> | undefined),
   };
-  if (init?.body !== undefined) headers["content-type"] = "application/json";
+  // P2-3：FormData 时不要手工设置 Content-Type——由浏览器生成 multipart boundary。
+  if (init?.body !== undefined && !(init.body instanceof FormData)) {
+    headers["content-type"] = "application/json";
+  }
   if (init?.method && init.method !== "GET") {
     const csrf = readCsrfCookie();
     if (csrf) headers["x-csrf-token"] = csrf;
@@ -287,7 +290,6 @@ export function validateCourseDraft(courseId: string): Promise<ApiResult<CourseV
 export type PublishReleasePayload = components["schemas"]["PublishReleaseDto"];
 export type PublishReleaseResult = components["schemas"]["PublishReleaseResultDto"];
 export type ReleaseListItem = components["schemas"]["ReleaseListItemDto"];
-
 export function publishCourseRelease(
   courseId: string,
   payload: PublishReleasePayload,
@@ -320,6 +322,39 @@ export function setCourseCurrentRelease(
     `/api/v1/admin/courses/${encodeURIComponent(courseId)}/current-release`,
     { method: "PUT", body: JSON.stringify({ releaseId }) },
   );
+}
+
+// ---- 管理员：导入（原始文件上传 + 批次） ----
+
+export type ImportBatch = components["schemas"]["ImportBatchDto"];
+export type ImportBatchList = components["schemas"]["ImportBatchListDto"];
+
+/** 当前管理员的导入批次列表（元数据，不含磁盘路径/存储键）。 */
+export function listImportBatches(): Promise<ApiResult<ImportBatchList>> {
+  return apiFetch<ImportBatchList>("/api/v1/admin/imports", { method: "GET" });
+}
+
+/** 单个导入批次详情。 */
+export function getImportBatch(id: string): Promise<ApiResult<ImportBatch>> {
+  return apiFetch<ImportBatch>(`/api/v1/admin/imports/${encodeURIComponent(id)}`, {
+    method: "GET",
+  });
+}
+
+/** 上传原始文件并创建导入批次（multipart FormData；Idempotency-Key 由调用方提供并复用）。 */
+export function uploadImportBatch(payload: {
+  file: File;
+  sourceDeclaration: string;
+  idempotencyKey: string;
+}): Promise<ApiResult<ImportBatch>> {
+  const form = new FormData();
+  form.append("file", payload.file);
+  form.append("sourceDeclaration", payload.sourceDeclaration);
+  return apiFetch<ImportBatch>("/api/v1/admin/imports", {
+    method: "POST",
+    body: form,
+    headers: { "idempotency-key": payload.idempotencyKey },
+  });
 }
 
 // ---- 学习者：已发布课程目录（只读 current release） ----

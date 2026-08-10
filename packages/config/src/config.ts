@@ -59,6 +59,18 @@ const RateLimitSchema = z.object({
 });
 export type RateLimitConfig = z.infer<typeof RateLimitSchema>;
 
+/**
+ * 导入文件（阶段 6 工单 01）：仅服务端可写的原始文件根目录、字节上限、允许格式。
+ * rootDir 绝不写入 API 响应；只用于服务端读写原始导入文件。
+ * allowedFormats 为保守开发默认值；生产值由部署注入。
+ */
+const ImportSchema = z.object({
+  fileRootDir: z.string().min(1),
+  maxFileBytes: z.coerce.number().int().positive(),
+  allowedFormats: z.array(z.string().min(1)).default([]),
+});
+export type ImportConfig = z.infer<typeof ImportSchema>;
+
 export const AppConfigSchema = z.object({
   env: NODE_ENV_SCHEMA,
   db: DbSchema,
@@ -70,6 +82,7 @@ export const AppConfigSchema = z.object({
   openapi: OpenApiSchema,
   cors: CorsSchema,
   rateLimit: RateLimitSchema,
+  import: ImportSchema,
 });
 export type AppConfig = z.infer<typeof AppConfigSchema>;
 
@@ -163,6 +176,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, explicitEnv?: N
     rateLimit: {
       loginPerMinute: env.RATE_LIMIT_LOGIN_PER_MINUTE ?? "10",
     },
+    import: {
+      fileRootDir: env.IMPORT_FILE_ROOT_DIR ?? ".local-import-files",
+      maxFileBytes: env.IMPORT_MAX_FILE_BYTES ?? String(10 * 1024 * 1024),
+      allowedFormats: (env.IMPORT_ALLOWED_FORMATS ?? "txt,csv,json")
+        .split(",")
+        .filter((s) => s.length > 0),
+    },
   };
 
   const result = AppConfigSchema.safeParse(raw);
@@ -213,5 +233,10 @@ export function redactConfig(config: AppConfig): Record<string, unknown> {
     openapi: config.openapi,
     cors: config.cors,
     rateLimit: config.rateLimit,
+    importFile: {
+      fileRootDir: config.import.fileRootDir,
+      maxFileBytes: config.import.maxFileBytes,
+      allowedFormats: config.import.allowedFormats,
+    },
   };
 }

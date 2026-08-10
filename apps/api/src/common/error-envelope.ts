@@ -42,10 +42,11 @@ export function errorEnvelope(
   message: string,
   requestId: string,
   fieldErrors?: ApiFieldError[],
+  codeOverride?: string,
 ): ApiErrorEnvelope {
   return {
     error: {
-      code: statusToCode(status),
+      code: codeOverride ?? statusToCode(status),
       message,
       requestId,
       ...(fieldErrors !== undefined ? { fieldErrors } : {}),
