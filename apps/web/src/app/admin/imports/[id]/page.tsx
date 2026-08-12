@@ -1,8 +1,8 @@
 "use client";
 
-// 管理端导入批次详情页（阶段 6 工单 02）：
-// 唯一任务是「确认映射并校验这个批次」。
-// 三个状态分支：needs_mapping（含 uploaded/not_validated）、validated、validating/failed/stale。
+// 管理端导入批次详情页（阶段 6 工单 02 + 03）：
+// 唯一任务是「确认映射并校验这个批次 → 仅提交有效候选行 → 下载错误报告」。
+// 状态分支：needs_mapping（含 uploaded/not_validated）、validated、committed、validating/failed/stale。
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -11,7 +11,10 @@ import {
   updateImportMapping,
   validateImportBatch,
   listImportRows,
+  commitImportBatch,
+  downloadImportErrorReport,
   type ImportBatch,
+  type ImportCommitResult,
   type ImportDiscoveredOption,
   type ImportMapping,
   type ImportRow,
@@ -188,7 +191,8 @@ function RowTable({
               <th className="import-row-th-ordinal">#</th>
               <th>原始值</th>
               <th>规范化</th>
-              <th>状态</th>
+              <th>校验分类</th>
+              <th>提交状态</th>
               <th>错误</th>
             </tr>
           </thead>
@@ -202,6 +206,13 @@ function RowTable({
                   <span className={`import-status import-status-${r.status}`}>
                     {statusLabel(r.status)}
                   </span>
+                </td>
+                <td>
+                  {r.commitStatus === "committed" ? (
+                    <span className="import-status import-status-committed">已提交</span>
+                  ) : (
+                    <span className="import-status import-status-not-committed">未提交</span>
+                  )}
                 </td>
                 <td className="import-row-errors">
                   {r.errors.length > 0 ? r.errors.join(", ") : "—"}
@@ -226,6 +237,255 @@ function RowTable({
   );
 }
 
+/**
+ * 已校验状态下的提交面板：展示可提交候选数、错误报告下载、唯一强主操作「提交有效行」。
+ * 提交前用聚焦确认面板要求显式确认（候选数 + 映射版本 + 明确说明创建可追踪词条/来源
+ * 事实且绝不创建课程/发布）。
+ */
+function CommitPanel({
+  batch,
+  onCommitted,
+}: {
+  batch: ImportBatch;
+  onCommitted: (result: ImportCommitResult) => void;
+}) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [committing, setCommitting] = useState(false);
+  const [commitError, setCommitError] = useState("");
+  const [reportError, setReportError] = useState("");
+  const commitKeyRef = useRef<string | null>(null);
+
+  const candidates = batch.validationSummary?.candidates ?? 0;
+  const invalid = batch.validationSummary?.invalid ?? 0;
+  const duplicates = batch.validationSummary?.duplicates ?? 0;
+  const existingEntries = batch.validationSummary?.existingEntries ?? 0;
+  // 真正不可提交的行数：invalid + duplicate_in_file。existing_entry 是可关联/可提交行，
+  // 不计入错误报告数量。
+  const nonCommittableCount = invalid + duplicates;
+  const hasNonCommittable = nonCommittableCount > 0;
+
+  async function onDownloadReport(): Promise<void> {
+    setReportError("");
+    const res = await downloadImportErrorReport(batch.id);
+    if (!res.ok || res.csv === undefined) {
+      setReportError(res.error ?? "下载失败");
+      return;
+    }
+    // 浏览器触发下载（服务端生成内容 + 安全文件名）。
+    const blob = new Blob([res.csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = res.filename ?? `motro-import-error-report-${batch.id}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function onConfirmCommit(): Promise<void> {
+    if (!commitKeyRef.current) {
+      commitKeyRef.current =
+        globalThis.crypto?.randomUUID?.().toString() ?? `commit-${Date.now()}-${Math.random()}`;
+    }
+    setCommitting(true);
+    setCommitError("");
+    // P1-1：必须原样回传批次详情暴露的提交确认身份（mappingVersion + validationInputSha256）。
+    const confirmation = batch.commitConfirmation;
+    if (!confirmation) {
+      setCommitting(false);
+      setCommitError("批次尚未校验通过或已过期，请刷新后重试");
+      commitKeyRef.current = null;
+      return;
+    }
+    const res = await commitImportBatch(
+      batch.id,
+      {
+        mappingVersion: confirmation.mappingVersion,
+        validationInputSha256: confirmation.validationInputSha256,
+      },
+      commitKeyRef.current,
+    );
+    setCommitting(false);
+    if (!res.ok) {
+      // 幂等重放不视为错误；其余错误就近展示。
+      if (res.status === 409) {
+        const code = (res.error as { code?: string } | undefined)?.code;
+        if (code === "IDEMPOTENCY_IN_PROGRESS") {
+          setCommitError("上一次提交仍在处理中，请稍后重试");
+          return;
+        }
+      }
+      setCommitError(res.error?.message ?? "提交失败");
+      if (res.status !== 409) commitKeyRef.current = null;
+      return;
+    }
+    commitKeyRef.current = null;
+    setConfirmOpen(false);
+    onCommitted(res.data!);
+  }
+
+  return (
+    <div className="import-panel">
+      <h2>提交有效行</h2>
+      <p className="import-note">
+        会把 <strong>{candidates}</strong> 行有效候选创建为全局词条，并关联{" "}
+        <strong>{existingEntries}</strong> 行系统已有词条（
+        <code>existing_entry</code>）为可追踪的导入来源事实；invalid、文件内重复行不会被新建。
+      </p>
+      {hasNonCommittable && (
+        <div className="import-actions">
+          <button type="button" className="secondary" onClick={() => void onDownloadReport()}>
+            下载错误报告（{nonCommittableCount} 行）
+          </button>
+        </div>
+      )}
+      {reportError && (
+        <p className="form-error" role="alert">
+          {reportError}
+        </p>
+      )}
+      {commitError && (
+        <p className="form-error" role="alert">
+          {commitError}
+        </p>
+      )}
+      <div className="import-actions">
+        <button
+          type="button"
+          className="primary"
+          disabled={
+            committing || (candidates === 0 && existingEntries === 0) || !batch.commitConfirmation
+          }
+          onClick={() => setConfirmOpen(true)}
+        >
+          {committing ? "提交中…" : "提交有效行"}
+        </button>
+      </div>
+      {candidates === 0 && existingEntries === 0 && (
+        <p className="import-note">没有可提交的有效候选行。</p>
+      )}
+
+      {/* 聚焦确认面板：非侵入式，标准按钮操作 */}
+      {confirmOpen && (
+        <div
+          className="import-confirm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="commit-confirm-title"
+        >
+          <div className="import-confirm-body">
+            <h3 id="commit-confirm-title">确认提交有效行？</h3>
+            <ul className="import-confirm-list">
+              <li>
+                新建候选行数：<strong>{candidates}</strong>
+              </li>
+              <li>
+                关联已有词条行数：<strong>{existingEntries}</strong>
+              </li>
+              <li>
+                映射版本：<strong>v{batch.mappingVersion}</strong>
+              </li>
+            </ul>
+            <p className="import-note">
+              提交将创建可追踪的全局词条与来源事实（
+              <code>lexical_sources(import)</code>
+              ），并把系统已有词条关联为导入来源。不会创建课程、发布版本或学习内容。
+            </p>
+            <div className="import-actions">
+              <button
+                type="button"
+                className="primary"
+                disabled={committing}
+                onClick={() => void onConfirmCommit()}
+              >
+                {committing ? "提交中…" : "确认提交"}
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                disabled={committing}
+                onClick={() => setConfirmOpen(false)}
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 已提交状态面板：展示事实性计数，禁用重复主提交操作，
+ * 主操作转为「查看审核状态（后续阶段）」占位（非动作信息状态）。
+ * 错误报告仍可下载。
+ */
+function CommittedPanel({ batch, result }: { batch: ImportBatch; result: ImportCommitResult }) {
+  const [reportError, setReportError] = useState("");
+
+  async function onDownloadReport(): Promise<void> {
+    setReportError("");
+    const res = await downloadImportErrorReport(batch.id);
+    if (!res.ok || res.csv === undefined) {
+      setReportError(res.error ?? "下载失败");
+      return;
+    }
+    const blob = new Blob([res.csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = res.filename ?? `motro-import-error-report-${batch.id}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  const hasNonCommittable = Object.keys(result.skippedCountByDisposition).length > 0;
+
+  return (
+    <div className="import-panel">
+      <h2>提交结果</h2>
+      <dl className="import-summary-list">
+        <div className="import-summary-row">
+          <dt>新建词条</dt>
+          <dd>{result.createdEntryCount}</dd>
+        </div>
+        <div className="import-summary-row">
+          <dt>关联既有词条</dt>
+          <dd>{result.associatedExistingEntryCount}</dd>
+        </div>
+        <div className="import-summary-row">
+          <dt>跳过行</dt>
+          <dd>{Object.values(result.skippedCountByDisposition).reduce((a, b) => a + b, 0)}</dd>
+        </div>
+        <div className="import-summary-row">
+          <dt>提交行数</dt>
+          <dd>{result.committedRowCount}</dd>
+        </div>
+      </dl>
+      {hasNonCommittable && (
+        <div className="import-actions">
+          <button type="button" className="secondary" onClick={() => void onDownloadReport()}>
+            下载错误报告
+          </button>
+        </div>
+      )}
+      {reportError && (
+        <p className="form-error" role="alert">
+          {reportError}
+        </p>
+      )}
+      {/* 后续阶段占位：非动作信息状态，无虚假 AI/任务进度 */}
+      <div className="import-actions import-next-placeholder">
+        <span className="import-placeholder-info">查看审核状态（后续阶段）</span>
+      </div>
+    </div>
+  );
+}
+
 // ---- page ----
 
 export default function AdminImportBatchDetailPage() {
@@ -242,6 +502,7 @@ export default function AdminImportBatchDetailPage() {
 
   const [validating, setValidating] = useState(false);
   const [validateError, setValidateError] = useState("");
+  const [commitResult, setCommitResult] = useState<ImportCommitResult | null>(null);
 
   // Rows state.
   const [rows, setRows] = useState<ImportRow[]>([]);
@@ -321,6 +582,12 @@ export default function AdminImportBatchDetailPage() {
     setRowsHasMore(res.data.hasMore);
   }
 
+  /** 提交成功：保存结果并刷新批次详情（获取 committed 状态）。 */
+  async function handleCommitted(result: ImportCommitResult): Promise<void> {
+    setCommitResult(result);
+    await reload();
+  }
+
   // Auto-load rows on first validated state.
   const currentValidationStatus =
     state.phase === "ready" ? state.batch.validationStatus : undefined;
@@ -357,6 +624,9 @@ export default function AdminImportBatchDetailPage() {
   const isStale = b.isStale;
   const needsMapping = b.validationStatus === "not_validated";
   const isValidated = b.validationStatus === "validated" && !isStale;
+  const isCommitted = b.status === "committed" || commitResult !== null;
+  // 提交结果优先用本地刚提交的响应，刷新后回退到批次详情的 commitSummary。
+  const effectiveCommitResult = commitResult ?? b.commitSummary ?? null;
   const isMappingRequired = b.format !== "txt";
   // JSON 字符串数组（无可用字段）视为固定提取：每个字符串是一个英文词条候选，
   // 无需字段选择器，校验主操作在无映射要求时即可用（P1-4）。
@@ -436,7 +706,7 @@ export default function AdminImportBatchDetailPage() {
         </div>
       )}
 
-      {/* Validation summary */}
+      {/* Validation summary + commit/committed */}
       {isValidated && b.validationSummary && (
         <div className="import-panel">
           <h2>校验摘要</h2>
@@ -466,12 +736,11 @@ export default function AdminImportBatchDetailPage() {
               <dd>{b.validationSummary.total}</dd>
             </div>
           </dl>
-          {/* 后续工单占位：提交有效行（本票不实现提交） */}
-          <div className="import-actions import-next-placeholder">
-            <button type="button" className="primary" disabled title="提交功能将在后续工单提供">
-              提交有效行（后续工单）
-            </button>
-          </div>
+          {isCommitted && effectiveCommitResult ? (
+            <CommittedPanel batch={b} result={effectiveCommitResult} />
+          ) : (
+            <CommitPanel batch={b} onCommitted={(r) => void handleCommitted(r)} />
+          )}
         </div>
       )}
 

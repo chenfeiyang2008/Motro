@@ -2104,6 +2104,120 @@
           "admin imports"
         ]
       }
+    },
+    "/api/v1/admin/imports/{id}/commit": {
+      "post": {
+        "operationId": "ImportController_commit",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "本次提交意图的幂等键；重试必须复用同一键，重放返回原始结果",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommitImportBatchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportCommitResultDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "IDEMPOTENCY_CONFLICT / IDEMPOTENCY_IN_PROGRESS / COMMIT_STALE_MAPPING",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "COMMIT_NOT_VALIDATED / COMMIT_VALIDATION_MISMATCH / COMMIT_NO_ELIGIBLE_ROWS / COMMIT_REVALIDATION_REQUIRED / 缺少幂等键",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "仅提交有效候选行：事务内创建/关联全局词条与 lexical_sources(import)，形成可审计提交事实（幂等；绝不创建课程/发布）",
+        "tags": [
+          "admin imports"
+        ]
+      }
+    },
+    "/api/v1/admin/imports/{id}/error-report": {
+      "get": {
+        "operationId": "ImportController_errorReport",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CSV 下载；无错误行时返回仅表头 CSV"
+          },
+          "404": {
+            "description": "批次不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "下载仅含不可提交行的服务端生成错误报告 CSV（当前映射版本；公式注入已中和）",
+        "tags": [
+          "admin imports"
+        ]
+      }
     }
   },
   "info": {
@@ -4688,6 +4802,73 @@
           "total"
         ]
       },
+      "ImportCommitResultDto": {
+        "type": "object",
+        "properties": {
+          "batchId": {
+            "type": "string",
+            "description": "批次 ID"
+          },
+          "mappingVersion": {
+            "type": "number",
+            "description": "提交所依据的映射版本"
+          },
+          "committedAt": {
+            "type": "string",
+            "description": "提交时间（RFC 3339 UTC）"
+          },
+          "createdEntryCount": {
+            "type": "number",
+            "description": "本轮新建的全局词条数"
+          },
+          "associatedExistingEntryCount": {
+            "type": "number",
+            "description": "本轮关联到既有系统词条的数量"
+          },
+          "skippedCountByDisposition": {
+            "type": "object",
+            "description": "按 disposition 分组的跳过行数（invalid / duplicate_in_file / existing_entry / stale 等）",
+            "additionalProperties": {
+              "type": "number"
+            }
+          },
+          "committedRowCount": {
+            "type": "number",
+            "description": "本轮实际写入提交事实的行数"
+          },
+          "isIdempotentReplay": {
+            "type": "boolean",
+            "description": "是否为幂等重放（true 表示返回原始结果）"
+          }
+        },
+        "required": [
+          "batchId",
+          "mappingVersion",
+          "committedAt",
+          "createdEntryCount",
+          "associatedExistingEntryCount",
+          "skippedCountByDisposition",
+          "committedRowCount",
+          "isIdempotentReplay"
+        ]
+      },
+      "ImportCommitConfirmationDto": {
+        "type": "object",
+        "properties": {
+          "mappingVersion": {
+            "type": "number",
+            "description": "当前映射版本"
+          },
+          "validationInputSha256": {
+            "type": "string",
+            "description": "校验输入冻结哈希（validation_input_sha256，安全：仅哈希无路径/密钥）"
+          }
+        },
+        "required": [
+          "mappingVersion",
+          "validationInputSha256"
+        ]
+      },
       "ImportBatchDetailDto": {
         "type": "object",
         "properties": {
@@ -4797,6 +4978,22 @@
           "isStale": {
             "type": "boolean",
             "description": "当前映射/校验结果是否仍有效"
+          },
+          "commitSummary": {
+            "description": "最近一次提交事实摘要（已提交批次提供，供重载后展示事实性计数）",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImportCommitResultDto"
+              }
+            ]
+          },
+          "commitConfirmation": {
+            "description": "提交确认身份（仅当前已校验且非 stale 时提供）：客户端提交时必须原样回传，服务器锁定后无条件比对",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImportCommitConfirmationDto"
+              }
+            ]
           }
         },
         "required": [
@@ -4871,7 +5068,7 @@
           },
           "status": {
             "type": "string",
-            "description": "行状态（candidate/invalid/duplicate_in_file/existing_entry/stale）"
+            "description": "校验分类（candidate/invalid/duplicate_in_file/existing_entry/stale）；不可变校验事实"
           },
           "errors": {
             "description": "结构化错误码列表",
@@ -4886,11 +5083,23 @@
           },
           "lexicalEntryId": {
             "type": "string",
-            "description": "系统已有词条 ID"
+            "description": "关联的系统词条 ID（existing_entry 校验分类或已提交后为最终关联词条）"
           },
           "mappingVersion": {
             "type": "number",
             "description": "映射版本"
+          },
+          "commitStatus": {
+            "type": "string",
+            "description": "提交状态：not_committed 或 committed（由不可变提交事实推导，非覆盖校验分类）"
+          },
+          "committedAt": {
+            "type": "string",
+            "description": "提交时间（RFC 3339 UTC；committed 时提供）"
+          },
+          "committedBy": {
+            "type": "string",
+            "description": "提交人用户 ID（committed 时提供）"
           }
         },
         "required": [
@@ -4899,7 +5108,8 @@
           "rawSummary",
           "status",
           "errors",
-          "mappingVersion"
+          "mappingVersion",
+          "commitStatus"
         ]
       },
       "ImportRowListDto": {
@@ -4924,6 +5134,23 @@
         "required": [
           "items",
           "hasMore"
+        ]
+      },
+      "CommitImportBatchDto": {
+        "type": "object",
+        "properties": {
+          "mappingVersion": {
+            "type": "number",
+            "description": "当前映射版本（要求与服务器权威值一致，防 stale/未绑定提交）"
+          },
+          "validationInputSha256": {
+            "type": "string",
+            "description": "校验输入的身份标识（来自批次详情的 commitConfirmation.validationInputSha256）；必须精确匹配"
+          }
+        },
+        "required": [
+          "mappingVersion",
+          "validationInputSha256"
         ]
       }
     }

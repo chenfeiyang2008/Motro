@@ -26,6 +26,11 @@ import {
   resolveRowDisposition,
   normalizeSpelling,
   mappingEquals,
+  commitSemanticHash,
+  errorReportCsvLine,
+  ERROR_REPORT_CSV_HEADER,
+  ERROR_REPORT_CSV_LINE_SEPARATOR,
+  safeReportFilename,
   type ImportMapping,
   type ImportRowIssue,
 } from "@motro/domain";
@@ -34,6 +39,7 @@ import { ImportBatchRepository, toRowDto } from "./import.repository.js";
 import type {
   ImportBatchDetailDto,
   ImportBatchDto,
+  ImportCommitResultDto,
   ImportMappingDto,
   ImportRowListDto,
   ImportValidationSummaryDto,
@@ -42,6 +48,7 @@ import type {
 
 const IDEMPOTENCY_SCOPE_PREFIX = "import:batch:create";
 const VALIDATE_SCOPE_PREFIX = "import:validate";
+const COMMIT_SCOPE_PREFIX = "import:commit";
 
 export interface UploadInput {
   fileStream: NodeJS.ReadableStream;
@@ -780,8 +787,570 @@ export class ImportService {
     };
   }
 
-  // ---- 校验内部实现 ----
+  /**
+   * POST /admin/imports/{id}/commit：只提交有效候选行（幂等，单事务，可重放）。
+   *
+   * 前置条件（事务内锁定批次行后重新权威读取）：
+   *   - Idempotency-Key 必须；
+   *   - 显式确认载荷必须：mappingVersion 须与批次权威 mappingVersion 一致；
+   *   - validation_input_sha256（可选但建议）须与批次校验冻结哈希一致；
+   *   - 批次 validation_status == validated；
+   *   - 批次未被再次映射变更（非 stale：mappingVersion 与行事实最新版本一致）。
+   *
+   * 事务内一次性完成：行级提交事实、词条创建/既有关联、lexical_sources(import)、
+   * 批次状态/计数、审计与幂等 completed。同一 key 重放返回原始结果；同 key 不同语义
+   * → 409；并发不同 key 由唯一约束（batch+mv 一个提交；一个 import_row 至多一次提交）
+   * 保证每行/词条/来源只被提交一次。
+   *
+   * 绝不创建课程、发布版本、学习卡、复习事件、XP、挑战或 Worker 事实。
+   */
+  async commit(
+    batchId: string,
+    input: {
+      idempotencyKey: string;
+      mappingVersion: number;
+      validationInputSha256: string;
+      userId: string;
+      requestId: string;
+    },
+  ): Promise<ImportCommitResultDto> {
+    const { idempotencyKey } = input;
+    if (!idempotencyKey) {
+      const err = new Error("缺少 Idempotency-Key 请求头");
+      (err as { code?: string }).code = "IDEMPOTENCY_KEY_REQUIRED";
+      throw err;
+    }
 
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      // 1) 锁定批次行，重读权威前置条件（并发 PATCH/validate 会阻塞于此锁）。
+      const locked = await client.query<{
+        mapping_version: number;
+        validation_status: string;
+        validation_input_sha256: string | null;
+      }>(
+        `SELECT mapping_version, validation_status, validation_input_sha256
+         FROM import_batches WHERE id = $1 FOR UPDATE`,
+        [batchId],
+      );
+      const batchRow = locked.rows[0];
+      if (!batchRow) {
+        await client.query("ROLLBACK").catch(() => {});
+        throw new NotFoundException("导入批次不存在");
+      }
+      const authoritativeMappingVersion = batchRow.mapping_version;
+
+      // 2) 幂等检查必须优先于前置条件错误：
+      //    语义哈希绑定「客户端显式确认载荷」（mappingVersion + validationInputSha256），
+      //    使同 key 重放返回原始结果、同 key 不同语义 → 409，而不是被前置 422 遮蔽。
+      const semanticHash = this.commitSemanticHash(
+        batchId,
+        input.mappingVersion,
+        input.validationInputSha256,
+      );
+      const idemRow = await client.query<{ response_json: unknown; request_hash: string }>(
+        `SELECT response_json, request_hash FROM idempotency_keys
+         WHERE scope = $1 AND key = $2`,
+        [`${COMMIT_SCOPE_PREFIX}:${input.userId}`, idempotencyKey],
+      );
+      if (idemRow.rows[0]) {
+        const stored = idemRow.rows[0].response_json as { pending?: boolean } | null;
+        if (stored && "pending" in stored) {
+          await client.query("ROLLBACK").catch(() => {});
+          throw new ImportIdempotencyInProgressError();
+        }
+        if (idemRow.rows[0].request_hash !== semanticHash) {
+          await client.query("ROLLBACK").catch(() => {});
+          throw new ImportIdempotencyConflictError("该提交请求键已用于不同的语义");
+        }
+        await client.query("ROLLBACK").catch(() => {});
+        return { ...(stored as ImportCommitResultDto), isIdempotentReplay: true };
+      }
+
+      // 3) 前置条件校验（仅针对新 key）：确认载荷必须与权威事实一致。
+      //    校验输入身份必须无条件比对（P1-1）。
+      if (input.mappingVersion !== authoritativeMappingVersion) {
+        await client.query("ROLLBACK").catch(() => {});
+        const err = new Error("提交所依据的映射版本已过期，请刷新后重新提交");
+        (err as { code?: string }).code = "COMMIT_STALE_MAPPING";
+        throw err;
+      }
+      if (batchRow.validation_status !== "validated") {
+        await client.query("ROLLBACK").catch(() => {});
+        const err = new Error("批次尚未校验通过，无法提交");
+        (err as { code?: string }).code = "COMMIT_NOT_VALIDATED";
+        throw err;
+      }
+      if (
+        !batchRow.validation_input_sha256 ||
+        batchRow.validation_input_sha256 !== input.validationInputSha256
+      ) {
+        await client.query("ROLLBACK").catch(() => {});
+        const err = new Error("校验输入身份不匹配，请刷新批次详情后重新提交");
+        (err as { code?: string }).code = "COMMIT_VALIDATION_MISMATCH";
+        throw err;
+      }
+
+      // 4) 读取当前映射版本的可提交行：candidate（新建）与 existing_entry（关联既有词条），
+      //    均要求有规范化拼写、版本一致、尚未被提交。
+      const eligible = await client.query<{
+        id: string;
+        ordinal: number;
+        normalized_spelling: string;
+        status: string;
+        lexical_entry_id: string | null;
+      }>(
+        `SELECT r.id, r.ordinal, r.normalized_spelling, r.status, r.lexical_entry_id
+         FROM import_rows r
+         WHERE r.batch_id = $1 AND r.mapping_version = $2
+           AND r.status IN ('candidate', 'existing_entry')
+           AND r.normalized_spelling IS NOT NULL AND btrim(r.normalized_spelling) <> ''
+           AND NOT EXISTS (
+             SELECT 1 FROM import_batch_commit_rows cr WHERE cr.import_row_id = r.id
+           )
+         ORDER BY r.ordinal ASC`,
+        [batchId, authoritativeMappingVersion],
+      );
+
+      // 5) 并发不同 key：若该批次在当前 mappingVersion 已有提交事实，直接返回其
+      //     不可变结果，绝不重复创建词条/来源/行事实/审计。
+      const priorCommit = await client.query<{
+        id: string;
+        created_entry_count: number;
+        associated_existing_entry_count: number;
+        committed_row_count: number;
+        skipped_counts: unknown;
+        created_at: Date;
+      }>(
+        `SELECT id, created_entry_count, associated_existing_entry_count, committed_row_count,
+                skipped_counts, created_at
+         FROM import_batch_commits
+         WHERE batch_id = $1 AND mapping_version = $2`,
+        [batchId, authoritativeMappingVersion],
+      );
+      if (priorCommit.rows[0]) {
+        await client.query("ROLLBACK").catch(() => {});
+        return {
+          batchId,
+          mappingVersion: authoritativeMappingVersion,
+          committedAt: priorCommit.rows[0].created_at.toISOString(),
+          createdEntryCount: priorCommit.rows[0].created_entry_count,
+          associatedExistingEntryCount: priorCommit.rows[0].associated_existing_entry_count,
+          skippedCountByDisposition:
+            (priorCommit.rows[0].skipped_counts as Record<string, number>) ?? {},
+          committedRowCount: priorCommit.rows[0].committed_row_count,
+          isIdempotentReplay: false,
+        };
+      }
+
+      // 6) 无候选且无既有提交 → 结构化 422（不 claim，不留 pending，不产生无意义提交事实）。
+      if (eligible.rows.length === 0) {
+        await client.query("ROLLBACK").catch(() => {});
+        const err = new Error("没有可提交的有效候选行");
+        (err as { code?: string }).code = "COMMIT_NO_ELIGIBLE_ROWS";
+        throw err;
+      }
+
+      // 7) 幂等 claim（新 key 插入 pending；并发同 key 由 PK 兜底 → replay/冲突）。
+      const claim = await this.claimCommit(client, input.userId, idempotencyKey, semanticHash);
+      if (claim.kind === "replay") {
+        await client.query("ROLLBACK").catch(() => {});
+        return { ...claim.result, isIdempotentReplay: true };
+      }
+
+      // 8) 单事务内执行提交：行事实、词条创建/关联、来源、批次状态/计数、审计、幂等。
+      const result = await this.executeCommit(client, {
+        batchId,
+        mappingVersion: authoritativeMappingVersion,
+        validationInputSha256: batchRow.validation_input_sha256,
+        eligibleRows: eligible.rows,
+        userId: input.userId,
+        requestId: input.requestId,
+        idempotencyKey,
+        semanticHash,
+      });
+
+      await client.query("COMMIT");
+      return result;
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /** 生成错误报告 CSV 内容（服务端生成，绝不信任浏览器；基于当前映射版本）。 */
+  async buildErrorReportCsv(batchId: string): Promise<{ filename: string; csv: string }> {
+    const detail = await this.repository.getDetail(batchId);
+    const mappingVersion = detail.mappingVersion;
+    // 只包含当前映射版本中真正不可提交的行：invalid / duplicate_in_file。
+    // existing_entry 是「可关联/可提交」行（提交时关联既有词条并写 import 来源事实），
+    // 不得出现在错误报告中；stale 行（mapping_version 落后于批次）同样不视为当前错误。
+    const rows = await this.pool.query<{
+      ordinal: number;
+      raw_summary: string;
+      status: string;
+      errors: unknown;
+      duplicate_of_ordinal: number | null;
+      mapping_version: number;
+    }>(
+      `SELECT ordinal, raw_summary, status, errors, duplicate_of_ordinal, mapping_version
+       FROM import_rows
+       WHERE batch_id = $1 AND mapping_version = $2
+         AND status NOT IN ('candidate', 'existing_entry')
+       ORDER BY ordinal ASC`,
+      [batchId, mappingVersion],
+    );
+
+    const lines: string[] = [ERROR_REPORT_CSV_HEADER];
+    for (const r of rows.rows) {
+      const errorCodes = Array.isArray(r.errors)
+        ? (r.errors as { code?: string }[]).map((e) => e.code ?? "unknown")
+        : [];
+      lines.push(
+        errorReportCsvLine({
+          ordinal: r.ordinal,
+          rawSummary: r.raw_summary,
+          status: r.status,
+          errorCodes,
+          duplicateOfOrdinal: r.duplicate_of_ordinal,
+          mappingVersion: r.mapping_version,
+        }),
+      );
+    }
+    const csv = lines.join(ERROR_REPORT_CSV_LINE_SEPARATOR) + "\n";
+    // 服务端生成的安全文件名（仅含批次 ID 与时间，绝不使用用户原文件名）。
+    const filename = safeReportFilename(batchId, new Date().toISOString().replace(/[.:]/g, "-"));
+    return { filename, csv };
+  }
+
+  // ---- 提交内部实现 ----
+
+  private commitSemanticHash(
+    batchId: string,
+    mappingVersion: number,
+    validationInputSha256: string,
+  ): string {
+    return commitSemanticHash({ batchId, mappingVersion, validationInputSha256 });
+  }
+
+  private async claimCommit(
+    client: PoolClient,
+    userId: string,
+    key: string,
+    semanticHash: string,
+  ): Promise<{ kind: "claimed" } | { kind: "replay"; result: ImportCommitResultDto }> {
+    const scope = `${COMMIT_SCOPE_PREFIX}:${userId}`;
+    const claim = await client.query<{ response_json: unknown }>(
+      `INSERT INTO idempotency_keys (scope, key, request_hash, response_json) VALUES ($1,$2,$3,$4)
+       ON CONFLICT (scope, key) DO NOTHING RETURNING response_json`,
+      [scope, key, semanticHash, JSON.stringify({ pending: true })],
+    );
+    if ((claim.rowCount ?? 0) > 0) return { kind: "claimed" };
+    const existing = await client.query<{ response_json: unknown; request_hash: string }>(
+      `SELECT response_json, request_hash FROM idempotency_keys WHERE scope = $1 AND key = $2`,
+      [scope, key],
+    );
+    const row = existing.rows[0];
+    if (!row) return { kind: "claimed" };
+    if (row.request_hash !== semanticHash) {
+      throw new ImportIdempotencyConflictError("该提交请求键已用于不同的语义");
+    }
+    const payload = row.response_json as { pending?: boolean } | null;
+    if (payload && "pending" in payload) throw new ImportIdempotencyInProgressError();
+    return { kind: "replay", result: row.response_json as ImportCommitResultDto };
+  }
+
+  private async completeCommit(
+    client: PoolClient,
+    userId: string,
+    key: string,
+    result: ImportCommitResultDto,
+  ): Promise<void> {
+    const scope = `${COMMIT_SCOPE_PREFIX}:${userId}`;
+    await client.query(
+      `UPDATE idempotency_keys SET response_json = $3, resource_id = $4
+       WHERE scope = $1 AND key = $2`,
+      [scope, key, JSON.stringify(result), result.batchId],
+    );
+  }
+
+  /** 单事务内执行一次真实提交（前置条件已校验、已 claim、无既有提交）。 */
+  private async executeCommit(
+    client: PoolClient,
+    ctx: {
+      batchId: string;
+      mappingVersion: number;
+      validationInputSha256: string | null;
+      eligibleRows: Array<{
+        id: string;
+        ordinal: number;
+        normalized_spelling: string;
+        status: string;
+        lexical_entry_id: string | null;
+      }>;
+      userId: string;
+      requestId: string;
+      idempotencyKey: string;
+      semanticHash: string;
+    },
+  ): Promise<ImportCommitResultDto> {
+    const { batchId, mappingVersion, userId, requestId, idempotencyKey } = ctx;
+
+    // 0) 批次行锁定已在 commit() 中完成；此处仍持有行锁（同一 client 事务内）。
+
+    // 1) 逐行决定「创建」或「关联」：
+    //    - candidate 行：先查询系统词条（候选范围内，非全表）；命中 → 关联；否则创建
+    //      （ON CONFLICT DO NOTHING，并发竞态 → 关联既有词条）。
+    //    - existing_entry 行：校验时已带 lexical_entry_id → 直接关联既有词条，绝不重建。
+    const candidateSpellings = ctx.eligibleRows
+      .filter((r) => r.status === "candidate")
+      .map((r) => r.normalized_spelling);
+    const existing = await this.lookupExistingEntries(client, new Set(candidateSpellings));
+
+    let createdEntryCount = 0;
+    let associatedExistingEntryCount = 0;
+    const committedRowIds: string[] = [];
+    const auditRows: Array<{
+      importRowId: string;
+      entryId: string;
+      sourceId: string;
+      created: boolean;
+      ordinal: number;
+    }> = [];
+
+    // 2) 建立词条/来源事实（不依赖 commit_id），收集行级事实所需数据。
+    for (const row of ctx.eligibleRows) {
+      const spelling = row.normalized_spelling;
+      let entryId: string;
+      let created = false;
+
+      if (row.status === "existing_entry") {
+        // 校验分类为 existing_entry → 确定性关联既有词条，不新建。
+        // 但目标词条可能在校验后被删除：import_rows.lexical_entry_id 因 SET NULL 变 NULL，
+        // 或指向的词条已不存在。此时校验事实已不再可安全执行：
+        //   - 绝不允许退化为新建词条；
+        //   - 也绝不允许「跳过该行 + 部分提交」——必须让整个 commit 请求失败，
+        //     要求管理员刷新并重新校验（P1-1）。
+        const targetId = row.lexical_entry_id;
+        let targetMissing = !targetId;
+        if (!targetMissing) {
+          const targetExists = await client.query<{ id: string }>(
+            `SELECT id FROM lexical_entries WHERE id = $1`,
+            [targetId],
+          );
+          targetMissing = !targetExists.rows[0];
+        }
+        if (targetMissing) {
+          await client.query("ROLLBACK").catch(() => {});
+          const err = new Error(
+            "系统词条已在校验后被删除，无法安全关联。请刷新批次并重新校验后重试。",
+          );
+          (err as { code?: string }).code = "COMMIT_REVALIDATION_REQUIRED";
+          throw err;
+        }
+        // targetId 在此非空（targetMissing 已排除 NULL/不存在）。
+        entryId = targetId!;
+        associatedExistingEntryCount += 1;
+      } else {
+        const existingEntryId = existing.get(spelling);
+        if (existingEntryId) {
+          entryId = existingEntryId;
+          associatedExistingEntryCount += 1;
+        } else {
+          const ins = await client.query<{ id: string }>(
+            `INSERT INTO lexical_entries (canonical_spelling, normalized_spelling, senses)
+             VALUES ($1, $1, '[]'::jsonb)
+             ON CONFLICT (canonical_spelling) DO NOTHING
+             RETURNING id`,
+            [spelling],
+          );
+          if (ins.rows[0]) {
+            created = true;
+            createdEntryCount += 1;
+            entryId = ins.rows[0].id;
+          } else {
+            // 并发已创建：确定性关联既有词条。
+            const found = await client.query<{ id: string }>(
+              `SELECT id FROM lexical_entries WHERE canonical_spelling = $1`,
+              [spelling],
+            );
+            entryId = found.rows[0]!.id;
+            associatedExistingEntryCount += 1;
+          }
+        }
+      }
+
+      // 来源事实：source_type=import；content_hash 绑定 (batch, mappingVersion, row)，
+      // 使同一提交 URL 的来源可确定性复用（lexical_sources 唯一约束兜底）。
+      const sourceHash = this.sourceContentHash(row.id, batchId, mappingVersion);
+      const sourceIns = await client.query<{ id: string }>(
+        `INSERT INTO lexical_sources (lexical_entry_id, source_type, source_note, content_hash, created_by)
+         VALUES ($1, 'import', $2, $3, $4)
+         ON CONFLICT (lexical_entry_id, source_type, content_hash) DO NOTHING
+         RETURNING id`,
+        [entryId, `import:commit:${batchId}`, sourceHash, userId],
+      );
+      let sourceId: string;
+      if (sourceIns.rows[0]) {
+        sourceId = sourceIns.rows[0].id;
+      } else {
+        const found = await client.query<{ id: string }>(
+          `SELECT id FROM lexical_sources
+           WHERE lexical_entry_id = $1 AND source_type = 'import' AND content_hash = $2`,
+          [entryId, sourceHash],
+        );
+        sourceId = found.rows[0]!.id;
+      }
+
+      committedRowIds.push(row.id);
+      auditRows.push({
+        importRowId: row.id,
+        entryId,
+        sourceId,
+        created,
+        ordinal: row.ordinal,
+      });
+    }
+
+    // 3) 计算跳过行（当前映射版本中不可提交行，按 disposition 计数；不含已提交行）。
+    const skipped = await client.query<{ status: string; n: string }>(
+      `SELECT r.status, count(*)::text AS n
+       FROM import_rows r
+       WHERE r.batch_id = $1 AND r.mapping_version = $2
+         AND r.status NOT IN ('candidate', 'existing_entry')
+         AND NOT EXISTS (SELECT 1 FROM import_batch_commit_rows cr WHERE cr.import_row_id = r.id)
+       GROUP BY r.status`,
+      [batchId, mappingVersion],
+    );
+    const skippedCounts: Record<string, number> = {};
+    for (const s of skipped.rows) skippedCounts[s.status] = Number(s.n);
+
+    // 3b) 若没有任何行真正提交（全部被跳过）：不产生无意义的提交事实，直接结构化拒绝。
+    if (auditRows.length === 0) {
+      await client.query("ROLLBACK").catch(() => {});
+      const err = new Error("没有可提交的有效候选行");
+      (err as { code?: string }).code = "COMMIT_NO_ELIGIBLE_ROWS";
+      throw err;
+    }
+
+    // 4) 写批次提交事实（先写，获得 commit_id，供行级事实引用）。
+    const commitIns = await client.query<{ id: string; created_at: Date }>(
+      `INSERT INTO import_batch_commits
+         (batch_id, committed_by, mapping_version, validation_input_sha256, created_entry_count,
+          associated_existing_entry_count, committed_row_count, skipped_counts, semantic_hash)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9)
+       RETURNING id, created_at`,
+      [
+        batchId,
+        userId,
+        mappingVersion,
+        ctx.validationInputSha256,
+        createdEntryCount,
+        associatedExistingEntryCount,
+        committedRowIds.length,
+        JSON.stringify(skippedCounts),
+        ctx.semanticHash,
+      ],
+    );
+    const commitId = commitIns.rows[0]!.id;
+    const committedAt = commitIns.rows[0]!.created_at.toISOString();
+
+    // 5) 写行级提交事实（commit_id 绑定；唯一约束防止同一行二次提交；
+    //    0021 要求非空 canonical lexical_entry_id 与来源，且来源须属于该词条）。
+    for (const a of auditRows) {
+      await client.query(
+        `INSERT INTO import_batch_commit_rows
+           (commit_id, import_row_id, ordinal, normalized_spelling, lexical_entry_id,
+            created_entry_id, associated_entry_id, lexical_source_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          commitId,
+          a.importRowId,
+          a.ordinal,
+          ctx.eligibleRows.find((r) => r.id === a.importRowId)!.normalized_spelling,
+          a.entryId,
+          a.created ? a.entryId : null,
+          a.created ? null : a.entryId,
+          a.sourceId,
+        ],
+      );
+      // 同步行级关联，使 UI/审核可展示最终关联词条（不改变校验分类 status）。
+      await client.query(
+        `UPDATE import_rows SET lexical_entry_id = $2 WHERE id = $1 AND lexical_entry_id IS DISTINCT FROM $2`,
+        [a.importRowId, a.entryId],
+      );
+    }
+
+    // 6) 批次状态 → committed（本批已提交过有效行；不可变提交事实是权威来源）。
+    await client.query(
+      `UPDATE import_batches SET status = 'committed', updated_at = now() WHERE id = $1`,
+      [batchId],
+    );
+
+    // 7) 审计：批次提交 + 逐行提交（只含 ID/计数/状态，不含原始内容）。
+    await client.query(
+      `INSERT INTO audit_events (actor_id, action, target_type, target_id, before_summary, after_summary, request_id)
+       VALUES ($1, $2, 'import_batch', $3, NULL, $4::jsonb, $5)`,
+      [
+        userId,
+        "admin.import.commit",
+        batchId,
+        JSON.stringify({
+          mappingVersion,
+          createdEntryCount,
+          associatedExistingEntryCount,
+          committedRowCount: committedRowIds.length,
+          skippedCounts,
+          commitId,
+        }),
+        requestId,
+      ],
+    );
+    for (const a of auditRows) {
+      await client.query(
+        `INSERT INTO audit_events (actor_id, action, target_type, target_id, before_summary, after_summary, request_id)
+         VALUES ($1, $2, 'import_row', $3, NULL, $4::jsonb, $5)`,
+        [
+          userId,
+          "admin.import.row.commit",
+          a.importRowId,
+          JSON.stringify({
+            ordinal: a.ordinal,
+            entryId: a.entryId,
+            sourceId: a.sourceId,
+            created: a.created,
+          }),
+          requestId,
+        ],
+      );
+    }
+
+    // P2-1：committedRowCount == created + associated（跳过行不计入）。
+    const finalResult: ImportCommitResultDto = {
+      batchId,
+      mappingVersion,
+      committedAt,
+      createdEntryCount,
+      associatedExistingEntryCount,
+      skippedCountByDisposition: skippedCounts,
+      committedRowCount: createdEntryCount + associatedExistingEntryCount,
+      isIdempotentReplay: false,
+    };
+    await this.completeCommit(client, userId, idempotencyKey, finalResult);
+    return finalResult;
+  }
+
+  private sourceContentHash(rowId: string, batchId: string, mappingVersion: number): string {
+    return createHash("sha256")
+      .update(`import:${batchId}:${mappingVersion}:${rowId}`)
+      .digest("hex");
+  }
+
+  // ---- 校验内部实现 ----
   private validateSemanticHash(
     batchId: string,
     format: string,

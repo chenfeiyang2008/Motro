@@ -2,3 +2,4 @@
 // 四格式解析、映射验证与行校验的纯规则。
 export * from "./file-rules.js";
 export * from "./parse-map-validate.js";
+export * from "./commit-rules.js";

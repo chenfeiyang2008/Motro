@@ -1,4 +1,4 @@
-// 导入批次 DTO（阶段 6 工单 01 + 02）：上传创建批次 + 批次/行详情 + 错误信封。
+// 导入批次 DTO（阶段 6 工单 01 + 02 + 03）：上传/映射/校验/提交/错误报告。
 // 绝不返回真实磁盘路径、storage_key 或敏感元数据。
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
@@ -11,7 +11,6 @@ import {
   MinLength,
   ValidateNested,
 } from "class-validator";
-
 export class StoredFileMetaDto {
   @ApiProperty({ description: "不透明文件 ID" })
   fileId!: string;
@@ -180,6 +179,49 @@ export class ImportValidationSummaryDto {
 }
 
 /** 导入批次详情响应（工单 02：新增映射/校验信息）。 */
+/** POST /admin/imports/{id}/commit 响应：真实、可证明的提交摘要。 */
+export class ImportCommitResultDto {
+  @ApiProperty({ description: "批次 ID" })
+  batchId!: string;
+
+  @ApiProperty({ description: "提交所依据的映射版本" })
+  mappingVersion!: number;
+
+  @ApiProperty({ description: "提交时间（RFC 3339 UTC）" })
+  committedAt!: string;
+
+  @ApiProperty({ description: "本轮新建的全局词条数" })
+  createdEntryCount!: number;
+
+  @ApiProperty({ description: "本轮关联到既有系统词条的数量" })
+  associatedExistingEntryCount!: number;
+
+  @ApiProperty({
+    description:
+      "按 disposition 分组的跳过行数（invalid / duplicate_in_file / existing_entry / stale 等）",
+    type: "object",
+    additionalProperties: { type: "number" },
+  })
+  skippedCountByDisposition!: Record<string, number>;
+
+  @ApiProperty({ description: "本轮实际写入提交事实的行数" })
+  committedRowCount!: number;
+
+  @ApiProperty({ description: "是否为幂等重放（true 表示返回原始结果）" })
+  isIdempotentReplay!: boolean;
+}
+
+/** 提交确认身份：客户端回传以证明它基于当前校验快照的显式意图。 */
+export class ImportCommitConfirmationDto {
+  @ApiProperty({ description: "当前映射版本" })
+  mappingVersion!: number;
+
+  @ApiProperty({
+    description: "校验输入冻结哈希（validation_input_sha256，安全：仅哈希无路径/密钥）",
+  })
+  validationInputSha256!: string;
+}
+
 export class ImportBatchDetailDto {
   @ApiProperty({ description: "批次 ID" })
   id!: string;
@@ -250,6 +292,19 @@ export class ImportBatchDetailDto {
 
   @ApiProperty({ description: "当前映射/校验结果是否仍有效" })
   isStale!: boolean;
+
+  @ApiPropertyOptional({
+    type: ImportCommitResultDto,
+    description: "最近一次提交事实摘要（已提交批次提供，供重载后展示事实性计数）",
+  })
+  commitSummary?: ImportCommitResultDto;
+
+  @ApiPropertyOptional({
+    type: ImportCommitConfirmationDto,
+    description:
+      "提交确认身份（仅当前已校验且非 stale 时提供）：客户端提交时必须原样回传，服务器锁定后无条件比对",
+  })
+  commitConfirmation?: ImportCommitConfirmationDto;
 }
 
 /** PATCH /admin/imports/{id} 请求体：更新映射。 */
@@ -296,7 +351,8 @@ export class ImportRowDto {
   normalizedSpelling?: string;
 
   @ApiProperty({
-    description: "行状态（candidate/invalid/duplicate_in_file/existing_entry/stale）",
+    description:
+      "校验分类（candidate/invalid/duplicate_in_file/existing_entry/stale）；不可变校验事实",
   })
   status!: string;
 
@@ -306,11 +362,24 @@ export class ImportRowDto {
   @ApiPropertyOptional({ description: "文件内重复：指向的行序号" })
   duplicateOfOrdinal?: number;
 
-  @ApiPropertyOptional({ description: "系统已有词条 ID" })
+  @ApiPropertyOptional({
+    description: "关联的系统词条 ID（existing_entry 校验分类或已提交后为最终关联词条）",
+  })
   lexicalEntryId?: string;
 
   @ApiProperty({ description: "映射版本" })
   mappingVersion!: number;
+
+  @ApiProperty({
+    description: "提交状态：not_committed 或 committed（由不可变提交事实推导，非覆盖校验分类）",
+  })
+  commitStatus!: string;
+
+  @ApiPropertyOptional({ description: "提交时间（RFC 3339 UTC；committed 时提供）" })
+  committedAt?: string;
+
+  @ApiPropertyOptional({ description: "提交人用户 ID（committed 时提供）" })
+  committedBy?: string;
 }
 
 export class ImportRowListDto {
@@ -322,4 +391,27 @@ export class ImportRowListDto {
 
   @ApiProperty({ description: "是否还有更多页" })
   hasMore!: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// 阶段 6 工单 03：提交有效行与错误报告。
+// ---------------------------------------------------------------------------
+
+/** POST /admin/imports/{id}/commit 请求体：显式确认载荷，禁止无绑定「提交全部」。 */
+export class CommitImportBatchDto {
+  @ApiProperty({
+    description: "当前映射版本（要求与服务器权威值一致，防 stale/未绑定提交）",
+  })
+  @IsInt()
+  @Min(1)
+  mappingVersion!: number;
+
+  @ApiProperty({
+    description:
+      "校验输入的身份标识（来自批次详情的 commitConfirmation.validationInputSha256）；必须精确匹配",
+  })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200)
+  validationInputSha256!: string;
 }

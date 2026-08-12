@@ -5,6 +5,8 @@ dist/
 coverage/
 playwright-report/
 test-results/
+# 共享登录会话状态（Playwright storageState，含临时 cookies，不入库）。
+tests/e2e/.auth/
 
 # TypeScript build artifacts
 *.tsbuildinfo

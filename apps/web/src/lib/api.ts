@@ -410,6 +410,51 @@ export function listImportRows(
   );
 }
 
+// ---- 阶段 6 工单 03：提交有效行 + 错误报告 ----
+
+export type ImportCommitResult = components["schemas"]["ImportCommitResultDto"];
+export type ImportCommitPayload = components["schemas"]["CommitImportBatchDto"];
+
+/**
+ * 仅提交有效候选行（Idempotency-Key 由调用方提供并复用；显式确认载荷必须）。
+ * 绝不创建课程/发布；返回真实提交摘要。
+ */
+export function commitImportBatch(
+  id: string,
+  payload: ImportCommitPayload,
+  idempotencyKey: string,
+): Promise<ApiResult<ImportCommitResult>> {
+  return apiFetch<ImportCommitResult>(`/api/v1/admin/imports/${encodeURIComponent(id)}/commit`, {
+    method: "POST",
+    headers: { "idempotency-key": idempotencyKey },
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * 下载仅含不可提交行的错误报告 CSV（服务端生成；无错误行时返回仅表头）。
+ * 返回 CSV 文本（浏览器直接触发下载）。
+ */
+export async function downloadImportErrorReport(id: string): Promise<{
+  ok: boolean;
+  csv?: string;
+  filename?: string;
+  error?: string;
+}> {
+  try {
+    const res = await fetch(`/api/v1/admin/imports/${encodeURIComponent(id)}/error-report`, {
+      method: "GET",
+    });
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+    const csv = await res.text();
+    const disposition = res.headers.get("content-disposition") ?? "";
+    const match = disposition.match(/filename="([^"]+)"/);
+    return match?.[1] !== undefined ? { ok: true, csv, filename: match[1] } : { ok: true, csv };
+  } catch {
+    return { ok: false, error: "下载失败" };
+  }
+}
+
 // ---- 学习者：已发布课程目录（只读 current release） ----
 
 export type CatalogCourseSummary = components["schemas"]["CatalogCourseSummaryDto"];

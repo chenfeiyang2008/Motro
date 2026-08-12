@@ -693,6 +693,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/admin/imports/{id}/commit": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 仅提交有效候选行：事务内创建/关联全局词条与 lexical_sources(import)，形成可审计提交事实（幂等；绝不创建课程/发布） */
+    post: operations["ImportController_commit"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/imports/{id}/error-report": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 下载仅含不可提交行的服务端生成错误报告 CSV（当前映射版本；公式注入已中和） */
+    get: operations["ImportController_errorReport"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1628,6 +1662,32 @@ export interface components {
       /** @description 总行数 */
       total: number;
     };
+    ImportCommitResultDto: {
+      /** @description 批次 ID */
+      batchId: string;
+      /** @description 提交所依据的映射版本 */
+      mappingVersion: number;
+      /** @description 提交时间（RFC 3339 UTC） */
+      committedAt: string;
+      /** @description 本轮新建的全局词条数 */
+      createdEntryCount: number;
+      /** @description 本轮关联到既有系统词条的数量 */
+      associatedExistingEntryCount: number;
+      /** @description 按 disposition 分组的跳过行数（invalid / duplicate_in_file / existing_entry / stale 等） */
+      skippedCountByDisposition: {
+        [key: string]: number;
+      };
+      /** @description 本轮实际写入提交事实的行数 */
+      committedRowCount: number;
+      /** @description 是否为幂等重放（true 表示返回原始结果） */
+      isIdempotentReplay: boolean;
+    };
+    ImportCommitConfirmationDto: {
+      /** @description 当前映射版本 */
+      mappingVersion: number;
+      /** @description 校验输入冻结哈希（validation_input_sha256，安全：仅哈希无路径/密钥） */
+      validationInputSha256: string;
+    };
     ImportBatchDetailDto: {
       /** @description 批次 ID */
       id: string;
@@ -1670,6 +1730,10 @@ export interface components {
       updatedAt?: string;
       /** @description 当前映射/校验结果是否仍有效 */
       isStale: boolean;
+      /** @description 最近一次提交事实摘要（已提交批次提供，供重载后展示事实性计数） */
+      commitSummary?: components["schemas"]["ImportCommitResultDto"];
+      /** @description 提交确认身份（仅当前已校验且非 stale 时提供）：客户端提交时必须原样回传，服务器锁定后无条件比对 */
+      commitConfirmation?: components["schemas"]["ImportCommitConfirmationDto"];
     };
     ImportBatchListDto: {
       /** @description 批次列表（按创建时间倒序） */
@@ -1692,16 +1756,22 @@ export interface components {
       rawSummary: string;
       /** @description 规范化拼写 */
       normalizedSpelling?: string;
-      /** @description 行状态（candidate/invalid/duplicate_in_file/existing_entry/stale） */
+      /** @description 校验分类（candidate/invalid/duplicate_in_file/existing_entry/stale）；不可变校验事实 */
       status: string;
       /** @description 结构化错误码列表 */
       errors: string[];
       /** @description 文件内重复：指向的行序号 */
       duplicateOfOrdinal?: number;
-      /** @description 系统已有词条 ID */
+      /** @description 关联的系统词条 ID（existing_entry 校验分类或已提交后为最终关联词条） */
       lexicalEntryId?: string;
       /** @description 映射版本 */
       mappingVersion: number;
+      /** @description 提交状态：not_committed 或 committed（由不可变提交事实推导，非覆盖校验分类） */
+      commitStatus: string;
+      /** @description 提交时间（RFC 3339 UTC；committed 时提供） */
+      committedAt?: string;
+      /** @description 提交人用户 ID（committed 时提供） */
+      committedBy?: string;
     };
     ImportRowListDto: {
       /** @description 行列表（按 ordinal 升序） */
@@ -1710,6 +1780,12 @@ export interface components {
       nextCursor?: string;
       /** @description 是否还有更多页 */
       hasMore: boolean;
+    };
+    CommitImportBatchDto: {
+      /** @description 当前映射版本（要求与服务器权威值一致，防 stale/未绑定提交） */
+      mappingVersion: number;
+      /** @description 校验输入的身份标识（来自批次详情的 commitConfirmation.validationInputSha256）；必须精确匹配 */
+      validationInputSha256: string;
     };
   };
   responses: never;
@@ -3057,6 +3133,81 @@ export interface operations {
       };
       /** @description 非法游标/limit/mappingVersion */
       422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
+        };
+      };
+    };
+  };
+  ImportController_commit: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description 本次提交意图的幂等键；重试必须复用同一键，重放返回原始结果 */
+        "Idempotency-Key": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CommitImportBatchDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ImportCommitResultDto"];
+        };
+      };
+      /** @description IDEMPOTENCY_CONFLICT / IDEMPOTENCY_IN_PROGRESS / COMMIT_STALE_MAPPING */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
+        };
+      };
+      /** @description COMMIT_NOT_VALIDATED / COMMIT_VALIDATION_MISMATCH / COMMIT_NO_ELIGIBLE_ROWS / COMMIT_REVALIDATION_REQUIRED / 缺少幂等键 */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
+        };
+      };
+    };
+  };
+  ImportController_errorReport: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description CSV 下载；无错误行时返回仅表头 CSV */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 批次不存在 */
+      404: {
         headers: {
           [name: string]: unknown;
         };

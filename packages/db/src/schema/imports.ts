@@ -1,6 +1,7 @@
-// 导入文件与批次 schema（阶段 6 工单 01 + 工单 02）。
+// 导入文件与批次 schema（阶段 6 工单 01 + 工单 02 + 工单 03）。
 // 与 db/migrations/0016_import_files_and_batches.sql、0017_import_file_dedupe_and_constraints.sql、
-// 0018_import_rows_parse_validate.sql 保持一致。
+// 0018_import_rows_parse_validate.sql、0019_import_rows_mapping_version_unique.sql、
+// 0020_commit_valid_rows_and_error_report.sql 保持一致。
 // storage_key 是不透明服务端存储键；original_filename 仅作元数据展示，绝不参与路径构造。
 import {
   bigint,
@@ -13,8 +14,9 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { users } from "./platform-identity.js";
-import { lexicalEntries } from "./lexicon.js";
+import { lexicalEntries, lexicalSources } from "./lexicon.js";
 
 export const storedFiles = pgTable(
   "stored_files",
@@ -103,5 +105,78 @@ export const importRows = pgTable(
     index("import_rows_batch_status_idx").on(t.batchId, t.status),
     index("import_rows_created_at_idx").on(t.createdAt),
     index("import_rows_mapping_version_idx").on(t.batchId, t.mappingVersion),
+  ],
+);
+
+// 阶段 6 工单 03：提交批次事实与行级提交事实（不可变，幂等可重放）。
+// 与 db/migrations/0020_commit_valid_rows_and_error_report.sql 保持一致。
+
+export const importBatchCommits = pgTable(
+  "import_batch_commits",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    batchId: uuid("batch_id")
+      .notNull()
+      .references(() => importBatches.id, { onDelete: "cascade" }),
+    committedBy: uuid("committed_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    mappingVersion: integer("mapping_version").notNull(),
+    validationInputSha256: text("validation_input_sha256"),
+    status: text("status").notNull().default("completed"),
+    createdEntryCount: integer("created_entry_count").notNull().default(0),
+    associatedExistingEntryCount: integer("associated_existing_entry_count").notNull().default(0),
+    committedRowCount: integer("committed_row_count").notNull().default(0),
+    skippedCounts: jsonb("skipped_counts").notNull().default({}),
+    semanticHash: text("semantic_hash").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("import_batch_commits_batch_id_idx").on(t.batchId),
+    index("import_batch_commits_committed_by_idx").on(t.committedBy),
+    index("import_batch_commits_created_at_idx").on(t.createdAt),
+    uniqueIndex("import_batch_commits_batch_mv_unique").on(t.batchId, t.mappingVersion),
+  ],
+);
+
+export const importBatchCommitRows = pgTable(
+  "import_batch_commit_rows",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    commitId: uuid("commit_id")
+      .notNull()
+      .references(() => importBatchCommits.id, { onDelete: "cascade" }),
+    importRowId: uuid("import_row_id")
+      .notNull()
+      .references(() => importRows.id, { onDelete: "restrict" }),
+    ordinal: integer("ordinal").notNull(),
+    normalizedSpelling: text("normalized_spelling").notNull(),
+    // 0021：非空 canonical 词条身份（来源一致性的直接锚点）。
+    lexicalEntryId: uuid("lexical_entry_id")
+      .notNull()
+      .references(() => lexicalEntries.id, { onDelete: "restrict" }),
+    createdEntryId: uuid("created_entry_id").references(() => lexicalEntries.id, {
+      onDelete: "restrict",
+    }),
+    associatedEntryId: uuid("associated_entry_id").references(() => lexicalEntries.id, {
+      onDelete: "restrict",
+    }),
+    // 0021：来源强制非空；触发器证明 lexical_sources.lexical_entry_id == lexical_entry_id。
+    lexicalSourceId: uuid("lexical_source_id")
+      .notNull()
+      .references(() => lexicalSources.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("import_batch_commit_rows_commit_id_idx").on(t.commitId),
+    uniqueIndex("import_batch_commit_rows_row_unique").on(t.importRowId),
+    uniqueIndex("import_batch_commit_rows_commit_ordinal_unique").on(t.commitId, t.ordinal),
+    uniqueIndex("import_batch_commit_rows_entry_idx")
+      .on(t.createdEntryId)
+      .where(sql`${t.createdEntryId} IS NOT NULL`),
+    uniqueIndex("import_batch_commit_rows_associated_idx")
+      .on(t.associatedEntryId)
+      .where(sql`${t.associatedEntryId} IS NOT NULL`),
+    uniqueIndex("import_batch_commit_rows_batch_entry_unique").on(t.commitId, t.lexicalEntryId),
   ],
 );

@@ -44,3 +44,62 @@ pnpm build      # 编译全部 workspace 包
 **下一步**
 
 当前处于“平台基础阶段”，尚无可以启动的应用。Web 与 API 应用骨架将在后续票据中建立（见 [`docs/roadmap.md`](docs/roadmap.md)）。验证工具链正常可依次运行 `pnpm typecheck && pnpm lint && pnpm test && pnpm build`。
+
+## 导入 E2E 运行说明（独立数据库）
+
+`tests/e2e/admin-imports.spec.ts` 会提交导入批次，产生**不可变** commit facts（`import_batch_commits` / `import_batch_commit_rows`，`BEFORE DELETE` trigger 拒绝删除）。在共享开发库上删除这些事实必须绕过触发器/外键（被禁止），因此导入 E2E **必须运行在独立数据库**上。
+
+**唯一推荐入口（一键 runner，自动完成启动→迁移→测试→清理）：**
+
+```sh
+E2E_ADMIN_PASSWORD=<管理员引导口令> pnpm run e2e:import
+```
+
+该命令会严格按序执行（全部只作用于独立 E2E 栈，绝不触碰共享 `motro` 栈）：
+
+1. 启动独立栈：`docker compose -f compose/e2e-import.yml up -d --build`
+2. 等待 `db-e2e` 与 `api-e2e` readiness
+3. 对独立库 `motro_e2e_import` 执行 migration `0001`–`0024`
+   （连接 `127.0.0.1:5433`；不读取/修改共享 `motro` 库；不需要手动 source `.env`）
+4. 校验独立库已迁移到版本 24
+5. 运行 `admin-imports.spec.ts`（Chromium + WebKit 并发；每个 project 使用独立管理员与独立 storageState 文件）
+6. 无论测试通过、失败或中断，最后执行 `docker compose -f compose/e2e-import.yml down -v` 清理独立栈
+
+**手动逐步执行（等价于 runner，便于排查）：**
+
+```sh
+# 1. 启动隔离栈
+docker compose -f compose/e2e-import.yml up -d --build
+
+# 2. 等待就绪
+sleep 10 && curl -s http://127.0.0.1:3100/api/v1/health/live
+
+# 3. 迁移独立库（明确指向独立库；不碰共享库）
+POSTGRES_HOST=127.0.0.1 POSTGRES_PORT=5433 POSTGRES_DB=motro_e2e_import pnpm db:migrate
+
+# 4. 运行导入 E2E（Chromium + WebKit 并发）
+E2E_IMPORT_DB=motro_e2e_import \
+E2E_POSTGRES_PORT=5433 \
+E2E_ADMIN_PASSWORD=<管理员引导口令> \
+API_PUBLIC_URL=http://127.0.0.1:3100 \
+PW_BASE_URL=http://127.0.0.1:3101 \
+PW_WEB_PORT=3101 \
+PW_REUSE_SERVER=1 \
+pnpm exec playwright test tests/e2e/admin-imports.spec.ts --project=chromium --project=webkit
+
+# 5. 清理（只移除 motro-e2e-import 资源与卷，不影响共享 motro 栈）
+docker compose -f compose/e2e-import.yml down -v
+```
+
+**故障排查：**
+
+```sh
+docker compose -f compose/e2e-import.yml logs api-e2e web-e2e db-e2e
+```
+
+**说明：**
+
+- 独立栈名称 `motro-e2e-import`，独立 API/Web 端口 `3100/3101`，独立数据库端口 `5433`，独立命名卷 `e2e-import-db-data`，与 `compose/docker-compose.yml` 的 `motro` 栈完全隔离。
+- `admin-imports.spec.ts` 在 `beforeAll` 检测到未设置 `E2E_IMPORT_DB` 时**直接失败**，绝不回退共享库。
+- 隔离管理员在独立库中创建/清理；Chromium 与 WebKit 各自使用独立管理员用户名与独立 storageState 文件（`tests/e2e/.auth/imports-<run-id>-<project>.json`），并发执行时互不抢占。
+- 不可变 commit facts 由 `down -v` 整体销毁独立数据库卷处理，**绝不通过绕过 trigger 删除**。

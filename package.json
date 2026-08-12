@@ -22,7 +22,8 @@
     "config:check": "tsc --build packages/config && node packages/config/dist/cli-config-check.js",
     "openapi:generate": "tsc --build apps/api && node apps/api/dist/openapi-generate.js",
     "openapi:check": "tsc --build apps/api && node apps/api/dist/openapi-check.js",
-    "openapi:types": "openapi-typescript docs/generated/openapi.json -o packages/api-client/src/generated.ts"
+    "openapi:types": "openapi-typescript docs/generated/openapi.json -o packages/api-client/src/generated.ts",
+    "e2e:import": "pnpm build && pnpm exec tsc -p tests/e2e/tsconfig.e2e.json && node tests/e2e/dist/run-import-e2e.js"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

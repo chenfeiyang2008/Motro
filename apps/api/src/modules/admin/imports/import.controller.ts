@@ -39,9 +39,11 @@ import {
   ImportWriteError,
 } from "./import.service.js";
 import {
+  CommitImportBatchDto,
   ImportBatchDetailDto,
   ImportBatchDto,
   ImportBatchListDto,
+  ImportCommitResultDto,
   ImportErrorEnvelopeDto,
   ImportRowListDto,
   ImportUploadBodyDto,
@@ -417,5 +419,114 @@ export class ImportController {
       }
     }
     return this.importService.listRows(id, parsedCursor, parsedLimit, parsedMappingVersion);
+  }
+
+  @Post(":id/commit")
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiHeader({
+    name: "Idempotency-Key",
+    required: true,
+    description: "本次提交意图的幂等键；重试必须复用同一键，重放返回原始结果",
+  })
+  @ApiBody({ type: CommitImportBatchDto, required: true })
+  @ApiOperation({
+    summary:
+      "仅提交有效候选行：事务内创建/关联全局词条与 lexical_sources(import)，形成可审计提交事实（幂等；绝不创建课程/发布）",
+  })
+  @ApiResponse({ status: 200, type: ImportCommitResultDto })
+  @ApiResponse({
+    status: 409,
+    description: "IDEMPOTENCY_CONFLICT / IDEMPOTENCY_IN_PROGRESS / COMMIT_STALE_MAPPING",
+    type: ImportErrorEnvelopeDto,
+  })
+  @ApiResponse({
+    status: 422,
+    description:
+      "COMMIT_NOT_VALIDATED / COMMIT_VALIDATION_MISMATCH / COMMIT_NO_ELIGIBLE_ROWS / COMMIT_REVALIDATION_REQUIRED / 缺少幂等键",
+    type: ImportErrorEnvelopeDto,
+  })
+  async commit(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() body: CommitImportBatchDto,
+    @Req() req: FastifyRequest & AuthenticatedRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ): Promise<ImportCommitResultDto | void> {
+    const key = req.headers["idempotency-key"];
+    if (!key || typeof key !== "string") {
+      throw new UnprocessableEntityException("缺少 Idempotency-Key 请求头");
+    }
+    try {
+      return await this.importService.commit(id, {
+        idempotencyKey: key,
+        mappingVersion: body.mappingVersion,
+        validationInputSha256: body.validationInputSha256,
+        userId: req.user.id,
+        requestId: req.id,
+      });
+    } catch (err) {
+      if (err instanceof ImportIdempotencyConflictError) {
+        reply.status(HttpStatus.CONFLICT).send({
+          error: {
+            code: "IDEMPOTENCY_CONFLICT",
+            message: err.message,
+            requestId: req.id,
+            retryable: false,
+          },
+        });
+        return;
+      }
+      if (err instanceof ImportIdempotencyInProgressError) {
+        reply.status(HttpStatus.CONFLICT).send({
+          error: {
+            code: "IDEMPOTENCY_IN_PROGRESS",
+            message: err.message,
+            requestId: req.id,
+            retryable: true,
+          },
+        });
+        return;
+      }
+      const code = (err as { code?: string }).code;
+      if (
+        code === "COMMIT_STALE_MAPPING" ||
+        code === "COMMIT_NOT_VALIDATED" ||
+        code === "COMMIT_VALIDATION_MISMATCH" ||
+        code === "COMMIT_NO_ELIGIBLE_ROWS" ||
+        code === "COMMIT_REVALIDATION_REQUIRED"
+      ) {
+        reply
+          .status(HttpStatus.UNPROCESSABLE_ENTITY)
+          .send(
+            errorEnvelope(
+              HttpStatus.UNPROCESSABLE_ENTITY,
+              (err as Error).message,
+              req.id,
+              undefined,
+              code,
+            ),
+          );
+        return;
+      }
+      throw err;
+    }
+  }
+
+  @Get(":id/error-report")
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: "下载仅含不可提交行的服务端生成错误报告 CSV（当前映射版本；公式注入已中和）",
+  })
+  @ApiResponse({ status: 200, description: "CSV 下载；无错误行时返回仅表头 CSV" })
+  @ApiResponse({ status: 404, description: "批次不存在", type: ImportErrorEnvelopeDto })
+  async errorReport(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Res() reply: FastifyReply,
+  ): Promise<void> {
+    const { filename, csv } = await this.importService.buildErrorReportCsv(id);
+    reply
+      .header("Content-Type", "text/csv; charset=utf-8")
+      .header("Content-Disposition", `attachment; filename="${filename}"`)
+      .send("﻿" + csv);
   }
 }

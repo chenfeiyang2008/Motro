@@ -1,0 +1,95 @@
+# admin-imports E2E 隔离栈（P1-4）。
+#
+# 目的：admin-imports E2E 会提交批次，产生不可变 commit facts（import_batch_commits /
+# import_batch_commit_rows，BEFORE DELETE trigger 拒绝删除）。在共享 motro 开发库上删除这些
+# 事实必须绕过触发器/FK（被本工单禁止），因此本 E2E 必须运行在【独立数据库】上。
+#
+# 本 override 启动一个隔离栈：
+#   - db-e2e：独立命名卷，独立端口 5433；
+#   - api-e2e：POSTGRES_DB=motro_e2e_import，端口 3100；
+#   - web-e2e：代理到 api-e2e，端口 3101。
+# 测试结束后 `docker compose -f compose/e2e-import.yml down -v` 整体销毁（含独立卷），
+# 不触碰共享 motro 栈（compose/docker-compose.yml）。
+#
+# 使用（见 README「导入 E2E 运行说明」）：
+#   E2E_ADMIN_PASSWORD=<口令> pnpm run e2e:import
+#   等价于：
+#     docker compose -f compose/e2e-import.yml up -d --build
+#     API_PUBLIC_URL=http://127.0.0.1:3100 PW_BASE_URL=http://127.0.0.1:3101 \
+#       E2E_ADMIN_PASSWORD=<口令> \
+#       pnpm exec playwright test tests/e2e/admin-imports.spec.ts --project=chromium --project=webkit
+#     docker compose -f compose/e2e-import.yml down -v
+name: motro-e2e-import
+
+services:
+  db-e2e:
+    image: postgres:16-alpine
+    restart: "no"
+    environment:
+      POSTGRES_DB: ${E2E_IMPORT_DB:-motro_e2e_import}
+      POSTGRES_USER: ${POSTGRES_USER:-motro}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_only_change_me}
+    ports:
+      - "127.0.0.1:${E2E_POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - e2e-import-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - e2e-import-net
+
+  api-e2e:
+    build:
+      context: ../
+      dockerfile: apps/api/Dockerfile
+    restart: "no"
+    environment:
+      NODE_ENV: development
+      API_PORT: 3100
+      POSTGRES_HOST: db-e2e
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${E2E_IMPORT_DB:-motro_e2e_import}
+      POSTGRES_USER: ${POSTGRES_USER:-motro}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_only_change_me}
+      SESSION_KEY: ${SESSION_KEY:-development-only-session-key-0123456789abcdef}
+      CSRF_KEY: ${CSRF_KEY:-development-only-csrf-key-0123456789abcdef}
+      COOKIE_SECURE: "false"
+      COOKIE_SAMESITE: lax
+      CORS_ORIGINS: http://127.0.0.1:3101
+    ports:
+      - "127.0.0.1:3100:3100"
+    depends_on:
+      db-e2e:
+        condition: service_healthy
+    networks:
+      - e2e-import-net
+
+  web-e2e:
+    build:
+      context: ../
+      dockerfile: apps/web/Dockerfile
+      args:
+        API_INTERNAL_URL: http://api-e2e:3100
+    restart: "no"
+    environment:
+      API_INTERNAL_URL: http://api-e2e:3100
+      API_PUBLIC_URL: http://127.0.0.1:3100
+      WEB_PORT: 3101
+      PORT: 3101
+    ports:
+      - "127.0.0.1:3101:3101"
+    depends_on:
+      api-e2e:
+        condition: service_started
+    networks:
+      - e2e-import-net
+
+networks:
+  e2e-import-net:
+    driver: bridge
+
+volumes:
+  e2e-import-db-data:
