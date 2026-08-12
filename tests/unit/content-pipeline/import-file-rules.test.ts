@@ -43,7 +43,7 @@ describe("import file rules", () => {
       expect(validateImportFilename("   ").ok).toBe(false);
       expect(validateImportFilename("nowords").ok).toBe(false);
       expect(validateImportFilename("words.exe").ok).toBe(false);
-      expect(validateImportFilename("words.xlsx").ok).toBe(false); // 本票不做 xlsx
+      expect(validateImportFilename("words.xlsx").ok).toBe(true); // xlsx 现已支持
     });
   });
 
@@ -120,8 +120,8 @@ describe("import file rules", () => {
     });
   });
 
-  it("UPLOADABLE_FORMATS 本票只允许文本/CSV/JSON；xlsx 留后续", () => {
-    expect(UPLOADABLE_FORMATS).toEqual(["txt", "csv", "json"]);
+  it("UPLOADABLE_FORMATS 包含 txt/csv/json/xlsx", () => {
+    expect(UPLOADABLE_FORMATS).toEqual(["txt", "csv", "json", "xlsx"]);
   });
 
   describe("sniffFileContent（内容类别）", () => {
@@ -139,8 +139,17 @@ describe("import file rules", () => {
       expect(r.ok && r.result.sniffedMime).toBe("application/json");
     });
 
-    it("二进制/非 UTF-8 → 拒绝", () => {
+    it("ZIP 归档（PK\x03\x04）→ xlsx", () => {
       const r = sniffFileContent(Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x89, 0x50, 0x4e]));
+      expect(r.ok).toBe(true);
+      expect(r.ok && r.result.content).toBe("xlsx");
+      expect(r.ok && r.result.sniffedMime).toBe(
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+    });
+
+    it("其它二进制/非 UTF-8 非 ZIP → 拒绝", () => {
+      const r = sniffFileContent(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0xff]));
       expect(r.ok).toBe(false);
     });
 
@@ -150,16 +159,24 @@ describe("import file rules", () => {
     });
   });
 
-  describe("contentClassAllowedForExtension（TXT/CSV 与 JSON 不误判）", () => {
-    it("utf8 内容允许 txt 与 csv；不允许 json", () => {
+  describe("contentClassAllowedForExtension（TXT/CSV/JSON/XLSX 不误判）", () => {
+    it("utf8 内容允许 txt 与 csv；不允许 json/xlsx", () => {
       expect(contentClassAllowedForExtension("utf8", "txt")).toBe(true);
       expect(contentClassAllowedForExtension("utf8", "csv")).toBe(true);
       expect(contentClassAllowedForExtension("utf8", "json")).toBe(false);
+      expect(contentClassAllowedForExtension("utf8", "xlsx")).toBe(false);
     });
     it("json 内容仅允许 json", () => {
       expect(contentClassAllowedForExtension("json", "json")).toBe(true);
       expect(contentClassAllowedForExtension("json", "txt")).toBe(false);
       expect(contentClassAllowedForExtension("json", "csv")).toBe(false);
+      expect(contentClassAllowedForExtension("json", "xlsx")).toBe(false);
+    });
+    it("xlsx 内容允许 xlsx；不允许 txt/csv/json", () => {
+      expect(contentClassAllowedForExtension("xlsx", "xlsx")).toBe(true);
+      expect(contentClassAllowedForExtension("xlsx", "txt")).toBe(false);
+      expect(contentClassAllowedForExtension("xlsx", "csv")).toBe(false);
+      expect(contentClassAllowedForExtension("xlsx", "json")).toBe(false);
     });
   });
 
@@ -185,9 +202,14 @@ describe("import file rules", () => {
   });
 
   describe("MIME 严格白名单（P1-6）", () => {
-    it("ALLOWED_MEDIA_TYPES 只含 text/plain / text/csv / application/json", () => {
+    it("ALLOWED_MEDIA_TYPES 只含 text/plain / text/csv / application/json / xlsx MIME", () => {
       expect([...ALLOWED_MEDIA_TYPES].sort()).toEqual(
-        ["text/plain", "text/csv", "application/json"].sort(),
+        [
+          "text/plain",
+          "text/csv",
+          "application/json",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ].sort(),
       );
     });
 
@@ -195,6 +217,11 @@ describe("import file rules", () => {
       expect(normalizeMediaType("  text/plain; charset=utf-8  ")).toBe("text/plain");
       expect(normalizeMediaType("text/csv; charset=utf-8")).toBe("text/csv");
       expect(normalizeMediaType("Application/JSON; charset=UTF-8")).toBe("application/json");
+      expect(
+        normalizeMediaType(
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet; charset=binary",
+        ),
+      ).toBe("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       expect(normalizeMediaType(" text/plain ")).toBe("text/plain");
     });
 
@@ -203,11 +230,16 @@ describe("import file rules", () => {
       expect(isAllowedMediaType("text/plain; charset=utf-8")).toBe(true);
       expect(isAllowedMediaType("text/csv; charset=utf-8")).toBe(true);
       expect(isAllowedMediaType("application/json; charset=utf-8")).toBe(true);
+      expect(
+        isAllowedMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+      ).toBe(true);
       expect(isAllowedMediaType("text/html")).toBe(false);
       expect(isAllowedMediaType("text/javascript")).toBe(false);
       expect(isAllowedMediaType("image/png")).toBe(false);
       expect(isAllowedMediaType("application/pdf")).toBe(false);
       expect(isAllowedMediaType("application/octet-stream")).toBe(false);
+      expect(isAllowedMediaType("application/vnd.ms-excel")).toBe(false);
+      expect(isAllowedMediaType("application/vnd.ms-excel.sheet.macroEnabled.12")).toBe(false);
       // P2-2：空/空白/无法解析一律拒绝。
       expect(isAllowedMediaType("")).toBe(false);
       expect(isAllowedMediaType("   ")).toBe(false);
@@ -223,6 +255,25 @@ describe("import file rules", () => {
       expect(declaredMimeConsistent("application/json", "text/plain")).toBe(false);
       expect(declaredMimeConsistent("text/plain", "application/json")).toBe(false);
       expect(declaredMimeConsistent("text/csv", "text/plain")).toBe(true);
+      // XLSX MIME 仅与 xlsx 内容一致；不得伪装成文本/JSON。
+      expect(
+        declaredMimeConsistent(
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ),
+      ).toBe(true);
+      expect(
+        declaredMimeConsistent(
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "text/plain",
+        ),
+      ).toBe(false);
+      expect(
+        declaredMimeConsistent(
+          "text/plain",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ),
+      ).toBe(false);
     });
   });
 });

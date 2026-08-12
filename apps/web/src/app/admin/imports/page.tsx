@@ -7,8 +7,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { listImportBatches, uploadImportBatch, type ImportBatch } from "@/lib/api";
 
-// 当前仅接受 txt / csv / json；XLSX 在工单 02 启用。
-const ALLOWED_FORMAT_HINT = ".txt / .csv / .json";
+// 当前接受 txt / csv / json / xlsx。
+const ALLOWED_FORMAT_HINT = ".txt / .csv / .json / .xlsx";
 
 function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
@@ -137,7 +137,7 @@ export default function AdminImportsPage() {
             id="import-file"
             ref={fileRef}
             type="file"
-            accept=".txt,.csv,.json"
+            accept=".txt,.csv,.json,.xlsx"
             onChange={(e) => setFileName(e.target.files?.[0]?.name ?? "")}
           />
           {fileName !== "" && (

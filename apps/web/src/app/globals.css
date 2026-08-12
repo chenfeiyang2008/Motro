@@ -1599,6 +1599,150 @@ button.secondary.danger {
   }
 }
 
+/* ============================================================
+   管理端导入批次详情（阶段 6 工单 02）：映射 / 校验 / 行结果。
+   ============================================================ */
+
+.import-panel {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.import-panel h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.import-note {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  margin: 0;
+}
+
+.import-field select {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  font-size: 16px;
+  font-family: inherit;
+  background: var(--color-bg-surface);
+}
+
+.import-status {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.import-status-validated {
+  background: color-mix(in srgb, var(--color-success) 14%, white);
+  color: var(--color-success);
+}
+
+.import-status-stale {
+  background: color-mix(in srgb, var(--color-warning) 16%, white);
+  color: var(--color-warning);
+}
+
+.import-status-invalid,
+.import-status-failed {
+  background: color-mix(in srgb, var(--color-error) 12%, white);
+  color: var(--color-error);
+}
+
+.import-status-candidate,
+.import-status-not_validated {
+  background: var(--color-bg-page);
+  color: var(--color-text-secondary);
+}
+
+.import-status-duplicate_in_file,
+.import-status-existing_entry {
+  background: color-mix(in srgb, var(--color-warning) 14%, white);
+  color: var(--color-warning);
+}
+
+.import-summary-list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.import-summary-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.import-summary-row:last-child {
+  border-bottom: none;
+}
+
+.import-summary-row dt {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.import-summary-row dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.import-row-table th,
+.import-row-table td {
+  text-align: left;
+  padding: 8px;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+}
+
+.import-row-ordinal {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.import-row-raw,
+.import-row-normalized {
+  max-width: 200px;
+  overflow-wrap: anywhere;
+}
+
+.import-row-errors {
+  color: var(--color-error);
+  font-size: 13px;
+}
+
+.import-pagination-end {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  margin: 0;
+}
+
+.import-next-placeholder {
+  margin-top: 4px;
+}
+
+@media (max-width: 599px) {
+  .import-row-th-ordinal,
+  .import-row-ordinal {
+    width: auto;
+    min-width: 28px;
+  }
+}
+
 .plan-sticker {
   font-weight: 600;
   margin: 0;

@@ -648,8 +648,43 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** 单个导入批次详情（管理员共享；元数据，不含磁盘路径/存储键） */
+    /** 单个导入批次详情（含映射/校验事实；不含磁盘路径/存储键） */
     get: operations["ImportController_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** 更新导入批次映射/来源声明（乐观并发：version；映射变更使旧校验结果失效并写审计） */
+    patch: operations["ImportController_updateMapping"];
+    trace?: never;
+  };
+  "/api/v1/admin/imports/{id}/validate": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 同步解析并校验批次：生成行事实与校验摘要（幂等） */
+    post: operations["ImportController_validate"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/imports/{id}/rows": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 分页读取批次行结果（按 ordinal 升序；游标分页）。默认当前映射版本；可传 mappingVersion 读取历史映射版本的行事实 */
+    get: operations["ImportController_rows"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1567,9 +1602,114 @@ export interface components {
       /** @description 错误信封 */
       error: components["schemas"]["ImportErrorDto"];
     };
+    ImportMappingDto: {
+      /** @description 英文拼写来源字段标识（TXT 不提供） */
+      spellingField?: string;
+      /** @description XLSX 选定的工作表标识 */
+      sheet?: string;
+    };
+    ImportDiscoveredOptionDto: {
+      /** @description 稳定、不歧义的字段/工作表标识（保存到映射） */
+      fieldId: string;
+      /** @description 展示名 */
+      label: string;
+    };
+    ImportValidationSummaryDto: {
+      /** @description 可用于提交的有效候选行数 */
+      candidates: number;
+      /** @description 文件内重复行数 */
+      duplicates: number;
+      /** @description 系统已有词条行数 */
+      existingEntries: number;
+      /** @description 无效（拼写/超限/空值）行数 */
+      invalid: number;
+      /** @description 忽略的空白行数 */
+      ignored: number;
+      /** @description 总行数 */
+      total: number;
+    };
+    ImportBatchDetailDto: {
+      /** @description 批次 ID */
+      id: string;
+      /** @description 批次关联的文件元数据 */
+      file: components["schemas"]["StoredFileMetaDto"];
+      /** @description 批次格式（txt/csv/json/xlsx） */
+      format: string;
+      /** @description 管理员来源声明 */
+      sourceDeclaration: string;
+      /** @description 批次状态 */
+      status: string;
+      /** @description 乐观并发版本 */
+      version: number;
+      /** @description 校验状态（not_validated/validating/validated/failed） */
+      validationStatus: string;
+      /** @description 当前映射版本 */
+      mappingVersion: number;
+      /** @description 当前映射（spellingField/sheet）；TXT 为空 */
+      mapping?: components["schemas"]["ImportMappingDto"];
+      /** @description 可选工作表（XLSX） */
+      sheets?: components["schemas"]["ImportDiscoveredOptionDto"][];
+      /** @description 可选字段（CSV/XLSX/JSON） */
+      fields?: components["schemas"]["ImportDiscoveredOptionDto"][];
+      /** @description XLSX 各工作表各自的字段集（供按当前选定工作表选择字段；键为工作表标识） */
+      sheetFields?: {
+        [key: string]: {
+          fieldIds?: string[];
+          labels?: string[];
+        };
+      };
+      /** @description 校验摘要 */
+      validationSummary?: components["schemas"]["ImportValidationSummaryDto"];
+      /** @description 可执行的唯一主操作状态 */
+      nextStep: string;
+      /** @description 上传人用户 ID */
+      uploadedBy: string;
+      /** @description 创建时间（RFC 3339 UTC） */
+      createdAt: string;
+      /** @description 更新时间（RFC 3339 UTC） */
+      updatedAt?: string;
+      /** @description 当前映射/校验结果是否仍有效 */
+      isStale: boolean;
+    };
     ImportBatchListDto: {
       /** @description 批次列表（按创建时间倒序） */
-      items: components["schemas"]["ImportBatchDto"][];
+      items: components["schemas"]["ImportBatchDetailDto"][];
+    };
+    UpdateImportBatchDto: {
+      /** @description 映射（spellingField/sheet） */
+      mapping?: components["schemas"]["ImportMappingDto"];
+      /** @description 当前批次版本（乐观并发；提供则用于 If-Match 语义） */
+      version?: number;
+      /** @description 来源声明（可选更新；非空且 ≤500 字符） */
+      sourceDeclaration?: string;
+    };
+    ImportRowDto: {
+      /** @description 行 ID */
+      id: string;
+      /** @description 批次内序号（从 1 起） */
+      ordinal: number;
+      /** @description 原始拼写安全摘要 */
+      rawSummary: string;
+      /** @description 规范化拼写 */
+      normalizedSpelling?: string;
+      /** @description 行状态（candidate/invalid/duplicate_in_file/existing_entry/stale） */
+      status: string;
+      /** @description 结构化错误码列表 */
+      errors: string[];
+      /** @description 文件内重复：指向的行序号 */
+      duplicateOfOrdinal?: number;
+      /** @description 系统已有词条 ID */
+      lexicalEntryId?: string;
+      /** @description 映射版本 */
+      mappingVersion: number;
+    };
+    ImportRowListDto: {
+      /** @description 行列表（按 ordinal 升序） */
+      items: components["schemas"]["ImportRowDto"][];
+      /** @description 下一页游标（null 表示无更多） */
+      nextCursor?: string;
+      /** @description 是否还有更多页 */
+      hasMore: boolean;
     };
   };
   responses: never;
@@ -2775,7 +2915,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["ImportBatchDto"];
+          "application/json": components["schemas"]["ImportBatchDetailDto"];
         };
       };
       /** @description 非法 UUID */
@@ -2789,6 +2929,134 @@ export interface operations {
       };
       /** @description 批次不存在 */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
+        };
+      };
+    };
+  };
+  ImportController_updateMapping: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateImportBatchDto"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ImportBatchDetailDto"];
+        };
+      };
+      /** @description 批次不存在或版本已过期 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
+        };
+      };
+      /** @description 非法映射/来源声明 */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
+        };
+      };
+    };
+  };
+  ImportController_validate: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description 本次校验意图的幂等键；重试必须复用同一键 */
+        "Idempotency-Key": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ImportBatchDetailDto"];
+        };
+      };
+      /** @description IDEMPOTENCY_CONFLICT / IN_PROGRESS */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
+        };
+      };
+      /** @description 映射未确认 */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
+        };
+      };
+    };
+  };
+  ImportController_rows: {
+    parameters: {
+      query: {
+        cursor: string;
+        limit: string;
+        mappingVersion: string;
+      };
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ImportRowListDto"];
+        };
+      };
+      /** @description 批次不存在 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
+        };
+      };
+      /** @description 非法游标/limit/mappingVersion */
+      422: {
         headers: {
           [name: string]: unknown;
         };

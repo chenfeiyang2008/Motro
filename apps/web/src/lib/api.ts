@@ -326,8 +326,17 @@ export function setCourseCurrentRelease(
 
 // ---- 管理员：导入（原始文件上传 + 批次） ----
 
-export type ImportBatch = components["schemas"]["ImportBatchDto"];
+export type ImportBatch = components["schemas"]["ImportBatchDetailDto"];
 export type ImportBatchList = components["schemas"]["ImportBatchListDto"];
+export type ImportRow = components["schemas"]["ImportRowDto"];
+export type ImportRowList = components["schemas"]["ImportRowListDto"];
+export type ImportDiscoveredOption = components["schemas"]["ImportDiscoveredOptionDto"];
+export type ImportSheetFieldSet = {
+  fieldIds: string[];
+  labels: string[];
+};
+export type ImportValidationSummary = components["schemas"]["ImportValidationSummaryDto"];
+export type ImportMapping = { spellingField?: string; sheet?: string };
 
 /** 当前管理员的导入批次列表（元数据，不含磁盘路径/存储键）。 */
 export function listImportBatches(): Promise<ApiResult<ImportBatchList>> {
@@ -355,6 +364,50 @@ export function uploadImportBatch(payload: {
     body: form,
     headers: { "idempotency-key": payload.idempotencyKey },
   });
+}
+
+/** 更新批次映射/来源声明（乐观并发：version）。 */
+export function updateImportMapping(
+  id: string,
+  mapping: ImportMapping,
+  version: number,
+  sourceDeclaration?: string,
+): Promise<ApiResult<ImportBatch>> {
+  const payload: Record<string, unknown> = { mapping, version };
+  if (sourceDeclaration !== undefined) payload.sourceDeclaration = sourceDeclaration;
+  return apiFetch<ImportBatch>(`/api/v1/admin/imports/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+/** 校验批次（Idempotency-Key 由调用方提供并复用）。 */
+export function validateImportBatch(
+  id: string,
+  idempotencyKey: string,
+): Promise<ApiResult<ImportBatch>> {
+  return apiFetch<ImportBatch>(`/api/v1/admin/imports/${encodeURIComponent(id)}/validate`, {
+    method: "POST",
+    headers: { "idempotency-key": idempotencyKey },
+  });
+}
+
+/** 分页读取批次行结果。 */
+export function listImportRows(
+  id: string,
+  cursor: string | null,
+  limit?: number,
+  mappingVersion?: number,
+): Promise<ApiResult<ImportRowList>> {
+  const search = new URLSearchParams();
+  if (cursor) search.set("cursor", cursor);
+  if (limit !== undefined) search.set("limit", String(limit));
+  if (mappingVersion !== undefined) search.set("mappingVersion", String(mappingVersion));
+  const qs = search.toString();
+  return apiFetch<ImportRowList>(
+    `/api/v1/admin/imports/${encodeURIComponent(id)}/rows${qs.length > 0 ? `?${qs}` : ""}`,
+    { method: "GET" },
+  );
 }
 
 // ---- 学习者：已发布课程目录（只读 current release） ----

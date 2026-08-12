@@ -60,14 +60,29 @@ const RateLimitSchema = z.object({
 export type RateLimitConfig = z.infer<typeof RateLimitSchema>;
 
 /**
- * 导入文件（阶段 6 工单 01）：仅服务端可写的原始文件根目录、字节上限、允许格式。
- * rootDir 绝不写入 API 响应；只用于服务端读写原始导入文件。
- * allowedFormats 为保守开发默认值；生产值由部署注入。
+ * 导入边界（阶段 6 工单 01 + 工单 02 + 02-review）：
+ * 工单 01 已有 fileRootDir / maxFileBytes / allowedFormats；
+ * 工单 02 追加解析/校验时的输入安全边界——最大行数、最大单元格/字段长度、
+ * JSON 最大嵌套深度、XLSX 最大工作表数与最大有效单元格数。
+ * 02-review 追加 XLSX 预检（在展开 ZIP 之前的有界防护）：最大 ZIP 条目数、
+ * 最大声明未压缩大小、最大压缩膨胀比、最大 ZIP 头缓冲。
+ * 全部为保守开发默认值，适配 Motro 4 GB 家庭服务器；生产值由部署注入。
+ * fileRootDir 绝不写入 API 响应；只用于服务端读写原始导入文件。
  */
 const ImportSchema = z.object({
   fileRootDir: z.string().min(1),
   maxFileBytes: z.coerce.number().int().positive(),
   allowedFormats: z.array(z.string().min(1)).default([]),
+  maxRows: z.coerce.number().int().positive(),
+  maxCellLength: z.coerce.number().int().positive(),
+  maxJsonDepth: z.coerce.number().int().positive(),
+  maxSheets: z.coerce.number().int().positive(),
+  maxCells: z.coerce.number().int().positive(),
+  maxSummaryLength: z.coerce.number().int().positive(),
+  // XLSX 预检（ZIP 展开前）。
+  maxZipEntries: z.coerce.number().int().positive(),
+  maxZipUncompressedBytes: z.coerce.number().int().positive(),
+  maxZipExpansionRatio: z.coerce.number().int().positive(),
 });
 export type ImportConfig = z.infer<typeof ImportSchema>;
 
@@ -179,9 +194,19 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, explicitEnv?: N
     import: {
       fileRootDir: env.IMPORT_FILE_ROOT_DIR ?? ".local-import-files",
       maxFileBytes: env.IMPORT_MAX_FILE_BYTES ?? String(10 * 1024 * 1024),
-      allowedFormats: (env.IMPORT_ALLOWED_FORMATS ?? "txt,csv,json")
+      allowedFormats: (env.IMPORT_ALLOWED_FORMATS ?? "txt,csv,json,xlsx")
         .split(",")
         .filter((s) => s.length > 0),
+      maxRows: env.IMPORT_MAX_ROWS ?? "50000",
+      maxCellLength: env.IMPORT_MAX_CELL_LENGTH ?? "1000",
+      maxJsonDepth: env.IMPORT_MAX_JSON_DEPTH ?? "10",
+      maxSheets: env.IMPORT_MAX_SHEETS ?? "50",
+      maxCells: env.IMPORT_MAX_CELLS ?? "200000",
+      maxSummaryLength: env.IMPORT_MAX_SUMMARY_LENGTH ?? "120",
+      // XLSX 预检（ZIP 展开前）。
+      maxZipEntries: env.IMPORT_MAX_ZIP_ENTRIES ?? "1024",
+      maxZipUncompressedBytes: env.IMPORT_MAX_ZIP_UNCOMPRESSED_BYTES ?? String(256 * 1024 * 1024),
+      maxZipExpansionRatio: env.IMPORT_MAX_ZIP_EXPANSION_RATIO ?? "100",
     },
   };
 
@@ -237,6 +262,15 @@ export function redactConfig(config: AppConfig): Record<string, unknown> {
       fileRootDir: config.import.fileRootDir,
       maxFileBytes: config.import.maxFileBytes,
       allowedFormats: config.import.allowedFormats,
+      maxRows: config.import.maxRows,
+      maxCellLength: config.import.maxCellLength,
+      maxJsonDepth: config.import.maxJsonDepth,
+      maxSheets: config.import.maxSheets,
+      maxCells: config.import.maxCells,
+      maxSummaryLength: config.import.maxSummaryLength,
+      maxZipEntries: config.import.maxZipEntries,
+      maxZipUncompressedBytes: config.import.maxZipUncompressedBytes,
+      maxZipExpansionRatio: config.import.maxZipExpansionRatio,
     },
   };
 }

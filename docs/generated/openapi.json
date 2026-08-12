@@ -1859,7 +1859,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ImportBatchDto"
+                  "$ref": "#/components/schemas/ImportBatchDetailDto"
                 }
               }
             }
@@ -1890,7 +1890,216 @@
             "bearer": []
           }
         ],
-        "summary": "单个导入批次详情（管理员共享；元数据，不含磁盘路径/存储键）",
+        "summary": "单个导入批次详情（含映射/校验事实；不含磁盘路径/存储键）",
+        "tags": [
+          "admin imports"
+        ]
+      },
+      "patch": {
+        "operationId": "ImportController_updateMapping",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateImportBatchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportBatchDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "批次不存在或版本已过期",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "非法映射/来源声明",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "更新导入批次映射/来源声明（乐观并发：version；映射变更使旧校验结果失效并写审计）",
+        "tags": [
+          "admin imports"
+        ]
+      }
+    },
+    "/api/v1/admin/imports/{id}/validate": {
+      "post": {
+        "operationId": "ImportController_validate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "本次校验意图的幂等键；重试必须复用同一键",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportBatchDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "IDEMPOTENCY_CONFLICT / IN_PROGRESS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "映射未确认",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "同步解析并校验批次：生成行事实与校验摘要（幂等）",
+        "tags": [
+          "admin imports"
+        ]
+      }
+    },
+    "/api/v1/admin/imports/{id}/rows": {
+      "get": {
+        "operationId": "ImportController_rows",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mappingVersion",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportRowListDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "批次不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportErrorEnvelopeDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "非法游标/limit/mappingVersion",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportErrorEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "分页读取批次行结果（按 ordinal 升序；游标分页）。默认当前映射版本；可传 mappingVersion 读取历史映射版本的行事实",
         "tags": [
           "admin imports"
         ]
@@ -4412,6 +4621,199 @@
           "error"
         ]
       },
+      "ImportMappingDto": {
+        "type": "object",
+        "properties": {
+          "spellingField": {
+            "type": "string",
+            "description": "英文拼写来源字段标识（TXT 不提供）"
+          },
+          "sheet": {
+            "type": "string",
+            "description": "XLSX 选定的工作表标识"
+          }
+        }
+      },
+      "ImportDiscoveredOptionDto": {
+        "type": "object",
+        "properties": {
+          "fieldId": {
+            "type": "string",
+            "description": "稳定、不歧义的字段/工作表标识（保存到映射）"
+          },
+          "label": {
+            "type": "string",
+            "description": "展示名"
+          }
+        },
+        "required": [
+          "fieldId",
+          "label"
+        ]
+      },
+      "ImportValidationSummaryDto": {
+        "type": "object",
+        "properties": {
+          "candidates": {
+            "type": "number",
+            "description": "可用于提交的有效候选行数"
+          },
+          "duplicates": {
+            "type": "number",
+            "description": "文件内重复行数"
+          },
+          "existingEntries": {
+            "type": "number",
+            "description": "系统已有词条行数"
+          },
+          "invalid": {
+            "type": "number",
+            "description": "无效（拼写/超限/空值）行数"
+          },
+          "ignored": {
+            "type": "number",
+            "description": "忽略的空白行数"
+          },
+          "total": {
+            "type": "number",
+            "description": "总行数"
+          }
+        },
+        "required": [
+          "candidates",
+          "duplicates",
+          "existingEntries",
+          "invalid",
+          "ignored",
+          "total"
+        ]
+      },
+      "ImportBatchDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "批次 ID"
+          },
+          "file": {
+            "description": "批次关联的文件元数据",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StoredFileMetaDto"
+              }
+            ]
+          },
+          "format": {
+            "type": "string",
+            "description": "批次格式（txt/csv/json/xlsx）"
+          },
+          "sourceDeclaration": {
+            "type": "string",
+            "description": "管理员来源声明"
+          },
+          "status": {
+            "type": "string",
+            "description": "批次状态"
+          },
+          "version": {
+            "type": "number",
+            "description": "乐观并发版本"
+          },
+          "validationStatus": {
+            "type": "string",
+            "description": "校验状态（not_validated/validating/validated/failed）"
+          },
+          "mappingVersion": {
+            "type": "number",
+            "description": "当前映射版本"
+          },
+          "mapping": {
+            "description": "当前映射（spellingField/sheet）；TXT 为空",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImportMappingDto"
+              }
+            ]
+          },
+          "sheets": {
+            "description": "可选工作表（XLSX）",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportDiscoveredOptionDto"
+            }
+          },
+          "fields": {
+            "description": "可选字段（CSV/XLSX/JSON）",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportDiscoveredOptionDto"
+            }
+          },
+          "sheetFields": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "fieldIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "labels": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "description": "XLSX 各工作表各自的字段集（供按当前选定工作表选择字段；键为工作表标识）"
+          },
+          "validationSummary": {
+            "description": "校验摘要",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImportValidationSummaryDto"
+              }
+            ]
+          },
+          "nextStep": {
+            "type": "string",
+            "description": "可执行的唯一主操作状态"
+          },
+          "uploadedBy": {
+            "type": "string",
+            "description": "上传人用户 ID"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "创建时间（RFC 3339 UTC）"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "更新时间（RFC 3339 UTC）"
+          },
+          "isStale": {
+            "type": "boolean",
+            "description": "当前映射/校验结果是否仍有效"
+          }
+        },
+        "required": [
+          "id",
+          "file",
+          "format",
+          "sourceDeclaration",
+          "status",
+          "version",
+          "validationStatus",
+          "mappingVersion",
+          "nextStep",
+          "uploadedBy",
+          "createdAt",
+          "isStale"
+        ]
+      },
       "ImportBatchListDto": {
         "type": "object",
         "properties": {
@@ -4419,12 +4821,109 @@
             "description": "批次列表（按创建时间倒序）",
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ImportBatchDto"
+              "$ref": "#/components/schemas/ImportBatchDetailDto"
             }
           }
         },
         "required": [
           "items"
+        ]
+      },
+      "UpdateImportBatchDto": {
+        "type": "object",
+        "properties": {
+          "mapping": {
+            "description": "映射（spellingField/sheet）",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImportMappingDto"
+              }
+            ]
+          },
+          "version": {
+            "type": "number",
+            "description": "当前批次版本（乐观并发；提供则用于 If-Match 语义）"
+          },
+          "sourceDeclaration": {
+            "type": "string",
+            "description": "来源声明（可选更新；非空且 ≤500 字符）"
+          }
+        }
+      },
+      "ImportRowDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "行 ID"
+          },
+          "ordinal": {
+            "type": "number",
+            "description": "批次内序号（从 1 起）"
+          },
+          "rawSummary": {
+            "type": "string",
+            "description": "原始拼写安全摘要"
+          },
+          "normalizedSpelling": {
+            "type": "string",
+            "description": "规范化拼写"
+          },
+          "status": {
+            "type": "string",
+            "description": "行状态（candidate/invalid/duplicate_in_file/existing_entry/stale）"
+          },
+          "errors": {
+            "description": "结构化错误码列表",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "duplicateOfOrdinal": {
+            "type": "number",
+            "description": "文件内重复：指向的行序号"
+          },
+          "lexicalEntryId": {
+            "type": "string",
+            "description": "系统已有词条 ID"
+          },
+          "mappingVersion": {
+            "type": "number",
+            "description": "映射版本"
+          }
+        },
+        "required": [
+          "id",
+          "ordinal",
+          "rawSummary",
+          "status",
+          "errors",
+          "mappingVersion"
+        ]
+      },
+      "ImportRowListDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "行列表（按 ordinal 升序）",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportRowDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "description": "下一页游标（null 表示无更多）"
+          },
+          "hasMore": {
+            "type": "boolean",
+            "description": "是否还有更多页"
+          }
+        },
+        "required": [
+          "items",
+          "hasMore"
         ]
       }
     }

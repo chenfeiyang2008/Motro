@@ -8,6 +8,7 @@ import { AuthModule } from "../../../auth/auth.module.js";
 import { databaseProvider } from "../../../auth/database.provider.js";
 import { ImportController } from "./import.controller.js";
 import { ImportService } from "./import.service.js";
+import { ImportParser } from "./import.parser.js";
 import { ImportBatchRepository } from "./import.repository.js";
 import { APP_CONFIG } from "./tokens.js";
 
@@ -17,13 +18,12 @@ import { APP_CONFIG } from "./tokens.js";
   providers: [
     databaseProvider,
     ImportService,
+    ImportParser,
     ImportBatchRepository,
     {
       provide: APP_CONFIG,
       useFactory: async (): Promise<AppConfig> => {
         const cfg = loadConfig();
-        // 配置/启动检查：导入根目录必须可写；失败即抛错（fail-fast，不静默降级）。
-        // async factory 会被 Nest 装配时 await，保证启动前目录可写。
         await assertImportDirWritable(cfg.import.fileRootDir);
         return cfg;
       },

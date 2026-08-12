@@ -18,8 +18,8 @@ export const FORMAT_MIME: Record<string, string> = {
 
 export const IMPORT_FORMATS = Object.keys(FORMAT_MIME);
 
-/** 客户端可声明的格式（本票阶段只允许文本类；xlsx 由后续工单处理）。 */
-export const UPLOADABLE_FORMATS = ["txt", "csv", "json"] as const;
+/** 客户端可声明的格式（工单 02：含 xlsx）。 */
+export const UPLOADABLE_FORMATS = ["txt", "csv", "json", "xlsx"] as const;
 export type UploadableFormat = (typeof UPLOADABLE_FORMATS)[number];
 
 export interface ImportFormatCheck {
@@ -119,10 +119,10 @@ export function formatFromSniffedMime(sniffedMime: string): string | undefined {
  * 既可以是合法 TXT，也可以是合法 CSV。因此：
  *   - `utf8`: 字节构成合法 UTF-8 文本（可被 TXT 或 CSV 接受）。
  *   - `json`: 首非空白字符为 { 或 [ 且整体可解析为 JSON（只能由 JSON 扩展名/MIME 接受）。
- *   - `binary`: 不是合法 UTF-8（拒绝）。
- * XLSX 由工单 02 独立验证 ZIP/OOXML，此处不处理。
+ *   - `xlsx`: ZIP 归档（PK\x03\x04 魔数）；工单 02 用于合法 XLSX（拒绝非 ZIP 的二进制文件）。
+ *   - `binary`: 不是合法 UTF-8 也不是 ZIP 归档（拒绝）。
  */
-export type ContentClass = "utf8" | "json";
+export type ContentClass = "utf8" | "json" | "xlsx";
 
 export interface SniffResult {
   /** 内容类别：utf8（TXT/CSV 均可）或 json。 */
@@ -135,10 +135,21 @@ export type SniffOutcome = { ok: true; result: SniffResult } | { ok: false; erro
 
 export function sniffFileContent(content: Buffer): SniffOutcome {
   if (content.length === 0) return { ok: false, error: "文件为空" };
+  // XLSX 归档（PK\x03\x04 ZIP 魔数）：由工单 02 解析器独立验证 OOXML 结构。
+  if (
+    content.length >= 4 &&
+    content[0] === 0x50 &&
+    content[1] === 0x4b &&
+    content[2] === 0x03 &&
+    content[3] === 0x04
+  ) {
+    return { ok: true, result: { content: "xlsx", sniffedMime: FORMAT_MIME.xlsx! } };
+  }
   // 合法 UTF-8：round-trip 后字节一致，否则是二进制/非 UTF-8。
   const decoded = content.toString("utf8");
   const roundTrip = Buffer.from(decoded, "utf8");
-  if (!roundTrip.equals(content)) return { ok: false, error: "文件不是有效的 UTF-8 文本" };
+  if (!roundTrip.equals(content))
+    return { ok: false, error: "文件不是有效的 UTF-8 文本或 ZIP 归档" };
   const first = decoded.trimStart().charAt(0);
   if (first === "{" || first === "[") {
     try {
@@ -154,6 +165,7 @@ export function sniffFileContent(content: Buffer): SniffOutcome {
 /**
  * 内容的嗅探类别是否与文件扩展名声明的格式兼容。
  * - json 内容只允许 .json；utf8 内容允许 .txt 或 .csv（无法只靠内容区分两者）。
+ * - xlsx 内容允许 .xlsx。
  */
 export function contentClassAllowedForExtension(
   content: ContentClass,
@@ -162,25 +174,28 @@ export function contentClassAllowedForExtension(
   const fmt = declaredFormat.toLowerCase();
   if (fmt === "json") return content === "json";
   if (fmt === "txt" || fmt === "csv") return content === "utf8";
+  if (fmt === "xlsx") return content === "xlsx";
   return false;
 }
 
 /**
  * 声明的 MIME 与嗅探结果是否一致（严格白名单）：
- * 只允许 text/plain、text/csv、application/json（可带 charset 等参数，会被规范化剥离）。
+ * 只允许 text/plain、text/csv、application/json、
+ * application/vnd.openxmlformats-officedocument.spreadsheetml.sheet。
  * - text/plain 与 text/csv 与 utf8 内容一致；
  * - application/json 仅与 json 内容一致；
+ * - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet 仅与 xlsx 内容一致；
  * - text/html、text/javascript、image/*、application/pdf、application/octet-stream 等一律拒绝。
  */
 export function declaredMimeConsistent(declaredMime: string, sniffedMime: string): boolean {
   const decl = normalizeMediaType(declaredMime);
-  if (!decl) return false; // P2-2：空/空白/无法解析的 MIME 一律拒绝。
+  if (!decl) return false;
   const sniff = sniffedMime.toLowerCase().trim();
   if (decl === "text/plain" || decl === "text/csv") {
     return sniff === FORMAT_MIME.txt || sniff === FORMAT_MIME.csv;
   }
   if (decl === "application/json") return sniff === FORMAT_MIME.json;
-  // 其它任何类型（含 text/html、text/javascript、image/*、application/pdf、octet-stream）都拒绝。
+  if (decl === FORMAT_MIME.xlsx) return sniff === FORMAT_MIME.xlsx;
   return false;
 }
 
@@ -200,7 +215,12 @@ export function normalizeMediaType(value: string): string | undefined {
 }
 
 /** 严格允许的 media type 白名单。 */
-export const ALLOWED_MEDIA_TYPES = ["text/plain", "text/csv", "application/json"] as const;
+export const ALLOWED_MEDIA_TYPES = [
+  "text/plain",
+  "text/csv",
+  "application/json",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+] as const;
 
 /** 判断某个 raw Content-Type 是否落在严格白名单内（先规范化再比对）。 */
 export function isAllowedMediaType(raw: string): boolean {

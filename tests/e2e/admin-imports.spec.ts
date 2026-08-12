@@ -69,7 +69,8 @@ test.describe("admin imports", () => {
     await row.click();
     await expect(page.getByRole("heading", { name: "导入批次" })).toBeVisible();
     await expect(page.getByText("E2E 测试来源", { exact: true })).toBeVisible();
-    await expect(page.getByText("uploaded", { exact: true })).toBeVisible();
+    // 详情页校验状态列显示中文标签（not_validated → 待校验）。
+    await expect(page.getByText("待校验", { exact: true })).toBeVisible();
   });
 
   test("上传非法扩展名 → 就地错误，不创建批次，不跳到详情", async ({ page }) => {
@@ -83,8 +84,9 @@ test.describe("admin imports", () => {
     await page.getByLabel("来源声明").fill("E2E 非法文件");
     await uploadBtn.click();
 
-    // 就地错误提示（不跳详情页）。
-    await expect(page.getByRole("alert")).toBeVisible();
+    // 就地错误提示（不跳详情页）。限定到实际的 .form-error 错误元素，避免 Next.js
+    // route-announcer（也带 role="alert"）造成严格模式歧义。
+    await expect(page.locator(".form-error", { hasText: "不支持的文件格式" })).toBeVisible();
     // 仍停留在导入页。
     await expect(page).toHaveURL(/\/admin\/imports$/);
     await expect(page.locator("h1", { hasText: "导入" })).toBeVisible();
@@ -155,5 +157,132 @@ test.describe("admin imports", () => {
 
     // P2-2：批次表只出现该文件一次（同 key 幂等，不重复创建）。
     await expect(page.getByText(fileName, { exact: true })).toHaveCount(1);
+  });
+
+  test("工单02 TXT 最短成功路径：上传 → 详情 → 开始校验 → 校验摘要与行表", async ({ page }) => {
+    await loginAsAdminAndGotoImports(page);
+
+    // 上传一个 TXT 文件。
+    const uploadBtn = page.getByRole("button", { name: "上传并创建批次" });
+    const fileName = `e2e-val-${Date.now()}.txt`;
+    const suffix = Date.now();
+    await page.setInputFiles("#import-file", {
+      name: fileName,
+      mimeType: "text/plain",
+      buffer: Buffer.from(`apple-${suffix}\nbanana-${suffix}\n\ncherry-${suffix}\n`),
+    });
+    await page.getByLabel("来源声明").fill("E2E 校验来源");
+    await uploadBtn.click();
+    await expect(page.getByText("上传成功，已创建批次。")).toBeVisible();
+    const row = page.getByText(fileName, { exact: true });
+    await expect(row).toBeVisible({ timeout: 15000 });
+    await row.click();
+
+    // 详情页：TXT 显示固定规则说明（无需映射），唯一主操作「开始校验」。
+    await expect(page.getByRole("heading", { name: "导入批次" })).toBeVisible();
+    await expect(page.getByText(/每行一个词/)).toBeVisible();
+    const startValidate = page.getByRole("button", { name: "开始校验" });
+    await startValidate.click();
+
+    // 校验成功 → 校验摘要 + 行表。
+    await expect(page.getByText("校验摘要")).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("有效候选")).toBeVisible();
+    await expect(page.getByText("行结果")).toBeVisible();
+    // 提交有效行是后续工单位置（disabled）。
+    await expect(page.getByRole("button", { name: /提交有效行/ })).toBeDisabled();
+    // 行表出现 apple / banana / cherry（原始值与规范化列都展示同一词，用 .first() 避免严格模式歧义）。
+    await expect(page.getByText(`apple-${suffix}`, { exact: true }).first()).toBeVisible({
+      timeout: 15000,
+    });
+    await expect(page.getByText(`cherry-${suffix}`, { exact: true }).first()).toBeVisible();
+  });
+
+  test("工单02 CSV：确认映射后校验；映射错误就地修复", async ({ page }) => {
+    await loginAsAdminAndGotoImports(page);
+
+    const uploadBtn = page.getByRole("button", { name: "上传并创建批次" });
+    const fileName = `e2e-csv-${Date.now()}.csv`;
+    const csvSuffix = Date.now();
+    await page.setInputFiles("#import-file", {
+      name: fileName,
+      mimeType: "text/csv",
+      buffer: Buffer.from(`word,note\napple-${csvSuffix},fruit\nbanana-${csvSuffix},fruit\n`),
+    });
+    await page.getByLabel("来源声明").fill("E2E CSV 来源");
+    await uploadBtn.click();
+    await expect(page.getByText("上传成功，已创建批次。")).toBeVisible();
+    await expect(page.getByText(fileName, { exact: true })).toBeVisible({ timeout: 15000 });
+    await page.getByText(fileName, { exact: true }).click();
+
+    // CSV 需映射：选择字段后保存映射，再开始校验。
+    await expect(page.getByRole("heading", { name: "导入批次" })).toBeVisible();
+    const fieldSelect = page.getByLabel("英文拼写字段");
+    await fieldSelect.selectOption({ label: "word" });
+    await page.getByRole("button", { name: "保存映射" }).click();
+    await page.getByRole("button", { name: "开始校验" }).click();
+    await expect(page.getByText("校验摘要")).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("button", { name: /提交有效行/ })).toBeDisabled();
+  });
+
+  test("工单02 390/768/1440px 批次详情无横向溢出", async ({ page }) => {
+    await loginAsAdminAndGotoImports(page);
+    const uploadBtn = page.getByRole("button", { name: "上传并创建批次" });
+    const fileName = `e2e-overflow-${Date.now()}.txt`;
+    await page.setInputFiles("#import-file", {
+      name: fileName,
+      mimeType: "text/plain",
+      buffer: Buffer.from(`overflow-word-${Date.now()}\n`),
+    });
+    await page.getByLabel("来源声明").fill("E2E 溢出来源");
+    await uploadBtn.click();
+    await expect(page.getByText(fileName, { exact: true })).toBeVisible({ timeout: 15000 });
+    await page.getByText(fileName, { exact: true }).click();
+    await expect(page.getByRole("heading", { name: "导入批次" })).toBeVisible();
+
+    for (const width of [390, 768, 1440]) {
+      await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+      const overflow = await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth > document.documentElement.clientWidth ||
+          document.body.scrollWidth > document.body.clientWidth,
+      );
+      expect(overflow, `${width}px 批次详情无横向滚动`).toBe(false);
+    }
+  });
+
+  test("P1-4 JSON 字符串数组最短路径：无需字段映射，直接开始校验", async ({ page }) => {
+    await loginAsAdminAndGotoImports(page);
+    const uploadBtn = page.getByRole("button", { name: "上传并创建批次" });
+    const fileName = `e2e-jsonarr-${Date.now()}.json`;
+    const jSuffix = Date.now();
+    await page.setInputFiles("#import-file", {
+      name: fileName,
+      mimeType: "application/json",
+      buffer: Buffer.from(`["apple-${jSuffix}","banana-${jSuffix}","cherry-${jSuffix}"]`),
+    });
+    await page.getByLabel("来源声明").fill("E2E JSON 数组来源");
+    await uploadBtn.click();
+    await expect(page.getByText("上传成功，已创建批次。")).toBeVisible();
+    await expect(page.getByText(fileName, { exact: true })).toBeVisible({ timeout: 15000 });
+    await page.getByText(fileName, { exact: true }).click();
+
+    // 详情页：显示 JSON 字符串数组说明，无字段选择器。
+    await expect(page.getByRole("heading", { name: "导入批次" })).toBeVisible();
+    await expect(page.getByText(/每个字符串会作为一个英文词条候选/)).toBeVisible();
+    await expect(page.getByLabel("英文拼写字段")).toHaveCount(0);
+
+    // 唯一主操作「开始校验」无需先选字段即可用（P1-4）。
+    const startValidate = page.getByRole("button", { name: "开始校验" });
+    await expect(startValidate).toBeEnabled();
+    await startValidate.click();
+
+    // 校验成功 → 校验摘要 + 行表含 apple/banana/cherry。
+    await expect(page.getByText("校验摘要")).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("行结果")).toBeVisible();
+    await expect(page.getByText(`apple-${jSuffix}`, { exact: true }).first()).toBeVisible({
+      timeout: 15000,
+    });
+    await expect(page.getByText(`banana-${jSuffix}`, { exact: true }).first()).toBeVisible();
+    await expect(page.getByText(`cherry-${jSuffix}`, { exact: true }).first()).toBeVisible();
   });
 });
