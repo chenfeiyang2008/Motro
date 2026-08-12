@@ -109,28 +109,22 @@
       .mode-b .fact { grid-template-columns: 1fr; align-content: space-between; min-height: 154px; padding: 24px; border-right: 1px solid var(--border); border-bottom: 0; }
       .mode-b .fact:last-child { border-right: 0; }
 
-      :root.mode-c, .mode-c { --brand: #fa741b; --brand-hover: #e9610e; --brand-pressed: #d55308; --brand-deep: #92380d; --brand-tint: #ffece0; --page: #e9e8e5; --surface: #fdfcf9; --surface-raised: #ffffff; --surface-muted: #e5e3df; --ink: #171a1e; --muted: #555b61; --border: #d2d0cb; --success: #246f55; --glass: rgb(250 249 246 / 78%); --glass-edge-dark: rgb(23 26 30 / 14%); --shadow: 0 25px 58px rgb(25 27 30 / 12%); --topbar-ink: #f8f7f3; --topbar-muted: #bdc0c2; --topbar-bg: rgb(23 26 30 / 91%); --topbar-shadow: 0 9px 24px rgb(23 26 30 / 14%); --action-shadow: 0 11px 23px rgb(250 116 27 / 18%); --action-shadow-pressed: 0 5px 12px rgb(213 83 8 / 16%); --action-shadow-hover: 0 14px 27px rgb(233 97 14 / 20%); --selected-edge: rgb(146 56 13 / 10%); --dock-shadow: 0 18px 38px rgb(25 27 30 / 18%); }
-      .shell.mode-c::before { top: 135px; right: -.12em; content: "memory"; color: rgb(23 26 30 / 4%); font-size: clamp(92px, 21vw, 270px); }
-      .mode-c .topbar { border-color: rgb(255 255 255 / 12%); }
-      .mode-c h1 { max-width: 11ch; }
+      :root.mode-c, .mode-c { --brand: #ee7625; --brand-hover: #dc6418; --brand-pressed: #c65413; --brand-deep: #8e401b; --brand-tint: #ffecdd; --page: #f7f0e6; --surface: #fffaf2; --surface-raised: #fffdf9; --surface-muted: #eee2d4; --ink: #29241f; --muted: #655a4f; --border: #decdbb; --success: #287057; --glass: rgb(255 250 242 / 78%); --glass-edge-dark: rgb(70 48 30 / 12%); --shadow: 0 25px 58px rgb(77 53 32 / 10%); --action-shadow: 0 11px 23px rgb(238 118 37 / 18%); --action-shadow-pressed: 0 5px 12px rgb(198 84 19 / 16%); --action-shadow-hover: 0 14px 27px rgb(220 100 24 / 20%); --selected-edge: rgb(142 64 27 / 10%); --dock-shadow: 0 18px 38px rgb(77 53 32 / 16%); }
+      .shell.mode-c::before { top: 130px; right: -.1em; content: "vocabulary"; color: rgb(84 56 34 / 3.8%); font-size: clamp(86px, 19vw, 250px); }
+      .mode-c h1 { max-width: 12ch; }
       .mode-c .stage { grid-template-columns: minmax(0, 1.35fr) minmax(280px, .65fr); gap: 18px; }
-      .mode-c .plan { border-radius: 3px; }
-      .mode-c .observatory { padding: 6px 24px; border: 1px solid #2d3135; background: #1a1e22; color: #f4f2ed; }
-      .mode-c .fact { min-height: 124px; border-color: #34393d; }
-      .mode-c .fact-label, .mode-c .fact p { color: #aeb4b7; }
-      .mode-c .meter { background: #353a3e; }
+      .mode-c .plan { border-width: 1px 1px 1px 5px; border-radius: 2px; }
+      .mode-c .observatory { padding: 8px 24px; border: 1px solid var(--border); border-radius: 2px; background: var(--surface-raised); }
+      .mode-c .fact { min-height: 124px; }
       .mode-c .dock { border-radius: 12px; }
 
       :root.theme-dark.mode-b, .theme-dark.mode-b { --brand: #ff873d; --brand-hover: #ffa063; --brand-pressed: #e96b25; --brand-deep: #ffb584; --brand-tint: #3e2b20; --page: #141b19; --surface: #1c2522; --surface-raised: #25302c; --surface-muted: #2d3834; --ink: #edf6f0; --muted: #bccdc4; --border: #3d4c46; --success: #71d4ad; --glass: rgb(22 30 27 / 78%); --glass-edge-light: rgb(237 246 240 / 8%); --glass-edge-dark: rgb(0 0 0 / 32%); --shadow: 0 18px 42px rgb(0 0 0 / 28%); --ghost: rgb(237 246 240 / 3.5%); --topbar-shadow: 0 8px 22px rgb(0 0 0 / 20%); --focus: #b8f4da; --action-shadow: 0 11px 23px rgb(255 135 61 / 16%); --action-shadow-pressed: 0 5px 12px rgb(233 107 37 / 18%); --action-shadow-hover: 0 14px 27px rgb(255 160 99 / 18%); --selected-edge: rgb(255 181 132 / 14%); --dock-shadow: 0 18px 38px rgb(0 0 0 / 38%); }
-      :root.theme-dark.mode-c, .theme-dark.mode-c { --brand: #ff8d45; --brand-hover: #ffa36a; --brand-pressed: #e96e27; --brand-deep: #ffb37f; --brand-tint: #3e2a1e; --page: #111315; --surface: #1a1d20; --surface-raised: #22262a; --surface-muted: #2b3034; --ink: #f4f2ed; --muted: #b7bec2; --border: #393f44; --success: #77d2ad; --glass: rgb(20 23 26 / 80%); --glass-edge-light: rgb(255 255 255 / 8%); --glass-edge-dark: rgb(0 0 0 / 35%); --shadow: 0 25px 58px rgb(0 0 0 / 36%); --ghost: rgb(244 242 237 / 3.5%); --topbar-ink: #f8f7f3; --topbar-muted: #bdc0c2; --topbar-bg: rgb(23 26 30 / 91%); --topbar-shadow: 0 9px 24px rgb(0 0 0 / 24%); --focus: #ffbf91; --action-shadow: 0 11px 23px rgb(255 141 69 / 16%); --action-shadow-pressed: 0 5px 12px rgb(233 110 39 / 18%); --action-shadow-hover: 0 14px 27px rgb(255 163 106 / 18%); --selected-edge: rgb(255 179 127 / 14%); --dock-shadow: 0 18px 38px rgb(0 0 0 / 40%); }
-      .theme-dark.mode-c .observatory { border-color: #373d42; background: #202428; }
-      .theme-dark.mode-c .fact { border-color: #3a4045; }
-      .theme-dark.mode-c .meter { background: #3a4045; }
+      :root.theme-dark.mode-c, .theme-dark.mode-c { --brand: #ff914a; --brand-hover: #ffa66d; --brand-pressed: #e86e29; --brand-deep: #ffb681; --brand-tint: #402b1e; --page: #171310; --surface: #211a16; --surface-raised: #2a211b; --surface-muted: #342920; --ink: #f9efe5; --muted: #cdbdaf; --border: #4b3b2f; --success: #7bd3ac; --glass: rgb(30 23 19 / 80%); --glass-edge-light: rgb(255 245 235 / 8%); --glass-edge-dark: rgb(0 0 0 / 35%); --shadow: 0 25px 58px rgb(0 0 0 / 34%); --ghost: rgb(249 239 229 / 3.5%); --focus: #ffbf91; --action-shadow: 0 11px 23px rgb(255 145 74 / 16%); --action-shadow-pressed: 0 5px 12px rgb(232 110 41 / 18%); --action-shadow-hover: 0 14px 27px rgb(255 166 109 / 18%); --selected-edge: rgb(255 182 129 / 14%); --dock-shadow: 0 18px 38px rgb(0 0 0 / 40%); }
 
       @media (hover: hover) and (pointer: fine) { .primary:hover { background: var(--brand-hover); transform: translateY(-1px); box-shadow: var(--action-shadow-hover); } .dock a:hover { color: var(--ink); } .switcher button:hover { background: rgb(255 255 255 / 12%); } }
       @media (min-width: 780px) { .stage { grid-template-columns: minmax(0, 1.3fr) minmax(280px, .7fr); gap: 52px; align-items: start; } .mode-b .stage { grid-template-columns: 1fr; } .mode-c .stage { grid-template-columns: minmax(0, 1.35fr) minmax(280px, .65fr); gap: 18px; } .dock { top: 50%; right: auto; bottom: auto; left: 0; width: 124px; min-height: 144px; grid-template-columns: 1fr; padding: 8px; border-radius: 0 20px 20px 0; transform: translateY(-50%); } .dock a { min-height: 58px; } .switcher { right: 24px; bottom: 24px; transform: none; } }
       @media (max-width: 779px) { .switcher { right: 16px; bottom: 94px; transform: none; } .switcher span { display: none; } .mode-b .plan-inner { display: block; } .mode-b .time { justify-content: flex-start; margin: 28px 0 22px; } .mode-b .observatory, .mode-c .stage { grid-template-columns: 1fr; } .mode-b .fact { min-height: auto; border-right: 0; border-bottom: 1px solid var(--border); } .mode-b .fact:last-child { border-bottom: 0; } }
-      @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) { .topbar, .dock { background: var(--surface-raised); backdrop-filter: none; -webkit-backdrop-filter: none; } .mode-c .topbar { background: #171a1e; } }
+      @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) { .topbar, .dock { background: var(--surface-raised); backdrop-filter: none; -webkit-backdrop-filter: none; } }
       @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .topbar, .dock { background: var(--surface-raised); } }
       @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; } }
     </style>
@@ -166,7 +160,7 @@
         const variants = {
           A: { name: "象牙工作室", intro: "温暖象牙色承载学习内容，橘色只出现在真正的行动和路径节点上。", dose: "明亮·克制" },
           B: { name: "矿物学习室", intro: "带微弱青灰的中性层更理性，橘色成为数据和动作之间的温度。", dose: "冷静·温度" },
-          C: { name: "石墨画廊", intro: "建筑感石墨层拉开空间深度，橘色只标记一次决定，视觉记忆最强。", dose: "强对比·小剂量" },
+          C: { name: "暖纸书房", intro: "暖纸、陶土橘与紧凑书桌结构，让信息更聚焦，却不牺牲象牙体系的温度。", dose: "纸感·聚焦" },
         };
         const keys = Object.keys(variants);
         const parameters = new URLSearchParams(location.search);
