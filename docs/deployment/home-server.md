@@ -2,7 +2,7 @@
 
 ## Target
 
-- x86_64 Linux home server, 8GB RAM minimum, persistent SSD storage.
+- x86_64 Linux home server, 4GB RAM target, persistent SSD storage. Daily use is about five people; capacity evidence still covers 20 users, 100k course items and 1m review events.
 - Private access through Tailscale HTTPS; no public Internet ingress in v1.
 - Docker Compose runs `web`, `api`, `worker`, `postgres` and a private reverse proxy/Tailscale integration as selected during implementation.
 

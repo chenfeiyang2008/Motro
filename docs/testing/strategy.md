@@ -69,7 +69,7 @@ Playwright runs Chromium and WebKit:
 
 ## Performance and capacity
 
-Seed 20 users, 100k course items and 1m review events. Measure home-server-like x86_64/8GB resources. Acceptance: study reads p95 < 500ms and review writes p95 < 700ms under representative concurrency, no full scan on core paths, no lost/duplicate events, bounded DB pool, and imports do not starve study traffic.
+Seed 20 users, 100k course items and 1m review events. Measure home-server-like x86_64/4GB resources; normal use is about five people, while the larger seed is retained as headroom. Acceptance: study reads p95 < 500ms and review writes p95 < 700ms under representative concurrency, no full scan on core paths, no lost/duplicate events, bounded DB pool, and imports do not starve study traffic.
 
 ## Deployment verification
 

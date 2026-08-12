@@ -5,7 +5,7 @@ Date: 2026-08-05
 
 ## Context
 
-The system serves about 20 invited users on an 8GB home server, yet learning, content and jobs need transactional consistency. Microservices/Redis would add operational failure modes without scale benefit.
+The system serves about five daily users, with a 20-user capacity target, on a 4GB home server; learning, content and jobs still need transactional consistency. Microservices/Redis would add operational failure modes without scale benefit.
 
 ## Decision
 
