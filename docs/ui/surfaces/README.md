@@ -13,6 +13,8 @@ Read the matching brief before designing, prototyping or implementing a surface.
 - [Challenge quiz result](challenge-result.md)
 - [Profile and settings](profile.md)
 
+Learner surfaces that show progress must also read the shared [Learner dashboard metrics](../learner-dashboard-metrics.md) contract. It defines truthful counting, course-versus-global scope, chart behavior and the prohibition on uncalibrated CEFR or exam-score claims.
+
 ## Administration
 
 - [Accounts](admin-accounts.md)

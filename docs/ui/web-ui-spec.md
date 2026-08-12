@@ -6,7 +6,7 @@ This document makes [`DESIGN.md`](../../DESIGN.md) implementable for the respons
 
 ## 2. Experience principles
 
-1. **One job per page.** A learner should understand the page purpose and next action without scanning a dashboard.
+1. **One job per page.** A learner should understand the page purpose and next action immediately. A data-rich learner home remains valid when today’s action dominates and long-term metrics form one subordinate, coherent learning observatory rather than a wall of competing widgets.
 2. **Learning before decoration.** Vocabulary, prompt, answer and progress have stronger hierarchy than XP, badges or streaks.
 3. **Familiar controls.** Use conventional browser/app patterns and platform language; do not invent interaction primitives. A weekly challenge board is separate from daily learning and ranks only server-graded challenge points.
 4. **Calm encouragement.** Feedback is immediate and warm but never noisy, shaming or casino-like.
@@ -94,10 +94,29 @@ For Web, reproduce the **functional hierarchy and perceptual cues**, not Apple p
 
 Use the pinned Motro Icon Set through the project wrapper: a fixed Lucide geometric base with explicitly curated, same-concept filled, enclosed, or optically heavier variants. Do not import a second icon library, use Emoji, or use AI-generated icons.
 
-- **Default is not always a thin outline.** Use outline variants for ordinary toolbar, list, and text-adjacent actions. Use the curated same-concept filled, enclosed, or optically heavier treatment for selected global navigation, completion/attention states, and the member-tier mark when it improves recognition. The selected treatment is a semantic state, not a general decoration; it must preserve the same concept and optical footprint as the default. Do not manufacture a variant by arbitrarily filling an outline SVG in CSS.
+- **Default is not always a thin outline.** Use outline variants for ordinary toolbar, list, and text-adjacent actions. Use the curated same-concept filled, enclosed, or optically heavier treatment for selected global navigation and completion/attention states when it improves recognition. The selected treatment is a semantic state, not a general decoration; it must preserve the same concept and optical footprint as the default. Do not manufacture a variant by arbitrarily filling an outline SVG in CSS. The current roadmap has no membership tier or paid-identity mark.
 - **Sizes and weights:** 16px is for dense metadata and must not have an effective stroke below 1.75px; 20px is the standard UI icon; 24px is reserved for direct emphasis. Match icon weight to adjacent text, using a fuller visual weight beside 600 selected labels. Adjust optical padding for circles, narrow symbols, and badges when needed; do not rely solely on equal SVG boxes.
 - **Color and layers:** default to one tested foreground color. A meaningful multi-part symbol may use primary/secondary opacity layers or one brand-orange emphasis layer with neutral structure, but never generic rainbow fills, glass effects inside an icon, or decorative gradients. Text and icons in one control use the same semantic foreground role.
 - Every icon-only control has an accessible name and a tooltip where its meaning is not universal. Its target is at least 44px on touch devices, and focus/selected/disabled states remain identifiable without color alone.
+
+### 3.8 Motion tokens
+
+Motion tokens describe interaction frequency and purpose, not component fashion. Surface briefs may select a shorter token but must not invent arbitrary timings.
+
+| Token | Duration | Typical use |
+| --- | ---: | --- |
+| `motion.instant` | `0ms` | Reduced-motion replacement, authoritative state correction |
+| `motion.press` | `80–120ms` | Press/depress, direct control depth feedback |
+| `motion.micro` | `120–160ms` | Focus-adjacent state, local confirmation, short fade |
+| `motion.state` | `160–220ms` | Reveal, selection, inline feedback, chart update |
+| `motion.context` | `220–260ms` | Learning-card advance, drawer or related-view continuity |
+| `motion.rare` | `260–320ms` | Low-frequency unit unlock or large, meaningful context change |
+
+- Standard on-screen change: `cubic-bezier(0.4, 0, 0.2, 1)`.
+- Entering content: `cubic-bezier(0, 0, 0.2, 1)`; permanently exiting content: `cubic-bezier(0.4, 0, 1, 1)`.
+- Distance is normally 4–12px. Larger movement requires a real shared spatial relationship and uses `motion.context` or `motion.rare`.
+- Repeated study interactions never use `motion.rare`. Exit is no slower than entry. Delay and stagger are normally zero; at most three tightly related elements may use a 20–30ms ordered reveal when sequence itself clarifies hierarchy.
+- All transitions must accept interruption and end in a valid state. Never animate focus coordinates, pointer target geometry, server timers, or the truth value of a score.
 
 ## 4. Layout and navigation
 
@@ -157,15 +176,35 @@ Use a standard left sidebar grouped as 内容（词条、导入、审核、课�
 
 Ant Design is allowed only in admin surfaces and must map to Motro tokens. Prefer tables for comparison-heavy data, with sticky header when useful, explicit sort state, pagination and an actions menu. On narrow screens, keep essential columns and move secondary detail into a drawer; do not convert every row into a decorative card.
 
+### 5.6 Learner metrics and charts
+
+The learner home may be data-rich without becoming a generic analytics dashboard. Use the authoritative metric definitions in [`learner-dashboard-metrics.md`](learner-dashboard-metrics.md).
+
+- Keep today’s decision above long-term observation. On 390px, the primary plan and start action appear before charts or cumulative values.
+- Present long-term metrics as one coherent opaque observatory with shared alignment, not a grid of framed KPI cards.
+- Use a large value only when its unit and meaning remain adjacent. Never animate a total from zero on load.
+- Use bars for categorical or per-day comparison and lines only for a meaningful time trend. Use a percentage or gauge only when a truthful fixed denominator exists.
+- Give every chart a conclusion-style title, time range, units, textual summary and accessible data alternative. Critical values are visible without hover or scrubbing.
+- Use consistent axes and zero baselines where magnitude comparison requires them. If a range changes, label the change before or with the marks; never silently rescale to exaggerate progress.
+- Do not derive CEFR, exam scores or general English ability from vocabulary count, XP, streak, FSRS interval or course completion. V1 shows course position and explicitly labels it as course progress, not an ability assessment.
+
 ## 6. Motion
 
-- Duration range 120–220ms; easing should settle quickly without bounce.
-- Use opacity and `transform` for reveal, row insertion and navigation state. Avoid parallax, looping decoration, confetti and large-scale page movement.
-- Rating submission can use a short state confirmation; it must not delay the next card. Quiz feedback is immediate and inline; never award speed points or obscure whether a question was score-eligible.
-- Under `prefers-reduced-motion: reduce`, remove non-essential movement and keep immediate state changes.
+- Select a token from §3.8 based on frequency, distance and meaning. The same interaction uses the same token across breakpoints unless travel distance materially changes.
+- Motion must communicate causality, hierarchy, continuity or feedback. If removing it loses no understanding, default to no motion.
+- Keep a stationary frame of reference. The page canvas, study header, chart axes and action region do not drift while content changes inside them.
+- Use opacity and small composited transforms for reveal, row insertion and navigation state. Avoid parallax, looping decoration, confetti, random direction, dramatic 3D flips and large-scale page movement.
+- Feedback follows the initiating control or object. A button press responds locally; an answer emerges from the answer region; a submitted card leaves the card stage. A toast in an unrelated corner is not a substitute for causal feedback.
+- Rating submission uses `motion.press` followed by a short accepted-state confirmation and `motion.context` card advance; it must not delay the next card. Quiz feedback is immediate and inline; never award speed points or obscure score eligibility.
+- Initial page load is quiet. Skeletons reserve real geometry, then content resolves in place. Do not stagger every card, roll counters, or replay milestone animations on refresh.
+- Data marks animate only after a user-caused accepted event or an explicit range switch. Text and accessible summaries update in the same transaction; motion is never the sole indication of change.
+- Animations are interruptible. A second valid action retargets or finishes the current transition; navigation and error recovery never wait for a decorative sequence.
+- Under `prefers-reduced-motion: reduce`, remove translation, scale, parallax, morphing, springs and count-up effects. Use `motion.instant` or a brief non-spatial fade while preserving information, focus and live-region feedback.
 - Under `prefers-reduced-transparency: reduce`, `prefers-contrast: more`, or missing backdrop support, replace Glass with opaque surfaces; never merely lower text opacity or remove an edge.
 - A scroll edge may increase functional separation of a Glass header or Dock when content passes behind it, but it must not obscure progress, mutate layout, or create a decorative animated gradient.
 - For an eligible Glass group, use one continuous navigation-selection or contextual-menu transition rather than several independent fades. Keep press feedback shorter than selection motion; do not animate backdrop filters continuously to manufacture smoothness.
+- Do not animate `filter`, `backdrop-filter`, large shadow blurs, layout-affecting dimensions or full-page backgrounds frame by frame. Verify no layout shift, dropped frames or delayed input on representative low-power hardware.
+- No automatically moving content lasts beyond five seconds without pause/stop/hide controls; no flashing pattern exceeds accessibility thresholds. Motro normally has no autonomous decorative animation.
 
 ## 7. Accessibility
 
@@ -197,5 +236,6 @@ For every key surface at 390/768/1440px:
 4. Run Impeccable `critique`, then `distill` or `quieter`, then `polish`, without enabling `live`, hooks, image generation or external agents.
 5. Run Web Design Guidelines review and resolve findings or document intentional exceptions.
 6. For every Glass region, test resting and scrolling backgrounds (including the strongest permitted content color), unsupported-backdrop fallback, reduced transparency and increased contrast; verify labels, focus rings, selected states, pointer/keyboard states and target sizes remain AA-compliant. Confirm that any reflection/refraction cue is background-only, low-contrast, and absent when the fallback is active.
-7. Test representative direct interactions at normal scroll speed and with repeated keyboard activation. Verify that Glass transitions are interruptible, do not cause layout shifts or dropped frames, and fully reduce to immediate state changes when motion is reduced.
-8. Update screenshot baselines only after a human accepts the intended visual change.
+7. Test representative direct interactions at normal scroll speed, with repeated keyboard activation and under CPU throttling. Verify transitions are interruptible, use composited properties, do not cause layout shifts, stale half-states or dropped frames, and reduce to semantically equivalent immediate states when motion is reduced.
+8. For learner metrics, verify source, unit, time range, global-versus-course scope, current-release boundary, empty/partial/stale states and accessible text equivalent. Reject any uncalibrated CEFR, exam-score or general-ability inference.
+9. Update screenshot baselines only after a human accepts the intended visual change.
