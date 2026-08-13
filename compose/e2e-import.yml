@@ -27,8 +27,8 @@ services:
     restart: "no"
     environment:
       POSTGRES_DB: ${E2E_IMPORT_DB:-motro_e2e_import}
-      POSTGRES_USER: ${POSTGRES_USER:-motro}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_only_change_me}
+      POSTGRES_USER: ${E2E_POSTGRES_USER:-motro_e2e}
+      POSTGRES_PASSWORD: ${E2E_POSTGRES_PASSWORD:-e2e_only_change_me}
     ports:
       - "127.0.0.1:${E2E_POSTGRES_PORT:-5433}:5432"
     volumes:
@@ -52,10 +52,10 @@ services:
       POSTGRES_HOST: db-e2e
       POSTGRES_PORT: 5432
       POSTGRES_DB: ${E2E_IMPORT_DB:-motro_e2e_import}
-      POSTGRES_USER: ${POSTGRES_USER:-motro}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_only_change_me}
-      SESSION_KEY: ${SESSION_KEY:-development-only-session-key-0123456789abcdef}
-      CSRF_KEY: ${CSRF_KEY:-development-only-csrf-key-0123456789abcdef}
+      POSTGRES_USER: ${E2E_POSTGRES_USER:-motro_e2e}
+      POSTGRES_PASSWORD: ${E2E_POSTGRES_PASSWORD:-e2e_only_change_me}
+      SESSION_KEY: ${E2E_SESSION_KEY:-e2e-import-only-session-key-0123456789abcdef}
+      CSRF_KEY: ${E2E_CSRF_KEY:-e2e-import-only-csrf-key-0123456789abcdef}
       COOKIE_SECURE: "false"
       COOKIE_SAMESITE: lax
       CORS_ORIGINS: http://127.0.0.1:3101

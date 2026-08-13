@@ -1,37 +1,64 @@
-// admin-imports E2E 官方 runner（P1-1 / P2）。
+// admin-imports E2E 官方 CLI 入口（P1-A / P1-B / P1-C）。
 //
-// 唯一推荐入口：`pnpm run e2e:import`。
-// 流程（严格按序，全部只作用于独立 E2E 栈，绝不触碰共享 motro 栈）：
-//   1) 启动独立栈：docker compose -f compose/e2e-import.yml up -d --build
-//   2) 等待 db-e2e 与 api-e2e readiness
-//   3) 对独立库 motro_e2e_import 执行 migration 0001–0024（安全库名白名单）
-//   4) 校验独立库已迁移到 24
-//   5) 运行 Playwright（Chromium + WebKit 并发）
-//   6) 无论成败，最后提示/执行清理命令（只移除 motro-e2e-import 资源与卷）
+// 唯一推荐入口：`E2E_ADMIN_PASSWORD=<口令> pnpm run e2e:import`。
+// 所有编排/清理/信号逻辑在 import-e2e-lib.ts（可测试）；本文件只负责：
+//   - 用【异步 spawn】执行真实命令（docker compose / pnpm playwright），避免阻塞事件循环；
+//   - 把进程 SIGINT/SIGTERM 接进生命周期库；
+//   - 使用【单一已解析目标】（resolveIsolatedE2eTarget：固定 127.0.0.1:5433/3100/3101）。
 //
-// 环境变量：
-//   E2E_ADMIN_PASSWORD  — 隔离管理员口令（必需）
-//   E2E_POSTGRES_PORT   — 独立库宿主端口（默认 5433）
-//   E2E_IMPORT_DB       — 独立库名（默认 motro_e2e_import）
-//   API_PUBLIC_URL      — 独立 API 地址（默认 http://127.0.0.1:3100）
-//   PW_BASE_URL         — 独立 Web 地址（默认 http://127.0.0.1:3101）
-import { spawnSync } from "node:child_process";
+// 契约：
+//   - 启动失败、readiness/migration/Playwright 失败、SIGINT/SIGTERM 中断都保证执行一次 down -v；
+//   - cleanup 期间信号只记录/忽略，不打断清理；
+//   - API/Web 固定 127.0.0.1:3100/3101，忽略 API_PUBLIC_URL / PW_BASE_URL 的远程值；
+//   - SIGKILL/断电不可捕获；README 保留手动清理命令。
+import { spawn, type ChildProcess } from "node:child_process";
 import { resolve } from "node:path";
-import { migrateIsolatedDatabase, assertIsolatedDatabaseReady } from "./import-e2e-db.js";
+import { runE2eLifecycle, type AsyncChildRunner, type Signal } from "./import-e2e-lib.js";
+import {
+  resolveIsolatedE2eTarget,
+  buildE2eChildEnv,
+  migrateIsolatedDatabase,
+  assertIsolatedDatabaseReady,
+} from "./import-e2e-db.js";
 
 const COMPOSE = "compose/e2e-import.yml";
-const E2E_DB = process.env.E2E_IMPORT_DB ?? "motro_e2e_import";
-const E2E_PORT = process.env.E2E_POSTGRES_PORT ?? "5433";
-const API_URL = process.env.API_PUBLIC_URL ?? "http://127.0.0.1:3100";
-const WEB_URL = process.env.PW_BASE_URL ?? "http://127.0.0.1:3101";
 
-function run(cmd: string, args: string[], opts: { env?: NodeJS.ProcessEnv } = {}): boolean {
-  const res = spawnSync(cmd, args, {
-    stdio: "inherit",
-    env: { ...process.env, ...opts.env },
-    cwd: resolve(process.cwd()),
-  });
-  return res.status === 0;
+/** 异步 child runner：跟踪当前 active child，供信号优雅停止。 */
+class SpawnRunner implements AsyncChildRunner {
+  private active: ChildProcess | null = null;
+
+  run(cmd: string, args: string[], opts: { env?: NodeJS.ProcessEnv } = {}): Promise<boolean> {
+    return new Promise<boolean>((resolvePromise) => {
+      const child = spawn(cmd, args, {
+        stdio: "inherit",
+        env: { ...process.env, ...opts.env },
+        cwd: resolve(process.cwd()),
+      });
+      this.active = child;
+      child.on("error", (err) => {
+        this.active = null;
+        console.error(`命令执行失败（${cmd}）：`, err.message);
+        resolvePromise(false);
+      });
+      child.on("close", (code) => {
+        this.active = null;
+        resolvePromise(code === 0);
+      });
+    });
+  }
+
+  stopActiveChild(): void {
+    if (this.active && this.active.exitCode === null && this.active.signalCode === null) {
+      // 先 SIGTERM 优雅停止；5s 未退出则 SIGKILL（仅针对该子进程，不波及他人）。
+      this.active.kill("SIGTERM");
+      const timer = setTimeout(() => {
+        if (this.active && this.active.exitCode === null && this.active.signalCode === null) {
+          this.active.kill("SIGKILL");
+        }
+      }, 5000);
+      this.active.once("close", () => clearTimeout(timer));
+    }
+  }
 }
 
 async function waitFor(url: string, what: string, tries = 60): Promise<void> {
@@ -54,87 +81,56 @@ async function main(): Promise<void> {
     process.exitCode = 1;
     return;
   }
-  if (process.env.MOTRO_REQUIRE_DB !== "1") {
-    // runner 本身已确保独立库；不要求用户额外设 MOTRO_REQUIRE_DB，但保留传递。
-  }
 
-  // 1) 启动独立栈。
-  console.log("\n[1/5] 启动独立 E2E 栈…");
-  if (!run("docker", ["compose", "-f", COMPOSE, "up", "-d", "--build"])) {
-    console.error(
-      "独立栈启动失败。查看日志：docker compose -f compose/e2e-import.yml logs api-e2e web-e2e db-e2e",
-    );
-    process.exitCode = 1;
-    return;
-  }
+  // 单一已解析目标：固定 host/port/db/凭据/API/Web（忽略远程环境变量）。
+  const target = resolveIsolatedE2eTarget();
+  const runner = new SpawnRunner();
 
-  try {
-    // 2) 等待 readiness。
-    await waitFor(`${API_URL}/api/v1/health/live`, "api-e2e");
-    await waitFor(WEB_URL, "web-e2e");
+  // P1-2：显式覆盖 API/Web 目标为已解析的本机地址，绝不让父环境的远程值残留。
+  const envForE2E: NodeJS.ProcessEnv = buildE2eChildEnv(target);
 
-    // 3) 迁移独立库（明确指向独立库端口/库名，避免误连共享 5432/motro）。
-    console.log(`[2/5] 迁移独立库 ${E2E_DB}（0001–0024）…`);
-    const prior = {
-      port: process.env.E2E_POSTGRES_PORT,
-      db: process.env.E2E_IMPORT_DB,
-    };
-    process.env.E2E_POSTGRES_PORT = E2E_PORT;
-    process.env.E2E_IMPORT_DB = E2E_DB;
-    try {
-      await migrateIsolatedDatabase(E2E_DB);
-      // 4) 校验已迁移。
-      await assertIsolatedDatabaseReady(E2E_DB);
-      console.log("独立库迁移完成：0001–0024 已应用。");
-    } finally {
-      // 恢复调用方环境。
-      if (prior.port === undefined) delete process.env.E2E_POSTGRES_PORT;
-      else process.env.E2E_POSTGRES_PORT = prior.port;
-      if (prior.db === undefined) delete process.env.E2E_IMPORT_DB;
-      else process.env.E2E_IMPORT_DB = prior.db;
-    }
+  const exitCode = await runE2eLifecycle({
+    runner,
+    start: () => runner.run("docker", ["compose", "-f", COMPOSE, "up", "-d", "--build"]),
+    ready: async () => {
+      await waitFor(`${target.apiUrl}/api/v1/health/live`, "api-e2e");
+      await waitFor(target.webUrl, "web-e2e");
+    },
+    migrate: async () => {
+      // 迁移/断言使用【同一个已解析 db 配置对象】，不重新读环境、不产生目标漂移。
+      await migrateIsolatedDatabase(target.db);
+      await assertIsolatedDatabaseReady(target.db);
+    },
+    test: () =>
+      runner.run(
+        "pnpm",
+        [
+          "exec",
+          "playwright",
+          "test",
+          "tests/e2e/admin-imports.spec.ts",
+          "--project=chromium",
+          "--project=webkit",
+        ],
+        { env: envForE2E },
+      ),
+    cleanup: () => runner.run("docker", ["compose", "-f", COMPOSE, "down", "-v"]),
+    onSignal: (handler: (sig: Signal) => void): (() => void) => {
+      const onSig = (sig: NodeJS.Signals): void => {
+        if (sig === "SIGINT" || sig === "SIGTERM") handler(sig);
+      };
+      process.on("SIGINT", onSig);
+      process.on("SIGTERM", onSig);
+      return () => {
+        process.off("SIGINT", onSig);
+        process.off("SIGTERM", onSig);
+      };
+    },
+    log: (msg) => console.log(msg),
+  });
 
-    // 5) 运行 Playwright（Chromium + WebKit 并发；每个 project 独立 state 文件与管理员）。
-    console.log("[3/5] 运行 admin-imports E2E（Chromium + WebKit）…");
-    const ok = run(
-      "pnpm",
-      [
-        "exec",
-        "playwright",
-        "test",
-        "tests/e2e/admin-imports.spec.ts",
-        "--project=chromium",
-        "--project=webkit",
-      ],
-      {
-        env: {
-          E2E_IMPORT_DB: E2E_DB,
-          E2E_POSTGRES_PORT: E2E_PORT,
-          API_PUBLIC_URL: API_URL,
-          PW_BASE_URL: WEB_URL,
-          PW_WEB_PORT: process.env.PW_WEB_PORT ?? "3101",
-          PW_REUSE_SERVER: "1",
-        },
-      },
-    );
-    if (!ok) {
-      console.error(
-        "\nE2E 失败。查看日志：docker compose -f compose/e2e-import.yml logs api-e2e web-e2e db-e2e",
-      );
-      process.exitCode = 1;
-    }
-  } catch (e) {
-    console.error("\nE2E 运行失败：", e instanceof Error ? e.message : e);
-    process.exitCode = 1;
-  } finally {
-    // 6) 清理（只移除 motro-e2e-import 资源与卷；绝不触碰共享 motro 栈）。
-    console.log("\n[4/5] 清理独立 E2E 栈（down -v，只移除独立卷）…");
-    if (!run("docker", ["compose", "-f", COMPOSE, "down", "-v"])) {
-      console.error("清理命令失败，请手动执行：docker compose -f compose/e2e-import.yml down -v");
-      process.exitCode = 1;
-    }
-    console.log("[5/5] 完成。共享 motro 数据库未受影响。");
-  }
+  console.log(exitCode === 0 ? "完成。共享 motro 数据库未受影响。" : "runner 以非零退出码结束。");
+  process.exitCode = exitCode;
 }
 
 main().catch((e) => {

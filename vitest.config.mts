@@ -23,8 +23,10 @@ export default defineConfig({
   test: {
     // 骨架阶段各包可能没有测试文件；CI 中统一从根运行。
     passWithNoTests: true,
-    // 排除 tsc --build 的编译产物与 Playwright E2E，避免重复/误跑。
-    exclude: ["**/node_modules/**", "**/.git/**", "**/dist/**", "tests/e2e/**"],
+    // 排除 tsc --build 的编译产物与 Playwright E2E spec（*.spec.ts）；
+    // tests/e2e/import-e2e-*.test.ts 是纯逻辑单测，纳入运行。
+    include: ["**/*.{test,spec}.?(c|m)[jt]s?(x)"],
+    exclude: ["**/node_modules/**", "**/.git/**", "**/dist/**", "tests/e2e/**/*.spec.ts"],
     // 共享同一数据库的集成测试需要串行，避免并发迁移/写入冲突。
     fileParallelism: false,
   },

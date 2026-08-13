@@ -10,11 +10,11 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { Browser } from "@playwright/test";
-import { createPool, loadDbConfigFromEnv } from "@motro/db";
+import { createPool } from "@motro/db";
 // 复用 API 的密码服务（内部使用 @node-rs/argon2，从 apps/api 解析依赖）。
 import { PasswordService } from "../../apps/api/src/auth/password.service.js";
 import type { ImportTestAdmin } from "./auth-teardown.js";
-import { assertSafeDbName } from "./import-e2e-db.js";
+import { resolveIsolatedE2eTarget, toDbConfig } from "./import-e2e-db.js";
 
 const WEB = process.env.PW_BASE_URL ?? "http://127.0.0.1:3001";
 const AUTH_DIR = resolve(process.cwd(), "tests/e2e/.auth");
@@ -36,18 +36,6 @@ export function adminUsernameFor(project: string): string {
   return `e2e-import-admin-${RUN_ID}-${project}`;
 }
 
-/** 隔离 E2E 数据库名（runbook 必须设置；安全白名单拒绝共享库名）。 */
-function dbName(): string {
-  const name = process.env.E2E_IMPORT_DB ?? "";
-  assertSafeDbName(name);
-  return name;
-}
-
-/** 隔离 E2E 数据库端口（runbook 设置；默认回退环境 POSTGRES_PORT）。 */
-function dbPort(): number {
-  return Number(process.env.E2E_POSTGRES_PORT ?? process.env.POSTGRES_PORT ?? 5432);
-}
-
 /**
  * 创建隔离管理员（项目专属用户名）+ 登录并写入【本项目专属】storageState。
  * 只清理自己的 state 文件，绝不删除整个 .auth 目录（避免删掉另一 project 的 state）。
@@ -67,7 +55,8 @@ export async function createIsolatedAdmin(
   rmSync(stateFile, { force: true });
   mkdirSync(AUTH_DIR, { recursive: true });
 
-  const pool = createPool({ ...loadDbConfigFromEnv(), database: dbName(), port: dbPort() });
+  // 连接【唯一权威】隔离 E2E 目标（固定 127.0.0.1 / E2E_POSTGRES_*）。
+  const pool = createPool(toDbConfig(resolveIsolatedE2eTarget().db));
   let userId: string;
   try {
     const ps = new PasswordService();

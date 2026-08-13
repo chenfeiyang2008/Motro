@@ -60,10 +60,31 @@ E2E_ADMIN_PASSWORD=<管理员引导口令> pnpm run e2e:import
 1. 启动独立栈：`docker compose -f compose/e2e-import.yml up -d --build`
 2. 等待 `db-e2e` 与 `api-e2e` readiness
 3. 对独立库 `motro_e2e_import` 执行 migration `0001`–`0024`
-   （连接 `127.0.0.1:5433`；不读取/修改共享 `motro` 库；不需要手动 source `.env`）
+   （**强制**连接 `127.0.0.1:5433`，绝不继承 `POSTGRES_HOST`/远程库；凭据使用独立命名空间
+   `E2E_POSTGRES_USER`/`E2E_POSTGRES_PASSWORD`，不依赖根 `.env` 的 `POSTGRES_*`；不需要手动 source `.env`）
 4. 校验独立库已迁移到版本 24
 5. 运行 `admin-imports.spec.ts`（Chromium + WebKit 并发；每个 project 使用独立管理员与独立 storageState 文件）
-6. 无论测试通过、失败或中断，最后执行 `docker compose -f compose/e2e-import.yml down -v` 清理独立栈
+6. **无论测试通过、失败或中断**，最后执行 `docker compose -f compose/e2e-import.yml down -v` 清理独立栈
+
+**清理与中断边界：**
+
+- 正常失败、readiness/migration/Playwright 失败、以及可处理的 `SIGINT`/`SIGTERM` 都会自动执行一次 `down -v`。
+- `SIGKILL`、断电或宿主崩溃无法被进程捕获：此时请手动执行
+  `docker compose -f compose/e2e-import.yml down -v` 清理独立栈（只影响独立卷，不影响共享 `motro` 栈）。
+
+**独立栈凭据命名空间（Compose 与宿主工具共用同一契约）：**
+
+| 变量                    | 默认值               | 说明                                                       |
+| ----------------------- | -------------------- | ---------------------------------------------------------- |
+| `E2E_IMPORT_DB`         | `motro_e2e_import`   | 独立库名（白名单 `^motro_e2e_import(_[a-z0-9-]{1,40})?$`） |
+| `E2E_POSTGRES_PORT`     | `5433`               | 独立库宿主端口                                             |
+| `E2E_POSTGRES_USER`     | `motro_e2e`          | 独立库用户（不读取 `POSTGRES_USER`）                       |
+| `E2E_POSTGRES_PASSWORD` | `e2e_only_change_me` | 独立库口令（不读取 `POSTGRES_PASSWORD`）                   |
+| `E2E_SESSION_KEY`       | 隔离栈专用           | 独立栈 session key（不继承 `SESSION_KEY`）                 |
+| `E2E_CSRF_KEY`          | 隔离栈专用           | 独立栈 CSRF key（不继承 `CSRF_KEY`）                       |
+
+宿主侧 migration / 管理员创建 / 清理一律通过 `resolveIsolatedE2eTarget()` 解析为固定的 `127.0.0.1` 连接，
+不继承任何 `POSTGRES_HOST` / `API_PUBLIC_URL` / `PW_BASE_URL` 的远程值；API/Web 固定 `127.0.0.1:3100/3101`。
 
 **手动逐步执行（等价于 runner，便于排查）：**
 
@@ -74,8 +95,11 @@ docker compose -f compose/e2e-import.yml up -d --build
 # 2. 等待就绪
 sleep 10 && curl -s http://127.0.0.1:3100/api/v1/health/live
 
-# 3. 迁移独立库（明确指向独立库；不碰共享库）
-POSTGRES_HOST=127.0.0.1 POSTGRES_PORT=5433 POSTGRES_DB=motro_e2e_import pnpm db:migrate
+# 3. 迁移独立库（明确指向本机独立库 127.0.0.1:5433；使用 E2E_POSTGRES_* 命名空间；不碰共享库）
+E2E_IMPORT_DB=motro_e2e_import E2E_POSTGRES_PORT=5433 \
+E2E_POSTGRES_USER=motro_e2e E2E_POSTGRES_PASSWORD=e2e_only_change_me \
+POSTGRES_HOST=127.0.0.1 POSTGRES_PORT=5433 POSTGRES_DB=motro_e2e_import \
+POSTGRES_USER=motro_e2e POSTGRES_PASSWORD=e2e_only_change_me pnpm db:migrate
 
 # 4. 运行导入 E2E（Chromium + WebKit 并发）
 E2E_IMPORT_DB=motro_e2e_import \

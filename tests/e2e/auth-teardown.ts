@@ -13,33 +13,22 @@
 //     lexical_entries】。词条（含隔离用户自己创建的）一律留给独立库整体销毁。
 //     这样即使测试只关联了外部词条（为该词条建了 import source），也不会误删外部词条。
 //   - 只删除本运行明确创建的 source / file / batch（无 commit 的）、idempotency、audit、session、用户。
-import { createPool, loadDbConfigFromEnv } from "@motro/db";
-import { assertSafeDbName } from "./import-e2e-db.js";
+import { createPool } from "@motro/db";
+import { resolveIsolatedE2eTarget, toDbConfig } from "./import-e2e-db.js";
 
 export interface ImportTestAdmin {
   userId: string;
   username: string;
 }
 
-/** 隔离 E2E 数据库端口（runbook 设置；默认回退环境 POSTGRES_PORT）。 */
-function dbPort(): number {
-  return Number(process.env.E2E_POSTGRES_PORT ?? process.env.POSTGRES_PORT ?? 5432);
-}
-
-/** 隔离 E2E 数据库名（runbook 必须设置；安全白名单拒绝共享库名）。 */
-function dbName(): string {
-  const name = process.env.E2E_IMPORT_DB ?? "";
-  assertSafeDbName(name);
-  return name;
-}
-
 /**
  * 在正常约束下删除本运行可安全删除的资源。
  * 若删除遇到意外失败，抛错使 E2E 失败（不吞异常）。
  * 词条与不可变 commit facts 保留给独立库整体销毁（runbook down -v）。
+ * 连接使用【唯一权威】隔离 E2E 目标（固定 127.0.0.1 / E2E_POSTGRES_*）。
  */
 export async function cleanupIsolatedAdmin(admin: ImportTestAdmin): Promise<void> {
-  const pool = createPool({ ...loadDbConfigFromEnv(), database: dbName(), port: dbPort() });
+  const pool = createPool(toDbConfig(resolveIsolatedE2eTarget().db));
   const { userId } = admin;
   try {
     await pool.query("BEGIN");
