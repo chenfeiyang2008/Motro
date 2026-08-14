@@ -20,6 +20,10 @@ const NAV_GROUPS = [
     label: "导入",
     items: [{ href: "/admin/imports", label: "导入" }],
   },
+  {
+    label: "系统",
+    items: [{ href: "/admin/operations", label: "任务状态" }],
+  },
 ];
 
 type AuthState = "loading" | "admin" | "forbidden";

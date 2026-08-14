@@ -1718,6 +1718,166 @@
         ]
       }
     },
+    "/api/v1/admin/operations": {
+      "get": {
+        "operationId": "OperationsController_list",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "状态过滤（queued/running/…）",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "operationType",
+            "required": false,
+            "in": "query",
+            "description": "操作类型过滤",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "分页游标",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "每页数量（1–50，默认 20）",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "列出后台操作（游标分页；可安全按 status/type 过滤）",
+        "tags": [
+          "admin operations"
+        ]
+      }
+    },
+    "/api/v1/admin/operations/{id}": {
+      "get": {
+        "operationId": "OperationsController_detail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "operation UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "查看单个 operation 详情（含 attempt 时间线与脱敏错误）",
+        "tags": [
+          "admin operations"
+        ]
+      }
+    },
+    "/api/v1/admin/operations/{id}/retry": {
+      "post": {
+        "operationId": "OperationsController_retry",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "operation UUID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-csrf-token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationRetryResultDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "IDEMPOTENCY_CONFLICT / IDEMPOTENCY_IN_PROGRESS"
+          },
+          "422": {
+            "description": "缺少 Idempotency-Key / 非法状态或未确认 / 未知字段"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "管理员重试失败/人工状态操作（CSRF + Idempotency-Key + 审计）",
+        "tags": [
+          "admin operations"
+        ]
+      }
+    },
     "/api/v1/admin/imports": {
       "post": {
         "operationId": "ImportController_create",
@@ -4532,6 +4692,196 @@
           "releaseNumber",
           "highestUnlockedUnit",
           "units"
+        ]
+      },
+      "OperationSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "operation ID"
+          },
+          "operationType": {
+            "type": "string",
+            "description": "操作类型"
+          },
+          "operationVersion": {
+            "type": "number",
+            "description": "操作版本"
+          },
+          "targetType": {
+            "type": "string",
+            "description": "目标类型"
+          },
+          "targetId": {
+            "type": "string",
+            "description": "目标 ID（安全摘要：UUID 前 8 位 + …）"
+          },
+          "inputVersion": {
+            "type": "number",
+            "description": "输入版本"
+          },
+          "status": {
+            "type": "string",
+            "description": "状态（queued/running/retry_wait/succeeded/failed/manual_action）"
+          },
+          "attemptCount": {
+            "type": "number",
+            "description": "尝试次数"
+          },
+          "maxAttempts": {
+            "type": "number",
+            "description": "最大尝试次数"
+          },
+          "retryable": {
+            "type": "boolean",
+            "description": "是否仍可自动重试"
+          },
+          "canRetry": {
+            "type": "boolean",
+            "description": "是否允许管理员重试（failed/manual_action 为 true）"
+          },
+          "lastErrorCode": {
+            "type": "string",
+            "description": "脱敏最近错误码"
+          },
+          "lastErrorSummary": {
+            "type": "string",
+            "description": "脱敏最近错误摘要"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "创建时间（RFC 3339 UTC）"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "最近更新时间（RFC 3339 UTC）"
+          },
+          "startedAt": {
+            "type": "string",
+            "description": "开始时间（RFC 3339 UTC）"
+          },
+          "completedAt": {
+            "type": "string",
+            "description": "完成时间（RFC 3339 UTC）"
+          }
+        },
+        "required": [
+          "id",
+          "operationType",
+          "operationVersion",
+          "targetType",
+          "targetId",
+          "inputVersion",
+          "status",
+          "attemptCount",
+          "maxAttempts",
+          "retryable",
+          "canRetry",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "OperationListResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "description": "游标分页结果",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OperationSummaryDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "description": "下一页游标；null 表示无更多"
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "OperationAttemptSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "attempt ID"
+          },
+          "attemptNumber": {
+            "type": "number",
+            "description": "attempt 编号（从 1 递增）"
+          },
+          "startedAt": {
+            "type": "string",
+            "description": "开始时间（RFC 3339 UTC）"
+          },
+          "finishedAt": {
+            "type": "string",
+            "description": "结束时间（RFC 3339 UTC）"
+          },
+          "outcome": {
+            "type": "string",
+            "description": "结果（succeeded/failed；运行中为空）"
+          },
+          "errorCode": {
+            "type": "string",
+            "description": "脱敏错误码"
+          },
+          "errorSummary": {
+            "type": "string",
+            "description": "脱敏错误摘要（受限长度，无堆栈/供应商 payload）"
+          }
+        },
+        "required": [
+          "id",
+          "attemptNumber",
+          "startedAt"
+        ]
+      },
+      "OperationDetailDto": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "description": "operation 概要",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OperationSummaryDto"
+              }
+            ]
+          },
+          "attempts": {
+            "description": "attempt 时间线（新→旧）",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OperationAttemptSummaryDto"
+            }
+          }
+        },
+        "required": [
+          "operation",
+          "attempts"
+        ]
+      },
+      "OperationRetryResultDto": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "description": "重试后的 operation 概要",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OperationSummaryDto"
+              }
+            ]
+          },
+          "isIdempotentReplay": {
+            "type": "boolean",
+            "description": "是否幂等重放（同 Idempotency-Key 已重试过）"
+          }
+        },
+        "required": [
+          "operation",
+          "isIdempotentReplay"
         ]
       },
       "ImportUploadBodyDto": {

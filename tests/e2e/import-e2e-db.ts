@@ -12,6 +12,7 @@
 //     端口/凭据只用 E2E_POSTGRES_* 命名空间。
 //   - 不输出密码、session key、CSRF key、cookie 或连接串。
 import { createPool, migrate, type DbConfig } from "@motro/db";
+import { runMigrations } from "graphile-worker";
 import { resolve } from "node:path";
 
 const MIGRATIONS_DIR = resolve(process.cwd(), "db/migrations");
@@ -106,9 +107,13 @@ export function buildE2eChildEnv(target: IsolatedE2eTarget): NodeJS.ProcessEnv {
   };
 }
 
-/** 对独立数据库应用全部 migration（0001–0024）。接收【已解析配置】，不重新读环境。 */
+/** 对独立数据库应用全部 migration（0001–0025）+ Graphile 官方 schema。接收【已解析配置】。 */
 export async function migrateIsolatedDatabase(cfg: IsolatedE2eDbConfig): Promise<void> {
-  await migrate(toDbConfig(cfg), MIGRATIONS_DIR);
+  const db = toDbConfig(cfg);
+  await migrate(db, MIGRATIONS_DIR);
+  // 工单 04：import commit 会原子投递 Graphile job；官方 schema 必须先就绪。
+  const conn = `postgresql://${encodeURIComponent(db.user)}:${encodeURIComponent(db.password)}@${db.host}:${db.port}/${encodeURIComponent(db.database)}`;
+  await runMigrations({ connectionString: conn, schema: "graphile_worker" });
 }
 
 /** 断言独立数据库可连接（SELECT 1）且已迁移到最新版本。接收【已解析配置】，不重新读环境。 */
@@ -118,9 +123,9 @@ export async function assertIsolatedDatabaseReady(cfg: IsolatedE2eDbConfig): Pro
     const r = await pool.query<{ v: number }>(
       "SELECT max(version)::int AS v FROM schema_migrations",
     );
-    if ((r.rows[0]?.v ?? 0) < 24) {
+    if ((r.rows[0]?.v ?? 0) < 30) {
       throw new Error(
-        `独立 E2E 库 ${cfg.database} 未完成迁移（当前 ${r.rows[0]?.v ?? 0} < 24）。请先运行迁移。`,
+        `独立 E2E 库 ${cfg.database} 未完成迁移（当前 ${r.rows[0]?.v ?? 0} < 30）。请先运行迁移。`,
       );
     }
   } finally {

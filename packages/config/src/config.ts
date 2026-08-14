@@ -59,6 +59,50 @@ const RateLimitSchema = z.object({
 });
 export type RateLimitConfig = z.infer<typeof RateLimitSchema>;
 
+/** recovery 扫描间隔下界（500ms）：低于此值拒绝，防忙等待对数据库与 CPU 高轮询。 */
+export const RECOVERY_SCAN_MIN_INTERVAL_MS = 500;
+/** recovery 扫描间隔上界（5s）：高于此值拒绝，保证 lease 到期后可及时恢复。 */
+export const RECOVERY_SCAN_MAX_INTERVAL_MS = 5_000;
+/** 单次扫描恢复候选上限。 */
+export const RECOVERY_SCAN_MAX_BATCH_SIZE = 20;
+/** lease 下界：配合最小 200ms 心跳周期，保证 runtime 中 heartbeat 严格早于 lease 到期。 */
+export const WORKER_LEASE_MIN_MS = 600;
+
+/**
+ * 工单 04 受控恢复扫描（lease-expiry recovery loop）：
+ * - recoverIntervalMs：两次扫描之间的间隔（毫秒）。启动后立即执行一次，随后按间隔循环。
+ *   有类型校验、>0、>=500、且有上限（<= RECOVERY_SCAN_MAX_INTERVAL_MS），防止高频轮询。
+ * - recoverBatchSize：单次扫描选出的候选上限（有界批量，<= RECOVERY_SCAN_MAX_BATCH_SIZE）。
+ */
+const WorkerRecoverySchema = z.object({
+  recoverIntervalMs: z.coerce
+    .number()
+    .int()
+    .min(RECOVERY_SCAN_MIN_INTERVAL_MS)
+    .max(RECOVERY_SCAN_MAX_INTERVAL_MS),
+  recoverBatchSize: z.coerce.number().int().min(1).max(RECOVERY_SCAN_MAX_BATCH_SIZE),
+});
+export type WorkerRecoveryConfig = z.infer<typeof WorkerRecoverySchema>;
+
+/**
+ * Worker 边界（阶段 6 工单 04）：4 GB 主机资源预算。
+ * - concurrency：单 worker 进程并发 job 数，默认 1，允许显式上调到最大 2；
+ * - maxPoolSize：worker 自用 PostgreSQL 连接池上限，固定不超过 2；
+ * - maxAttempts：单 job 默认最大尝试次数，保守默认 5（Graphile 库默认 25）；
+ * - pollIntervalMs：轮询间隔（毫秒）；
+ * - recovery：租赁到期恢复扫描（见 WorkerRecoverySchema）。
+ * 配置输出必须脱敏，不暴露数据库密码/连接串。
+ */
+const WorkerSchema = z.object({
+  concurrency: z.coerce.number().int().min(1).max(2),
+  maxPoolSize: z.coerce.number().int().min(2).max(2),
+  maxAttempts: z.coerce.number().int().min(1).max(5),
+  pollIntervalMs: z.coerce.number().int().positive(),
+  leaseMs: z.coerce.number().int().min(WORKER_LEASE_MIN_MS),
+  recovery: WorkerRecoverySchema,
+});
+export type WorkerConfig = z.infer<typeof WorkerSchema>;
+
 /**
  * 导入边界（阶段 6 工单 01 + 工单 02 + 02-review）：
  * 工单 01 已有 fileRootDir / maxFileBytes / allowedFormats；
@@ -97,6 +141,7 @@ export const AppConfigSchema = z.object({
   openapi: OpenApiSchema,
   cors: CorsSchema,
   rateLimit: RateLimitSchema,
+  worker: WorkerSchema,
   import: ImportSchema,
 });
 export type AppConfig = z.infer<typeof AppConfigSchema>;
@@ -191,6 +236,17 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, explicitEnv?: N
     rateLimit: {
       loginPerMinute: env.RATE_LIMIT_LOGIN_PER_MINUTE ?? "10",
     },
+    worker: {
+      concurrency: env.WORKER_CONCURRENCY ?? "1",
+      maxPoolSize: env.WORKER_MAX_POOL_SIZE ?? "2",
+      maxAttempts: env.WORKER_MAX_ATTEMPTS ?? "5",
+      pollIntervalMs: env.WORKER_POLL_INTERVAL_MS ?? "2000",
+      leaseMs: env.WORKER_LEASE_MS ?? "60000",
+      recovery: {
+        recoverIntervalMs: env.WORKER_RECOVER_INTERVAL_MS ?? "2000",
+        recoverBatchSize: env.WORKER_RECOVER_BATCH_SIZE ?? "20",
+      },
+    },
     import: {
       fileRootDir: env.IMPORT_FILE_ROOT_DIR ?? ".local-import-files",
       maxFileBytes: env.IMPORT_MAX_FILE_BYTES ?? String(10 * 1024 * 1024),
@@ -258,6 +314,7 @@ export function redactConfig(config: AppConfig): Record<string, unknown> {
     openapi: config.openapi,
     cors: config.cors,
     rateLimit: config.rateLimit,
+    worker: config.worker,
     importFile: {
       fileRootDir: config.import.fileRootDir,
       maxFileBytes: config.import.maxFileBytes,

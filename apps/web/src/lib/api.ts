@@ -455,6 +455,55 @@ export async function downloadImportErrorReport(id: string): Promise<{
   }
 }
 
+// ---- 阶段 6 工单 04：任务状态（operations） ----
+
+export type OperationSummary = components["schemas"]["OperationSummaryDto"];
+export type OperationAttemptSummary = components["schemas"]["OperationAttemptSummaryDto"];
+export type OperationListResponse = components["schemas"]["OperationListResponseDto"];
+export type OperationDetail = components["schemas"]["OperationDetailDto"];
+export type OperationRetryResult = components["schemas"]["OperationRetryResultDto"];
+
+/** 分页读取后台操作（游标分页；可安全按 status/type 过滤）。 */
+export function listOperations(opts: {
+  status?: string;
+  operationType?: string;
+  cursor: string | null;
+  limit?: number;
+}): Promise<ApiResult<OperationListResponse>> {
+  const search = new URLSearchParams();
+  if (opts.status) search.set("status", opts.status);
+  if (opts.operationType) search.set("operationType", opts.operationType);
+  if (opts.cursor) search.set("cursor", opts.cursor);
+  if (opts.limit !== undefined) search.set("limit", String(opts.limit));
+  const qs = search.toString();
+  return apiFetch<OperationListResponse>(
+    `/api/v1/admin/operations${qs.length > 0 ? `?${qs}` : ""}`,
+    { method: "GET" },
+  );
+}
+
+/** 单个 operation 详情（含 attempt 时间线与脱敏错误）。 */
+export function getOperation(id: string): Promise<ApiResult<OperationDetail>> {
+  return apiFetch<OperationDetail>(`/api/v1/admin/operations/${encodeURIComponent(id)}`, {
+    method: "GET",
+  });
+}
+
+/** 管理员重试失败/人工任务（Idempotency-Key 由调用方提供并复用）。 */
+export function retryOperation(
+  id: string,
+  idempotencyKey: string,
+): Promise<ApiResult<OperationRetryResult>> {
+  return apiFetch<OperationRetryResult>(
+    `/api/v1/admin/operations/${encodeURIComponent(id)}/retry`,
+    {
+      method: "POST",
+      headers: { "idempotency-key": idempotencyKey },
+      body: JSON.stringify({ confirm: true }),
+    },
+  );
+}
+
 // ---- 学习者：已发布课程目录（只读 current release） ----
 
 export type CatalogCourseSummary = components["schemas"]["CatalogCourseSummaryDto"];

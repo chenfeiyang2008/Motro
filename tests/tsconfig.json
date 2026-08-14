@@ -9,6 +9,7 @@
   "exclude": ["e2e/**", "dist"],
   "references": [
     { "path": "../apps/api" },
+    { "path": "../apps/worker" },
     { "path": "../packages/config" },
     { "path": "../packages/db" },
     { "path": "../packages/domain" }

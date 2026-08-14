@@ -23,7 +23,12 @@
     "openapi:generate": "tsc --build apps/api && node apps/api/dist/openapi-generate.js",
     "openapi:check": "tsc --build apps/api && node apps/api/dist/openapi-check.js",
     "openapi:types": "openapi-typescript docs/generated/openapi.json -o packages/api-client/src/generated.ts",
-    "e2e:import": "pnpm build && pnpm exec tsc -p tests/e2e/tsconfig.e2e.json && node tests/e2e/dist/run-import-e2e.js"
+    "e2e:import": "pnpm build && pnpm exec tsc -p tests/e2e/tsconfig.e2e.json && node tests/e2e/dist/run-import-e2e.js",
+    "worker:migrate": "tsc --build apps/worker && node --env-file-if-exists=.env apps/worker/dist/worker-migrate.js",
+    "worker:start": "tsc --build apps/worker && node --env-file-if-exists=.env apps/worker/dist/worker-main.js",
+    "worker:once": "tsc --build apps/worker && node --env-file-if-exists=.env apps/worker/dist/worker-once.js",
+    "e2e:restart": "pnpm build && pnpm exec tsc -p tests/e2e/tsconfig.e2e.json && node tests/e2e/dist/run-restart-e2e.js",
+    "e2e:crash-recovery": "pnpm build && pnpm exec tsc -p tests/e2e/tsconfig.e2e.json && node tests/e2e/dist/run-crash-recovery-e2e.js"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

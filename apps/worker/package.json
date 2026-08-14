@@ -1,0 +1,27 @@
+{
+  "name": "@motro/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Motro Graphile Worker 独立进程（任务状态基础；显式 TS task registry，不执行外部供应商）",
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --build --pretty",
+    "migrate": "node --env-file-if-exists=../../.env dist/worker-migrate.js",
+    "start": "node --env-file-if-exists=../../.env dist/worker-main.js",
+    "once": "node --env-file-if-exists=../../.env dist/worker-once.js"
+  },
+  "dependencies": {
+    "@motro/config": "workspace:*",
+    "@motro/db": "workspace:*",
+    "@motro/domain": "workspace:^",
+    "graphile-worker": "0.17.3",
+    "pg": "^8.22.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.20.4"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  }
+}

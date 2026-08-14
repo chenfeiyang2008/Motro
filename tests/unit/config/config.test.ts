@@ -36,6 +36,11 @@ describe("loadConfig", () => {
     expect(() => loadConfig({ ...DEV_ENV, API_PORT: "99999" })).toThrow(ConfigError);
   });
 
+  it("worker lease 低于心跳安全下界被拒绝", () => {
+    expect(() => loadConfig({ ...DEV_ENV, WORKER_LEASE_MS: "599" })).toThrow(ConfigError);
+    expect(loadConfig({ ...DEV_ENV, WORKER_LEASE_MS: "600" }).worker.leaseMs).toBe(600);
+  });
+
   it("非法 URL 被拒绝", () => {
     expect(() => loadConfig({ ...DEV_ENV, API_PUBLIC_URL: "not-a-url" })).toThrow(ConfigError);
   });

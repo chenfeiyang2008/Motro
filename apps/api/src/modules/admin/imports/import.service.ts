@@ -31,11 +31,13 @@ import {
   ERROR_REPORT_CSV_HEADER,
   ERROR_REPORT_CSV_LINE_SEPARATOR,
   safeReportFilename,
+  operationInputHash,
   type ImportMapping,
   type ImportRowIssue,
 } from "@motro/domain";
 import { ImportParser, ImportParseError } from "./import.parser.js";
 import { ImportBatchRepository, toRowDto } from "./import.repository.js";
+import { OperationEnqueueService } from "../../operations/enqueue.service.js";
 import type {
   ImportBatchDetailDto,
   ImportBatchDto,
@@ -98,6 +100,14 @@ export class ImportContentConflictError extends Error {
   }
 }
 
+/** 投递后台任务失败：必须连同整个业务事务一起回滚。 */
+export class OperationEnqueueRollbackError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "OperationEnqueueRollbackError";
+  }
+}
+
 interface StoredFileRow {
   id: string;
   storage_key: string;
@@ -140,6 +150,7 @@ export class ImportService {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     private readonly repository: ImportBatchRepository,
     private readonly parser: ImportParser,
+    private readonly enqueuePort: OperationEnqueueService,
   ) {}
 
   async uploadAndCreateBatch(input: UploadInput): Promise<UploadResult> {
@@ -1138,8 +1149,11 @@ export class ImportService {
         const targetId = row.lexical_entry_id;
         let targetMissing = !targetId;
         if (!targetMissing) {
+          // 只接受「仍存在且状态为 active」的词条。若目标在校验后被删除或改归档，
+          // 绝不把 import provenance / commit 事实绑定到不存在或非活动词条 ——
+          // 保持与「删除目标」一致的「要求重新校验」语义，绝不静默创建含糊关联。
           const targetExists = await client.query<{ id: string }>(
-            `SELECT id FROM lexical_entries WHERE id = $1`,
+            `SELECT id FROM lexical_entries WHERE id = $1 AND status = 'active'`,
             [targetId],
           );
           targetMissing = !targetExists.rows[0];
@@ -1147,7 +1161,7 @@ export class ImportService {
         if (targetMissing) {
           await client.query("ROLLBACK").catch(() => {});
           const err = new Error(
-            "系统词条已在校验后被删除，无法安全关联。请刷新批次并重新校验后重试。",
+            "系统词条已在校验后被删除或归档，无法安全关联。请刷新批次并重新校验后重试。",
           );
           (err as { code?: string }).code = "COMMIT_REVALIDATION_REQUIRED";
           throw err;
@@ -1173,12 +1187,27 @@ export class ImportService {
             createdEntryCount += 1;
             entryId = ins.rows[0].id;
           } else {
-            // 并发已创建：确定性关联既有词条。
+            // 插入冲突：refresh 该拼写已存在一行（canonical_spelling 全局唯一，与 status 无关）。
+            // 只关联「状态为 active」的词条（并发下另一提交恰好创建的同拼写活动词条）。
+            // 若占位的是 archived/非 active 词条，绝不把 import provenance / commit 事实
+            // 绑定到非活动词条：唯一约束也禁止我们新建同拼写活动词条。此时唯一结构化结果
+            // 是让整个 commit 失败并要求重新校验（与「existing_entry 目标消失」同语义），
+            // 绝不静默创建含糊关联、绝不写部分事实。
             const found = await client.query<{ id: string }>(
-              `SELECT id FROM lexical_entries WHERE canonical_spelling = $1`,
+              `SELECT id FROM lexical_entries
+               WHERE canonical_spelling = $1 AND status = 'active'`,
               [spelling],
             );
-            entryId = found.rows[0]!.id;
+            const activeId = found.rows[0]?.id;
+            if (!activeId) {
+              await client.query("ROLLBACK").catch(() => {});
+              const err = new Error(
+                "该拼写对应的词条已存在但不可关联（状态非 active/已归档）。请刷新批次并重新校验后重试。",
+              );
+              (err as { code?: string }).code = "COMMIT_REVALIDATION_REQUIRED";
+              throw err;
+            }
+            entryId = activeId;
             associatedExistingEntryCount += 1;
           }
         }
@@ -1261,12 +1290,15 @@ export class ImportService {
 
     // 5) 写行级提交事实（commit_id 绑定；唯一约束防止同一行二次提交；
     //    0021 要求非空 canonical lexical_entry_id 与来源，且来源须属于该词条）。
+    //    同时捕获每个 commit-row 的稳定 id，供第 8 步原子投递 operation。
+    const commitRowIds: string[] = [];
     for (const a of auditRows) {
-      await client.query(
+      const rowIns = await client.query<{ id: string }>(
         `INSERT INTO import_batch_commit_rows
            (commit_id, import_row_id, ordinal, normalized_spelling, lexical_entry_id,
             created_entry_id, associated_entry_id, lexical_source_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING id`,
         [
           commitId,
           a.importRowId,
@@ -1278,11 +1310,49 @@ export class ImportService {
           a.sourceId,
         ],
       );
+      commitRowIds.push(rowIns.rows[0]!.id);
       // 同步行级关联，使 UI/审核可展示最终关联词条（不改变校验分类 status）。
       await client.query(
         `UPDATE import_rows SET lexical_entry_id = $2 WHERE id = $1 AND lexical_entry_id IS DISTINCT FROM $2`,
         [a.importRowId, a.entryId],
       );
+    }
+
+    // 5b) 每个稳定 commit row 原子投递后台 operation（同一事务内 add_job；
+    //     operation / job / 审计 / 业务提交全部原子回滚）。
+    //     payload 只含不透明 operationId + inputVersion；job key 带 Motro 命名空间。
+    const operationType = "motro-op-fixture";
+    const queueName = "local";
+    const maxAttempts = this.config.worker.maxAttempts;
+    for (const crId of commitRowIds) {
+      const inputHash = operationInputHash({
+        operationType,
+        targetType: "import_batch_commit_row",
+        targetId: crId,
+        inputVersion: 1,
+      });
+      let enqueued: { created: boolean; operationId: string } | null;
+      try {
+        enqueued = await this.enqueuePort.enqueueInTransaction(client, {
+          operationType,
+          targetType: "import_batch_commit_row",
+          targetId: crId,
+          inputVersion: 1,
+          inputHash,
+          requestedBy: userId,
+          queueName,
+          maxAttempts,
+        });
+      } catch (err) {
+        // add_job / schema 未就绪等投递失败：整个业务事务回滚（绝不提交后 fire-and-forget）。
+        if (err instanceof OperationEnqueueRollbackError) throw err;
+        throw new OperationEnqueueRollbackError(
+          err instanceof Error ? err.message : "无法为提交行投递后台任务",
+        );
+      }
+      if (enqueued === null) {
+        throw new OperationEnqueueRollbackError("无法为提交行投递后台任务");
+      }
     }
 
     // 6) 批次状态 → committed（本批已提交过有效行；不可变提交事实是权威来源）。

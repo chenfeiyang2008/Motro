@@ -17,6 +17,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createPool, loadDbConfigFromEnv, migrate } from "@motro/db";
+import { runMigrations } from "graphile-worker";
 import { loadConfig } from "@motro/config";
 import { createApp } from "../../../apps/api/src/bootstrap-app.js";
 import { AuthModule } from "../../../apps/api/src/auth/auth.module.js";
@@ -36,6 +37,18 @@ const previousPostgresDb = process.env.POSTGRES_DB;
 function restoreEnv(name: string, value: string | undefined): void {
   if (value === undefined) delete process.env[name];
   else process.env[name] = value;
+}
+
+/** 从类型化 DbConfig 构造 Graphile 需要的连接串（仅测试隔离库使用）。 */
+function pgConn(cfg: {
+  host: string;
+  port: number;
+  database: string;
+  user: string;
+  password: string;
+}): string {
+  const host = cfg.host.includes(":") ? `[${cfg.host}]` : cfg.host;
+  return `postgresql://${encodeURIComponent(cfg.user)}:${encodeURIComponent(cfg.password)}@${host}:${cfg.port}/${encodeURIComponent(cfg.database)}`;
 }
 
 async function canConnect(): Promise<boolean> {
@@ -275,6 +288,12 @@ describe("import commit valid rows and error report", () => {
     }
     const isolatedConfig = { ...config, database: isolatedDbName };
     await migrate(isolatedConfig, MIGRATIONS_DIR);
+    // 工单 04：import commit 会原子投递 Graphile job；Graphile 官方 schema 必须在
+    // API 接受提交前就绪。测试隔离库同样先跑官方 runMigrations。
+    await runMigrations({
+      connectionString: pgConn(isolatedConfig),
+      schema: "graphile_worker",
+    });
 
     tempImportRoot = mkdtempSync(join(tmpdir(), "motro-import-cr-"));
     process.env.IMPORT_FILE_ROOT_DIR = tempImportRoot;
@@ -1250,6 +1269,238 @@ describe("import commit valid rows and error report", () => {
     expect(dataLines).toBe(2);
   });
 
+  it("16. 归档-only 拼写：提交拒绝 COMMIT_REVALIDATION_REQUIRED，绝不绑定 import 事实到归档词条", async () => {
+    // canonical_spelling 全局唯一（与 status 无关），故 archived 与 active 不能共存同拼写。
+    // 归档-only：预置一个 archived 词条，其拼写在校验时被归为 candidate（active 查找排除归档）。
+    const archivedWord = freshWord();
+    await pool.query(
+      `INSERT INTO lexical_entries (canonical_spelling, normalized_spelling, senses, status)
+       VALUES ($1, $1, '[]'::jsonb, 'archived') ON CONFLICT (canonical_spelling) DO NOTHING`,
+      [archivedWord],
+    );
+    const batchId = await uploadTxt(`${archivedWord}\n`);
+    await validateBatch(batchId);
+    // 归档词条被 active 查找排除 → 行归为 candidate（非 existing_entry）。
+    const vRows = await admin.req("GET", `/api/v1/admin/imports/${batchId}/rows`, {});
+    const vItems = body(vRows) as { items: { status: string; normalizedSpelling?: string }[] };
+    const archivedRow = vItems.items.find((r) => r.normalizedSpelling === archivedWord);
+    expect(archivedRow?.status).toBe("candidate");
+
+    // 提交：canonical_spelling 唯一约束阻止新建同拼写 active 词条；commit 回退查询
+    // 只关联 active，故找不到 active → 结构化拒绝 COMMIT_REVALIDATION_REQUIRED。
+    const commit = await commitBatch(batchId);
+    expect([409, 422]).toContain(commit.statusCode);
+    expect((body(commit) as { error?: { code: string } }).error?.code).toBe(
+      "COMMIT_REVALIDATION_REQUIRED",
+    );
+
+    // 零提交副作用：无 commit、无 commit_row、无指向归档词条的 import 来源。
+    expect(
+      await qcount(`SELECT count(*)::text AS n FROM import_batch_commits WHERE batch_id = $1`, [
+        batchId,
+      ]),
+    ).toBe(0);
+    expect(
+      await qcount(
+        `SELECT count(*)::text AS n FROM import_batch_commit_rows cr JOIN import_rows r ON r.id = cr.import_row_id WHERE r.batch_id = $1`,
+        [batchId],
+      ),
+    ).toBe(0);
+    expect(
+      await qcount(
+        `SELECT count(*)::text AS n FROM lexical_sources ls WHERE ls.source_type = 'import' AND ls.source_note = $1`,
+        [`import:commit:${batchId}`],
+      ),
+    ).toBe(0);
+    expect(
+      await qcount(
+        `SELECT count(*)::text AS n FROM lexical_sources ls JOIN lexical_entries e ON e.id = ls.lexical_entry_id
+         WHERE e.status = 'archived' AND ls.source_type = 'import'`,
+        [],
+      ),
+    ).toBe(0);
+    // 批次保持未提交；归档词条未被删除/改写。
+    const bStatus = await q1<{ status: string }>(
+      `SELECT status FROM import_batches WHERE id = $1`,
+      [batchId],
+    );
+    expect(bStatus?.status).not.toBe("committed");
+    expect(
+      await qcount(
+        `SELECT count(*)::text AS n FROM lexical_entries WHERE canonical_spelling = $1 AND status = 'archived'`,
+        [archivedWord],
+      ),
+    ).toBe(1);
+  });
+
+  it("17. active 词条「同拼写并发创建」仍确定性关联（回归：既有行为不变）", async () => {
+    // candidate 行；提交前并发插入【active】同拼写词条 → 回退查询命中 active → 关联。
+    const activeWord = freshWord();
+    const batchId = await uploadTxt(`${activeWord}\n`);
+    await validateBatch(batchId);
+    // 提交前插入 active 词条（模拟并发竞态）。
+    await pool.query(
+      `INSERT INTO lexical_entries (canonical_spelling, normalized_spelling, senses, status)
+       VALUES ($1, $1, '[]'::jsonb, 'active') ON CONFLICT (canonical_spelling) DO NOTHING`,
+      [activeWord],
+    );
+    const commit = await commitBatch(batchId);
+    expect(commit.statusCode).toBe(200);
+    const c = body(commit) as {
+      createdEntryCount: number;
+      associatedExistingEntryCount: number;
+      committedRowCount: number;
+    };
+    // 确定性关联 active 词条（associated），不新建。
+    expect(c.associatedExistingEntryCount).toBe(1);
+    expect(c.createdEntryCount).toBe(0);
+    expect(c.committedRowCount).toBe(1);
+
+    // import source 关联到 active 词条。
+    const link = await q1<{ n: string; status: string }>(
+      `SELECT count(*)::text AS n, max(e.status) AS status
+       FROM lexical_sources ls
+       JOIN import_batch_commit_rows cr ON ls.lexical_entry_id = cr.created_entry_id OR ls.lexical_entry_id = cr.associated_entry_id
+       JOIN lexical_entries e ON e.id = ls.lexical_entry_id
+       WHERE cr.normalized_spelling = $1 AND ls.source_type = 'import'`,
+      [activeWord],
+    );
+    expect(Number(link?.n ?? 0)).toBe(1);
+    expect(link?.status).toBe("active");
+    // 词条仍为 active，未因提交被改写。
+    expect(
+      await qcount(
+        `SELECT count(*)::text AS n FROM lexical_entries WHERE canonical_spelling = $1 AND status = 'active'`,
+        [activeWord],
+      ),
+    ).toBe(1);
+  });
+
+  it("18. existing_entry 目标在校验后被归档 → 提交拒绝，无部分事实", async () => {
+    // 校验前插入 active 词条 → 行归为 existing_entry（携带 lexical_entry_id）。
+    const archivedLate = freshWord();
+    const entryRow = await pool.query<{ id: string }>(
+      `INSERT INTO lexical_entries (canonical_spelling, normalized_spelling, senses, status)
+       VALUES ($1, $1, '[]'::jsonb, 'active') RETURNING id`,
+      [archivedLate],
+    );
+    const entryId = entryRow.rows[0]!.id;
+    const healthy = freshWord();
+    const batchId = await uploadTxt(`${archivedLate}\n${healthy}\n`);
+    await validateBatch(batchId);
+    expect(
+      (
+        await q1<{ status: string }>(
+          `SELECT status FROM import_rows WHERE batch_id = $1 AND normalized_spelling = $2`,
+          [batchId, archivedLate],
+        )
+      )?.status,
+    ).toBe("existing_entry");
+
+    // 提交前把目标改归档（模拟并发归档）。
+    await pool.query(`UPDATE lexical_entries SET status = 'archived' WHERE id = $1`, [entryId]);
+    const commit = await commitBatch(batchId);
+    expect([409, 422]).toContain(commit.statusCode);
+    expect((body(commit) as { error?: { code: string } }).error?.code).toBe(
+      "COMMIT_REVALIDATION_REQUIRED",
+    );
+
+    // 无部分提交事实；健康 candidate 也不得被创建（原子性）。
+    expect(
+      await qcount(`SELECT count(*)::text AS n FROM import_batch_commits WHERE batch_id = $1`, [
+        batchId,
+      ]),
+    ).toBe(0);
+    expect(
+      await qcount(
+        `SELECT count(*)::text AS n FROM import_batch_commit_rows cr JOIN import_rows r ON r.id = cr.import_row_id WHERE r.batch_id = $1`,
+        [batchId],
+      ),
+    ).toBe(0);
+    expect(
+      await qcount(
+        `SELECT count(*)::text AS n FROM lexical_entries WHERE canonical_spelling = $1`,
+        [healthy],
+      ),
+    ).toBe(0);
+    expect(
+      await qcount(
+        `SELECT count(*)::text AS n FROM lexical_sources ls WHERE ls.source_type = 'import' AND ls.source_note = $1`,
+        [`import:commit:${batchId}`],
+      ),
+    ).toBe(0);
+    // archived 目标不再被任何 import source / commit_row 引用。
+    expect(
+      await qcount(
+        `SELECT count(*)::text AS n FROM lexical_sources ls JOIN lexical_entries e ON e.id = ls.lexical_entry_id
+         WHERE e.status = 'archived' AND ls.source_type = 'import'`,
+        [],
+      ),
+    ).toBe(0);
+    // 批次未提交；归档词条保留归档状态（未被删除/改写）。
+    const bStatus = await q1<{ status: string }>(
+      `SELECT status FROM import_batches WHERE id = $1`,
+      [batchId],
+    );
+    expect(bStatus?.status).not.toBe("committed");
+    expect(
+      await qcount(
+        `SELECT count(*)::text AS n FROM lexical_entries WHERE id = $1 AND status = 'archived'`,
+        [entryId],
+      ),
+    ).toBe(1);
+  });
+
+  it("19. 归档词条与 active 词条混合批次：整体拒绝，绝不部分提交", async () => {
+    // 归档-only 拼写 + 正常 active 拼写同批：归档拼写触发整批 COMMIT_REVALIDATION_REQUIRED，
+    // 健康候选不得被执行 → 无部分 commit 事实。
+    const archMixed = freshWord();
+    await pool.query(
+      `INSERT INTO lexical_entries (canonical_spelling, normalized_spelling, senses, status)
+       VALUES ($1, $1, '[]'::jsonb, 'archived') ON CONFLICT (canonical_spelling) DO NOTHING`,
+      [archMixed],
+    );
+    const healthyMixed = freshWord();
+    const batchId = await uploadTxt(`${archMixed}\n${healthyMixed}\n`);
+    await validateBatch(batchId);
+
+    const commit = await commitBatch(batchId);
+    expect([409, 422]).toContain(commit.statusCode);
+    expect((body(commit) as { error?: { code: string } }).error?.code).toBe(
+      "COMMIT_REVALIDATION_REQUIRED",
+    );
+
+    // 无部分事实：无 commit、无 commit_row、无词条被新建、无 import source。
+    expect(
+      await qcount(`SELECT count(*)::text AS n FROM import_batch_commits WHERE batch_id = $1`, [
+        batchId,
+      ]),
+    ).toBe(0);
+    expect(
+      await qcount(
+        `SELECT count(*)::text AS n FROM import_batch_commit_rows cr JOIN import_rows r ON r.id = cr.import_row_id WHERE r.batch_id = $1`,
+        [batchId],
+      ),
+    ).toBe(0);
+    expect(
+      await qcount(
+        `SELECT count(*)::text AS n FROM lexical_entries WHERE canonical_spelling = $1`,
+        [healthyMixed],
+      ),
+    ).toBe(0);
+    expect(
+      await qcount(
+        `SELECT count(*)::text AS n FROM lexical_sources ls WHERE ls.source_type = 'import' AND ls.source_note = $1`,
+        [`import:commit:${batchId}`],
+      ),
+    ).toBe(0);
+    // 批次未提交。
+    const bStatus = await q1<{ status: string }>(
+      `SELECT status FROM import_batches WHERE id = $1`,
+      [batchId],
+    );
+    expect(bStatus?.status).not.toBe("committed");
+  });
   it("15. E2E 隔离清理证明（P1-3/P1-4）：正常 FK/trigger 下删除，外部词条保留、无孤儿、trigger 保持 enabled", async () => {
     // 创建一个「外部管理员」及其词条（模拟共享库中的真实数据）。
     const externalWord = freshWord();

@@ -3,3 +3,4 @@ export * from "./password.js";
 export * from "./lexicon/index.js";
 export * from "./courses/index.js";
 export * from "./imports/index.js";
+export * from "./operations/index.js";

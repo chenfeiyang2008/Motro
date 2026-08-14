@@ -1753,3 +1753,193 @@ button.secondary.danger {
 .learner-result .primary {
   text-decoration: none;
 }
+
+/* ============================================================
+   管理端任务状态（阶段 6 工单 04）：列表 / 详情 / attempt 时间线。
+   ============================================================ */
+
+.admin-operations,
+.admin-operation-detail {
+  max-width: 960px;
+}
+
+.operations-intro {
+  color: var(--color-text-secondary);
+  max-width: 60ch;
+}
+
+.operations-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.operations-filter label {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.operations-filter select {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-bg-surface);
+  font-family: var(--font-zh);
+}
+
+.operations-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
+}
+
+.operations-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  min-width: 0;
+}
+
+.operations-table th,
+.operations-table td {
+  text-align: left;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+}
+
+.operations-table th {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.operations-link {
+  color: var(--color-text-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.operations-link:hover {
+  text-decoration: underline;
+}
+
+.operations-status {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.operations-status--succeeded {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 12%, white);
+}
+
+.operations-status--failed {
+  color: var(--color-error);
+  background: color-mix(in srgb, var(--color-error) 12%, white);
+}
+
+.operations-status--running,
+.operations-status--queued {
+  color: var(--color-text-secondary);
+  background: var(--color-bg-page);
+}
+
+.operations-status--retry_wait,
+.operations-status--manual_action {
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 12%, white);
+}
+
+.operations-empty {
+  color: var(--color-text-secondary);
+  padding: 20px 0;
+}
+
+.operations-pagination {
+  margin-top: 16px;
+}
+
+.operations-back {
+  color: var(--color-brand-600);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.operations-back:hover {
+  text-decoration: underline;
+}
+
+.operation-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px 20px;
+  margin: 0;
+}
+
+.operation-facts div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.operation-facts dt {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.operation-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.operation-error-summary {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+.operation-error-cell {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  max-width: 320px;
+}
+
+.operation-error-cell code {
+  color: var(--color-error);
+  font-family: var(--font-english);
+  font-size: 12px;
+  margin-right: 6px;
+}
+
+.operation-retry-panel {
+  margin: 20px 0;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: var(--color-bg-surface);
+}
+
+.operation-no-retry {
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.operation-attempts {
+  margin-top: 8px;
+}
+
+@media (max-width: 599px) {
+  .operations-table {
+    font-size: 13px;
+  }
+  .operation-error-cell {
+    max-width: 180px;
+  }
+}

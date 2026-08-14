@@ -59,11 +59,11 @@ E2E_ADMIN_PASSWORD=<管理员引导口令> pnpm run e2e:import
 
 1. 启动独立栈：`docker compose -f compose/e2e-import.yml up -d --build`
 2. 等待 `db-e2e` 与 `api-e2e` readiness
-3. 对独立库 `motro_e2e_import` 执行 migration `0001`–`0024`
+3. 对独立库 `motro_e2e_import` 执行 migration `0001`–`0030`
    （**强制**连接 `127.0.0.1:5433`，绝不继承 `POSTGRES_HOST`/远程库；凭据使用独立命名空间
    `E2E_POSTGRES_USER`/`E2E_POSTGRES_PASSWORD`，不依赖根 `.env` 的 `POSTGRES_*`；不需要手动 source `.env`）
-4. 校验独立库已迁移到版本 24
-5. 运行 `admin-imports.spec.ts`（Chromium + WebKit 并发；每个 project 使用独立管理员与独立 storageState 文件）
+4. 校验独立库已迁移到最新版本
+5. 运行 `admin-imports.spec.ts` 与 `admin-operations.spec.ts`（Chromium + WebKit 并发；每个 project 使用独立管理员与独立 storageState 文件）
 6. **无论测试通过、失败或中断**，最后执行 `docker compose -f compose/e2e-import.yml down -v` 清理独立栈
 
 **清理与中断边界：**
@@ -85,6 +85,24 @@ E2E_ADMIN_PASSWORD=<管理员引导口令> pnpm run e2e:import
 
 宿主侧 migration / 管理员创建 / 清理一律通过 `resolveIsolatedE2eTarget()` 解析为固定的 `127.0.0.1` 连接，
 不继承任何 `POSTGRES_HOST` / `API_PUBLIC_URL` / `PW_BASE_URL` 的远程值；API/Web 固定 `127.0.0.1:3100/3101`。
+
+**Worker 崩溃恢复 E2E（工单 04）：**
+
+- `pnpm run e2e:crash-recovery`：种入「崩溃后的残余状态」（running + 过期 lease + 旧 running attempt，
+  无任何 job），启动真实 Docker worker，验证周期性 recovery loop 自动发现、重新 enqueue、重新 claim、
+  最终 succeeded。断言 attempt 时间线：`attempt 1 = abandoned`、`attempt 2 = succeeded`，lease/claim 已清除。
+- `pnpm run e2e:restart`：同上，但显式验证「重启 worker」路径下的自动恢复（先验证 API 持久状态，
+  再重启 worker，再由 recovery loop 恢复）。
+
+**信号边界说明（诚实声明）：**
+
+- `SIGINT` / `SIGTERM`（可捕获）：worker 会走优雅关闭（`runner.stop()` + `pool.end()`），对在途 operation
+  完成失败/中止语义，不伪造 succeeded。E2E 的 `down -v` 可被这些信号触发。
+- `SIGKILL` / 断电 / 宿主崩溃（不可捕获）：worker 进程被硬杀，在途 operation 保持 `running` + lease，
+  lease 到期后由 recovery loop 在下一周期发现并重新投递。E2E 中的 crash 验证采用直接种入崩溃残渣
+  （确定性的权威状态），避免依赖 Graphile 对 `SIGKILL` 后残留 locked job 的重领时序。
+- 恢复证据必须是「recovery loop 主动扫描并重新 enqueue」而非「收到新 job 后恢复」；两者在真实栈中
+  通过 attempt 时间线（旧 abandoned + 新 succeeded）与 lease/claim 清除来区分。
 
 **手动逐步执行（等价于 runner，便于排查）：**
 

@@ -11,7 +11,13 @@
     "composite": false,
     "skipLibCheck": true
   },
-  "include": ["run-import-e2e.ts", "import-e2e-db.ts", "import-e2e-lib.ts"],
+  "include": [
+    "run-import-e2e.ts",
+    "run-restart-e2e.ts",
+    "run-crash-recovery-e2e.ts",
+    "import-e2e-db.ts",
+    "import-e2e-lib.ts"
+  ],
   "references": [
     { "path": "../../apps/api" },
     { "path": "../../packages/config" },

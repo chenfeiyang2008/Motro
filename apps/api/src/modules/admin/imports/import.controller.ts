@@ -37,6 +37,7 @@ import {
   ImportIdempotencyInProgressError,
   ImportService,
   ImportWriteError,
+  OperationEnqueueRollbackError,
 } from "./import.service.js";
 import {
   CommitImportBatchDto,
@@ -485,6 +486,18 @@ export class ImportController {
             retryable: true,
           },
         });
+        return;
+      }
+      if (err instanceof OperationEnqueueRollbackError) {
+        reply
+          .status(HttpStatus.SERVICE_UNAVAILABLE)
+          .send(
+            errorEnvelope(
+              HttpStatus.SERVICE_UNAVAILABLE,
+              "后台任务投递失败，本次提交已回滚，请稍后重试",
+              req.id,
+            ),
+          );
         return;
       }
       const code = (err as { code?: string }).code;

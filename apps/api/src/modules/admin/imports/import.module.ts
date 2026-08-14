@@ -6,6 +6,7 @@ import { mkdir, rm, access, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { AuthModule } from "../../../auth/auth.module.js";
 import { databaseProvider } from "../../../auth/database.provider.js";
+import { OperationsModule } from "../../operations/operations.module.js";
 import { ImportController } from "./import.controller.js";
 import { ImportService } from "./import.service.js";
 import { ImportParser } from "./import.parser.js";
@@ -13,7 +14,7 @@ import { ImportBatchRepository } from "./import.repository.js";
 import { APP_CONFIG } from "./tokens.js";
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, OperationsModule],
   controllers: [ImportController],
   providers: [
     databaseProvider,

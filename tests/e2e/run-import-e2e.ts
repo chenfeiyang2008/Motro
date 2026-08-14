@@ -109,6 +109,7 @@ async function main(): Promise<void> {
           "playwright",
           "test",
           "tests/e2e/admin-imports.spec.ts",
+          "tests/e2e/admin-operations.spec.ts",
           "--project=chromium",
           "--project=webkit",
         ],

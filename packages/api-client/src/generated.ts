@@ -623,6 +623,57 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/admin/operations": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 列出后台操作（游标分页；可安全按 status/type 过滤） */
+    get: operations["OperationsController_list"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/operations/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 查看单个 operation 详情（含 attempt 时间线与脱敏错误） */
+    get: operations["OperationsController_detail"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/operations/{id}/retry": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** 管理员重试失败/人工状态操作（CSRF + Idempotency-Key + 审计） */
+    post: operations["OperationsController_retry"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/admin/imports": {
     parameters: {
       query?: never;
@@ -1560,6 +1611,76 @@ export interface components {
       highestUnlockedUnit: number;
       /** @description 按 position 升序的单元进度 */
       units: components["schemas"]["ProgressUnitDto"][];
+    };
+    OperationSummaryDto: {
+      /** @description operation ID */
+      id: string;
+      /** @description 操作类型 */
+      operationType: string;
+      /** @description 操作版本 */
+      operationVersion: number;
+      /** @description 目标类型 */
+      targetType: string;
+      /** @description 目标 ID（安全摘要：UUID 前 8 位 + …） */
+      targetId: string;
+      /** @description 输入版本 */
+      inputVersion: number;
+      /** @description 状态（queued/running/retry_wait/succeeded/failed/manual_action） */
+      status: string;
+      /** @description 尝试次数 */
+      attemptCount: number;
+      /** @description 最大尝试次数 */
+      maxAttempts: number;
+      /** @description 是否仍可自动重试 */
+      retryable: boolean;
+      /** @description 是否允许管理员重试（failed/manual_action 为 true） */
+      canRetry: boolean;
+      /** @description 脱敏最近错误码 */
+      lastErrorCode?: string;
+      /** @description 脱敏最近错误摘要 */
+      lastErrorSummary?: string;
+      /** @description 创建时间（RFC 3339 UTC） */
+      createdAt: string;
+      /** @description 最近更新时间（RFC 3339 UTC） */
+      updatedAt: string;
+      /** @description 开始时间（RFC 3339 UTC） */
+      startedAt?: string;
+      /** @description 完成时间（RFC 3339 UTC） */
+      completedAt?: string;
+    };
+    OperationListResponseDto: {
+      /** @description 游标分页结果 */
+      items: components["schemas"]["OperationSummaryDto"][];
+      /** @description 下一页游标；null 表示无更多 */
+      nextCursor?: string;
+    };
+    OperationAttemptSummaryDto: {
+      /** @description attempt ID */
+      id: string;
+      /** @description attempt 编号（从 1 递增） */
+      attemptNumber: number;
+      /** @description 开始时间（RFC 3339 UTC） */
+      startedAt: string;
+      /** @description 结束时间（RFC 3339 UTC） */
+      finishedAt?: string;
+      /** @description 结果（succeeded/failed；运行中为空） */
+      outcome?: string;
+      /** @description 脱敏错误码 */
+      errorCode?: string;
+      /** @description 脱敏错误摘要（受限长度，无堆栈/供应商 payload） */
+      errorSummary?: string;
+    };
+    OperationDetailDto: {
+      /** @description operation 概要 */
+      operation: components["schemas"]["OperationSummaryDto"];
+      /** @description attempt 时间线（新→旧） */
+      attempts: components["schemas"]["OperationAttemptSummaryDto"][];
+    };
+    OperationRetryResultDto: {
+      /** @description 重试后的 operation 概要 */
+      operation: components["schemas"]["OperationSummaryDto"];
+      /** @description 是否幂等重放（同 Idempotency-Key 已重试过） */
+      isIdempotentReplay: boolean;
     };
     ImportUploadBodyDto: {
       /**
@@ -2881,6 +3002,95 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["ProgressDto"];
         };
+      };
+    };
+  };
+  OperationsController_list: {
+    parameters: {
+      query?: {
+        /** @description 状态过滤（queued/running/…） */
+        status?: string;
+        /** @description 操作类型过滤 */
+        operationType?: string;
+        /** @description 分页游标 */
+        cursor?: string;
+        /** @description 每页数量（1–50，默认 20） */
+        limit?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OperationListResponseDto"];
+        };
+      };
+    };
+  };
+  OperationsController_detail: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description operation UUID */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OperationDetailDto"];
+        };
+      };
+    };
+  };
+  OperationsController_retry: {
+    parameters: {
+      query?: never;
+      header: {
+        "x-csrf-token": string;
+        "Idempotency-Key": string;
+      };
+      path: {
+        /** @description operation UUID */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OperationRetryResultDto"];
+        };
+      };
+      /** @description IDEMPOTENCY_CONFLICT / IDEMPOTENCY_IN_PROGRESS */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description 缺少 Idempotency-Key / 非法状态或未确认 / 未知字段 */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };
