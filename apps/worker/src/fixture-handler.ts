@@ -8,7 +8,9 @@
 //   - input_version=4：尊重 AbortSignal，收到中断即抛 OperationAbortError；
 //   - input_version=5：crash-recovery 模式——持锁等待一段时间后成功，用于真实
 //     Worker 停止 → lease 到期 → 重启重领恢复测试；
-//   - input_version=6：长任务——运行超过默认 lease 时长（依赖心跳续租），成功后返回。
+//   - input_version=7：抛 WIKI_RESPONSE_MALFORMED（WIKI permanent，终止自动重试）；
+//   - input_version=8：抛 WIKI_PAGE_NOT_FOUND（WIKI manual_action，需人工确认，不复投）；
+//   - input_version=9：抛 WIKI_TRANSIENT（WIKI retryable，退避重试）。
 //
 // 测试用不同 input_version 精确触发失败语义，同时用唯一 target id 保持互不干扰。
 // 该 handler 是窄提供者缝（见 @motro/domain 的 OperationHandler）。
@@ -38,6 +40,9 @@ export const BEHAVIOR_INPUT_VERSION_PERMANENT = 3;
 export const BEHAVIOR_INPUT_VERSION_ABORT = 4;
 export const BEHAVIOR_INPUT_VERSION_CRASH_RECOVERY = 5;
 export const BEHAVIOR_INPUT_VERSION_LONG_RUNNING = 6;
+export const BEHAVIOR_INPUT_VERSION_WIKI_PERMANENT = 7;
+export const BEHAVIOR_INPUT_VERSION_WIKI_MANUAL = 8;
+export const BEHAVIOR_INPUT_VERSION_WIKI_RETRYABLE = 9;
 
 /** crash-recovery fixture 的持锁时长（毫秒）：足够让 E2E 在锁内停止 worker。 */
 export const CRASH_RECOVERY_HOLD_MS = 10_000;
@@ -71,6 +76,15 @@ export function buildFixtureHandler(pool: Pool): OperationHandlerRegistry {
           // 长任务：超过默认 lease（依赖心跳续租保持 claim）。abort（如失去 claim）→ 立即退出。
           await waitForHold(signal, LONG_RUNNING_HOLD_MS);
           return { outcome: "succeeded", summary: "fixture 长任务成功（心跳续租保持 claim）" };
+        case BEHAVIOR_INPUT_VERSION_WIKI_PERMANENT:
+          if (signal?.aborted) throw new OperationAbortError();
+          throw new WikiPermanentError("fixture WIKI 永久失败（响应格式异常，重试无意义）");
+        case BEHAVIOR_INPUT_VERSION_WIKI_MANUAL:
+          if (signal?.aborted) throw new OperationAbortError();
+          throw new WikiManualActionError("fixture WIKI 页面不存在，需人工确认（不自动重试）");
+        case BEHAVIOR_INPUT_VERSION_WIKI_RETRYABLE:
+          if (signal?.aborted) throw new OperationAbortError();
+          throw new WikiRetryableError("fixture WIKI 临时失败（等待退避重试）");
         default:
           if (signal?.aborted) throw new OperationAbortError();
           return { outcome: "succeeded", summary: "fixture 成功（无供应商调用，无外部网络）" };
@@ -121,6 +135,38 @@ export class PermanentFailureError extends Error {
     this.errorCode = "OPERATION_PERMANENT";
   }
   readonly errorCode = "OPERATION_PERMANENT";
+}
+
+// ---- WIKI fixture error classes（只定义错误码，无真实 provider、无网络） ----
+
+/** WIKI permanent fixture 错误：由 input_version=7 触发。 */
+export class WikiPermanentError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "WikiPermanentError";
+    this.errorCode = "WIKI_RESPONSE_MALFORMED";
+  }
+  readonly errorCode = "WIKI_RESPONSE_MALFORMED";
+}
+
+/** WIKI manual_action fixture 错误：由 input_version=8 触发。 */
+export class WikiManualActionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "WikiManualActionError";
+    this.errorCode = "WIKI_PAGE_NOT_FOUND";
+  }
+  readonly errorCode = "WIKI_PAGE_NOT_FOUND";
+}
+
+/** WIKI retryable fixture 错误：由 input_version=9 触发。 */
+export class WikiRetryableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "WikiRetryableError";
+    this.errorCode = "WIKI_TRANSIENT";
+  }
+  readonly errorCode = "WIKI_TRANSIENT";
 }
 
 async function readOperationView(pool: Pool, operationId: string): Promise<FixtureOperationView> {

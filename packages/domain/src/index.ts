@@ -4,3 +4,4 @@ export * from "./lexicon/index.js";
 export * from "./courses/index.js";
 export * from "./imports/index.js";
 export * from "./operations/index.js";
+export * from "./wiktionary/index.js";

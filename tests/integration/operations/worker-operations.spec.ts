@@ -343,8 +343,10 @@ describe("worker operations foundation", () => {
         "SELECT version FROM schema_migrations ORDER BY version",
       );
       expect(versions.rows.map((r) => r.version)).toContain(30);
+      expect(versions.rows.map((r) => r.version)).toContain(31);
+      expect(versions.rows.map((r) => r.version)).toContain(32);
       const max = Math.max(...versions.rows.map((r) => r.version));
-      expect(max).toBe(30);
+      expect(max).toBe(32);
       const sch = await pool.query<{ n: string }>(
         `SELECT count(*)::text AS n FROM information_schema.schemata WHERE schema_name = 'graphile_worker'`,
       );
@@ -1511,6 +1513,262 @@ describe("worker operations foundation", () => {
         [r.operationId],
       );
       expect(attempts).toBe(0);
+    });
+  });
+
+  describe("工单 04→05 seam：manual_action 真实进入路径 + WIKI 错误分类 + target 契约", () => {
+    const WIKI_PERM = 7; // WIKI_RESPONSE_MALFORMED (permanent)
+    const WIKI_MANUAL = 8; // WIKI_PAGE_NOT_FOUND (manual_action)
+    const WIKI_RETRY = 9; // WIKI_TRANSIENT (retryable)
+
+    it("WIKI permanent → failed，绝不计费成功，绝不复投", async () => {
+      const r = await createOperation({ inputVersion: WIKI_PERM });
+      const outcome = await executeOperation(
+        workerPool,
+        workerRegistry,
+        r.operationId,
+        "wiki-perm",
+      );
+      expect(outcome).toBe("failed");
+      const op = await pool.query<{
+        status: string;
+        retryable: boolean;
+        last_error_code: string | null;
+        completed_at: Date | null;
+      }>(
+        "SELECT status, retryable, last_error_code, completed_at FROM application_operations WHERE id = $1",
+        [r.operationId],
+      );
+      expect(op.rows[0]!.status).toBe("failed");
+      expect(op.rows[0]!.retryable).toBe(false);
+      expect(op.rows[0]!.last_error_code).toBe("WIKI_RESPONSE_MALFORMED");
+      expect(op.rows[0]!.last_error_code).not.toBe("WIKI_PAGE_NOT_FOUND");
+      expect(op.rows[0]!.completed_at).not.toBeNull();
+      // attempt 只记录一次 failed——绝不伪装 succeeded。
+      const att = await pool.query<{ outcome: string; error_code: string | null }>(
+        "SELECT outcome, error_code FROM application_operation_attempts WHERE operation_id = $1",
+        [r.operationId],
+      );
+      expect(att.rows).toHaveLength(1);
+      expect(att.rows[0]!.outcome).toBe("failed");
+      expect(att.rows[0]!.error_code).toBe("WIKI_RESPONSE_MALFORMED");
+    });
+
+    it("WIKI manual_action → 进入 manual_action，不自动再次投递（单个 attempt）", async () => {
+      const r = await createOperation({ inputVersion: WIKI_MANUAL });
+      const outcome = await executeOperation(workerPool, workerRegistry, r.operationId, "wiki-man");
+      expect(outcome).toBe("manual_action");
+      const op = await pool.query<{
+        status: string;
+        retryable: boolean;
+        last_error_code: string | null;
+        completed_at: Date | null;
+        claim_token: string | null;
+        lease_owner: string | null;
+        lease_expires_at: Date | null;
+      }>(
+        "SELECT status, retryable, last_error_code, completed_at, claim_token, lease_owner, lease_expires_at FROM application_operations WHERE id = $1",
+        [r.operationId],
+      );
+      expect(op.rows[0]!.status).toBe("manual_action");
+      expect(op.rows[0]!.retryable).toBe(false);
+      expect(op.rows[0]!.last_error_code).toBe("WIKI_PAGE_NOT_FOUND");
+      expect(op.rows[0]!.completed_at).not.toBeNull();
+      expect(op.rows[0]!.claim_token).toBeNull();
+      expect(op.rows[0]!.lease_owner).toBeNull();
+      expect(op.rows[0]!.lease_expires_at).toBeNull();
+      // 单个 attempt（无第二个自动 attempt）。
+      const att = await pool.query<{
+        outcome: string;
+        error_code: string | null;
+        error_summary: string | null;
+      }>(
+        "SELECT outcome, error_code, error_summary FROM application_operation_attempts WHERE operation_id = $1",
+        [r.operationId],
+      );
+      expect(att.rows).toHaveLength(1);
+      expect(att.rows[0]!.outcome).toBe("failed");
+      expect(att.rows[0]!.error_code).toBe("WIKI_PAGE_NOT_FOUND");
+      // 摘要固定脱敏，不含 provider 原文。
+      expect(att.rows[0]!.error_summary ?? "").toContain("页面不存在");
+    });
+
+    it("WIKI manual_action 旧 job 重复执行必须 no-op（不产生第二个 attempt）", async () => {
+      const r = await createOperation({ inputVersion: WIKI_MANUAL });
+      expect(await executeOperation(workerPool, workerRegistry, r.operationId, "wiki-man-1")).toBe(
+        "manual_action",
+      );
+      // 重复 job（Graphile 重投/恢复重放）→ manual_action 是终态，claimDecision 返回 noop。
+      expect(await executeOperation(workerPool, workerRegistry, r.operationId, "wiki-man-2")).toBe(
+        "already_done",
+      );
+      const n = await qcount(
+        "SELECT count(*)::text AS n FROM application_operation_attempts WHERE operation_id = $1",
+        [r.operationId],
+      );
+      expect(n).toBe(1);
+    });
+
+    it("WIKI transient → retry_wait（可自动退避重试）", async () => {
+      const r = await createOperation({ inputVersion: WIKI_RETRY });
+      await expect(
+        executeOperation(workerPool, workerRegistry, r.operationId, "wiki-retry-1"),
+      ).rejects.toThrow(/临时失败/);
+      const op = await pool.query<{ status: string; last_error_code: string | null }>(
+        "SELECT status, last_error_code FROM application_operations WHERE id = $1",
+        [r.operationId],
+      );
+      expect(op.rows[0]!.status).toBe("retry_wait");
+      expect(op.rows[0]!.last_error_code).toBe("WIKI_TRANSIENT");
+    });
+
+    it("manual_action 不自动再次投递：无第二个自动 attempt；错误未伪装成功", async () => {
+      const r = await createOperation({ inputVersion: WIKI_MANUAL, maxAttempts: 10 });
+      await executeOperation(workerPool, workerRegistry, r.operationId, "wiki-man-noretry");
+      // 即便 maxAttempts 很大，manual_action 也不会自动重试（单 attempt）。
+      const att = await pool.query<{ outcome: string; error_code: string | null }>(
+        "SELECT outcome, error_code FROM application_operation_attempts WHERE operation_id = $1",
+        [r.operationId],
+      );
+      expect(att.rows).toHaveLength(1);
+      expect(att.rows[0]!.outcome).not.toBe("succeeded");
+      expect(att.rows[0]!.error_code).toBe("WIKI_PAGE_NOT_FOUND");
+    });
+
+    it("管理员经既有 retry 端点：manual_action → queued，并可重新执行", async () => {
+      const r = await createOperation({ inputVersion: WIKI_MANUAL });
+      await executeOperation(workerPool, workerRegistry, r.operationId, "wiki-man-retry");
+      let op = await pool.query<{ status: string }>(
+        "SELECT status FROM application_operations WHERE id = $1",
+        [r.operationId],
+      );
+      expect(op.rows[0]!.status).toBe("manual_action");
+
+      // 管理员显式 retry → queued（manual_action 的唯一合法离开路径）。
+      const ret = await admin.req("POST", `/api/v1/admin/operations/${r.operationId}/retry`, {
+        headers: { "idempotency-key": uniqKey() },
+        payload: { confirm: true },
+      });
+      expect(ret.statusCode).toBe(200);
+      op = await pool.query<{ status: string }>(
+        "SELECT status FROM application_operations WHERE id = $1",
+        [r.operationId],
+      );
+      expect(op.rows[0]!.status).toBe("queued");
+      // 重试后仍会再次进入 manual_action（fixture 每轮都抛 WIKI_PAGE_NOT_FOUND）。
+      expect(
+        await executeOperation(workerPool, workerRegistry, r.operationId, "wiki-man-retry-again"),
+      ).toBe("manual_action");
+    });
+
+    it("单个 manual_action 不阻塞其它 operation（各自独立推进）", async () => {
+      const manualOp = await createOperation({ inputVersion: WIKI_MANUAL });
+      const okOp = await createOperation({ inputVersion: SUCCESS_IV });
+      expect(await executeOperation(workerPool, workerRegistry, manualOp.operationId, "m-1")).toBe(
+        "manual_action",
+      );
+      expect(await executeOperation(workerPool, workerRegistry, okOp.operationId, "ok-1")).toBe(
+        "succeeded",
+      );
+      const m = await pool.query<{ status: string }>(
+        "SELECT status FROM application_operations WHERE id = $1",
+        [manualOp.operationId],
+      );
+      const o = await pool.query<{ status: string }>(
+        "SELECT status FROM application_operations WHERE id = $1",
+        [okOp.operationId],
+      );
+      expect(m.rows[0]!.status).toBe("manual_action");
+      expect(o.rows[0]!.status).toBe("succeeded");
+    });
+
+    it("target 契约负例：target_type='wiktionary_source_fact' 被数据库拒绝（不扩展白名单）", async () => {
+      const commitRow = await createCommitRow(pool, { userId: adminUserId });
+      let rejected = false;
+      try {
+        await pool.query(
+          `INSERT INTO application_operations
+             (operation_type, operation_version, target_type, target_id, input_hash, input_version,
+              status, task_identifier, queue_name, max_attempts)
+           VALUES ($1, 1, 'wiktionary_source_fact', $2, $3, 1, 'queued', $1, $4, 5)`,
+          [opType, commitRow.commitRowId, "hash_wiki", queueName],
+        );
+      } catch (err) {
+        rejected = true;
+        expect(String((err as Error).message)).toMatch(/target_type_whitelist/i);
+      }
+      expect(rejected, "target_type='wiktionary_source_fact' 应被数据库白名单拒绝").toBe(true);
+    });
+
+    it("target 契约负例：不存在的 target_id 被 FK 拒绝", async () => {
+      let rejected = false;
+      try {
+        await pool.query(
+          `INSERT INTO application_operations
+             (operation_type, operation_version, target_type, target_id, input_hash, input_version,
+              status, task_identifier, queue_name, max_attempts)
+           VALUES ($1, 1, 'import_batch_commit_row', $2, $3, 1, 'queued', $1, $4, 5)`,
+          [opType, "00000000-0000-4000-8000-0000000000ff", "hash_ghost", queueName],
+        );
+      } catch (err) {
+        rejected = true;
+        expect(String((err as Error).message)).toMatch(/application_operations_target_id_fkey/i);
+      }
+      expect(rejected, "不存在的 target_id 应被 FK 拒绝").toBe(true);
+    });
+
+    it("真实 commit row target 可创建 operation；source fact 未来只能经独立关联进入，不得伪造 target", async () => {
+      const commitRow = await createCommitRow(pool, { userId: adminUserId });
+      const r = await createOperation({ commitRowId: commitRow.commitRowId });
+      expect(r.created).toBe(true);
+      const op = await pool.query<{ target_type: string; target_id: string }>(
+        "SELECT target_type, target_id FROM application_operations WHERE id = $1",
+        [r.operationId],
+      );
+      expect(op.rows[0]!.target_type).toBe("import_batch_commit_row");
+      expect(op.rows[0]!.target_id).toBe(commitRow.commitRowId);
+      // 不存在 wiktionary_source_fact 目标类型：任何尝试都会被白名单拒绝。
+      const ghost = "00000000-0000-4000-8000-0000000000ee";
+      let rejected = false;
+      try {
+        await pool.query(
+          `INSERT INTO application_operations
+             (operation_type, operation_version, target_type, target_id, input_hash, input_version,
+              status, task_identifier, queue_name, max_attempts)
+           VALUES ($1, 1, 'wiktionary_source_fact', $2, $3, 1, 'queued', $1, $4, 5)`,
+          [opType, ghost, "hash_ghost2", queueName],
+        );
+      } catch (err) {
+        rejected = true;
+        expect(String((err as Error).message)).toMatch(/target_type_whitelist/i);
+      }
+      expect(rejected).toBe(true);
+    });
+
+    it("operation identity 仍绑定真实 commit row；删除被引用 commit row 被拒绝", async () => {
+      const commitRow = await createCommitRow(pool, { userId: adminUserId });
+      const r = await createOperation({ commitRowId: commitRow.commitRowId });
+      const op = await pool.query<{ target_type: string; target_id: string }>(
+        "SELECT target_type, target_id FROM application_operations WHERE id = $1",
+        [r.operationId],
+      );
+      expect(op.rows[0]!.target_type).toBe("import_batch_commit_row");
+      expect(op.rows[0]!.target_id).toBe(commitRow.commitRowId);
+      // 删除被引用的 commit row 被拒绝（FK RESTRICT 或 immutable）。
+      let rejected = false;
+      try {
+        await pool.query("DELETE FROM import_batch_commit_rows WHERE id = $1", [
+          commitRow.commitRowId,
+        ]);
+      } catch (err) {
+        rejected = true;
+        expect(
+          /application_operations_target_id_fkey|commit facts are immutable|immutable/i.test(
+            String((err as Error).message),
+          ),
+        ).toBe(true);
+      }
+      expect(rejected).toBe(true);
     });
   });
 

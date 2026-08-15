@@ -6,6 +6,7 @@
 // 工单 05/06 只需在此 seam 注入 Wiktionary/DeepSeek provider adapter，而无需重新设计
 // 队列、operation、attempt、重试、审计、状态 API 或管理 UI。
 // 本 seam 不携带任何供应商 payload、秘密、路径或完整异常堆栈。
+import type { DeferredSourceFact } from "../wiktionary/deferred-fact.js";
 
 export interface OperationHandlerResult {
   /** 稳定、脱敏、受限长度的结果摘要（写入 attempt 投影；绝不包含供应商正文或秘密）。 */
@@ -14,6 +15,17 @@ export interface OperationHandlerResult {
   summary: string;
   /** 0-255 的稳定失败码（retryable 判定由调用方经 classifyError 决定）。 */
   errorCode?: string;
+  /**
+   * 由 handler 生成、经 domain 校验的 deferred source fact 草稿。
+   *
+   * 原子性契约（Ticket 05 修复）：handler 绝不可通过 autocommit 自行写入
+   * wiktionary_source_facts。本字段返回的每个 DeferredSourceFact 都必须在
+   * executeOperation 的【最终事务】中与 operation completion（completeAttempt）
+   * 一起写入；任一步失败则整体 rollback，不留孤儿不可变事实。
+   *
+   * 默认空数组：普通 handler/已有 handler（如 fixture）不受影响。
+   */
+  deferredFacts?: DeferredSourceFact[];
 }
 
 /**

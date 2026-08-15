@@ -14,6 +14,7 @@ import {
   isValidQueueName,
   isValidTaskIdentifier,
   looksLikeUuidEmbedded,
+  MANUAL_ACTION_ERROR_CODES,
   MOTRO_JOB_KEY_NAMESPACE,
   MOTRO_RECOVERY_JOB_KEY_NAMESPACE,
   operationInputHash,
@@ -80,6 +81,78 @@ describe("错误分类", () => {
     expect(classifyError(undefined)).toBe("retryable");
     expect(classifyError(null)).toBe("retryable");
     expect(classifyError("")).toBe("retryable");
+    expect(classifyError("SOME_UNKNOWN")).toBe("retryable");
+  });
+
+  describe("工单 05 seam：WIKI 错误分类契约（不实现 provider）", () => {
+    it("WIKI permanent 错误 → permanent（不会进入 retry_wait）", () => {
+      for (const code of [
+        "WIKI_RESPONSE_MALFORMED",
+        "WIKI_RESPONSE_TOO_LARGE",
+        "WIKI_UNSAFE_CONTENT",
+        "WIKI_PROVIDER_CONTRACT",
+      ]) {
+        expect(classifyError(code)).toBe("permanent");
+      }
+    });
+
+    it("WIKI manual_action 错误 → manual_action（需人工确认，不自动重试）", () => {
+      for (const code of [
+        "WIKI_PAGE_NOT_FOUND",
+        "WIKI_REVISION_NOT_FOUND",
+        "WIKI_LICENSE_INCOMPLETE",
+        "WIKI_ATTRIBUTION_INCOMPLETE",
+        "WIKI_AMBIGUOUS",
+      ]) {
+        expect(classifyError(code)).toBe("manual_action");
+      }
+      // MANUAL_ACTION_ERROR_CODES 集合包含全部 manual_action WIKI 码，且明确独立。
+      for (const code of MANUAL_ACTION_ERROR_CODES) {
+        expect(classifyError(code)).toBe("manual_action");
+      }
+    });
+
+    it("WIKI retryable 错误 → retryable（进入 retry_wait）", () => {
+      expect(classifyError("WIKI_TRANSIENT")).toBe("retryable");
+    });
+
+    it("manual_action 不是任意错误的默认兜底", () => {
+      // 只有显式在 MANUAL_ACTION_ERROR_CODES 中的码才进入 manual_action；
+      // 任意未知错误仍按既有保守策略视为 retryable。
+      expect(classifyError("WIKI_SOME_FUTURE_CODE")).toBe("retryable");
+      expect(classifyError("OPERATION_BOGUS")).toBe("retryable");
+      expect(classifyError("WIKI_PAGE_NOT_FOUND")).toBe("manual_action");
+    });
+
+    it("manual_action 绝不伪装成 succeeded（状态机不提供 manual_action → succeeded）", () => {
+      expect(isLegalTransition("manual_action", "succeeded")).toBe(false);
+      expect(isLegalTransition("manual_action", "running")).toBe(false);
+      // 唯一合法离开路径是管理员重试转 queued。
+      expect(isLegalTransition("manual_action", "queued")).toBe(true);
+    });
+
+    it("WIKI 稳定错误摘要为固定领域文案，绝不保存 provider 原文", () => {
+      for (const [code, snippet] of [
+        ["WIKI_RESPONSE_MALFORMED", "格式异常"],
+        ["WIKI_RESPONSE_TOO_LARGE", "响应过大"],
+        ["WIKI_UNSAFE_CONTENT", "不安全内容"],
+        ["WIKI_PROVIDER_CONTRACT", "契约不符"],
+        ["WIKI_PAGE_NOT_FOUND", "页面不存在"],
+        ["WIKI_REVISION_NOT_FOUND", "修订版本不存在"],
+        ["WIKI_LICENSE_INCOMPLETE", "许可信息不完整"],
+        ["WIKI_ATTRIBUTION_INCOMPLETE", "归属信息不完整"],
+        ["WIKI_AMBIGUOUS", "歧义"],
+        ["WIKI_TRANSIENT", "临时失败"],
+      ] as const) {
+        const s = safeErrorSummary(code, "标题为 xxx 的页面 password=hunter2 secret");
+        expect(s).toContain(snippet);
+        expect(s).not.toContain("hunter2");
+        expect(s).not.toContain("secret");
+      }
+    });
+  });
+
+  it("unknown error 仍受 maxAttempts 约束（conservative retryable）", () => {
     expect(classifyError("SOME_UNKNOWN")).toBe("retryable");
   });
 });

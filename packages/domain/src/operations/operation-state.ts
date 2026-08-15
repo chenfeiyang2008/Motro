@@ -54,28 +54,53 @@ export function isLegalTransition(from: OperationStatus, to: OperationStatus): b
 // ---- 错误分类 ----
 
 /** 可重试错误：Worker 会自动退避重试，直至最大尝试次数。 */
-export const RETRYABLE_ERROR_CODES = new Set(["OPERATION_TRANSIENT"]);
+export const RETRYABLE_ERROR_CODES = new Set([
+  "OPERATION_TRANSIENT",
+  // 工单 05 seam 修复（Ticket 04→05）：WIKI transient 契约。真实 provider 仍未实现；
+  // 此分类只建立稳定错误契约，供未来 adapter 复用，不新增任何 provider 逻辑或网络请求。
+  "WIKI_TRANSIENT",
+]);
 
-/** 永久错误：任何重试都不会改变结果，operation 直接 failed/manual_action。 */
+/** 永久错误：任何重试都不会改变结果，operation 直接 failed。 */
 export const PERMANENT_ERROR_CODES = new Set([
   "OPERATION_PERMANENT",
   "OPERATION_TARGET_MISSING",
   "OPERATION_INVALID_PAYLOAD",
   "OPERATION_ALREADY_SUCCEEDED",
   "OPERATION_MAX_ATTEMPTS_EXCEEDED",
+  // 工单 05 seam 修复（Ticket 04→05）：WIKI permanent 契约。见 P1-2。
+  "WIKI_RESPONSE_MALFORMED",
+  "WIKI_RESPONSE_TOO_LARGE",
+  "WIKI_UNSAFE_CONTENT",
+  "WIKI_PROVIDER_CONTRACT",
 ]);
 
-export type ErrorDisposition = "retryable" | "permanent";
+/**
+ * manual_action 错误：需要管理员人工介入（目标缺失/许可不完整/归属不完整/歧义等），
+ * Worker 绝不自动重试，operation 进入 manual_action 终态，等待管理员显式 retry。
+ * 它是一个【独立、显式】的人工处理分类，不是任意错误的默认兜底；也绝不被伪装成 succeeded。
+ */
+export const MANUAL_ACTION_ERROR_CODES = new Set([
+  // 工单 05 seam 修复（Ticket 04→05）：WIKI manual_action 契约。见 P1-2。
+  "WIKI_PAGE_NOT_FOUND",
+  "WIKI_REVISION_NOT_FOUND",
+  "WIKI_LICENSE_INCOMPLETE",
+  "WIKI_ATTRIBUTION_INCOMPLETE",
+  "WIKI_AMBIGUOUS",
+]);
+
+export type ErrorDisposition = "retryable" | "permanent" | "manual_action";
 
 /**
- * 把 handler 抛出的错误规范化并分类为 retryable / permanent。
+ * 把 handler 抛出的错误规范化并分类为 retryable / permanent / manual_action。
  * 未知错误码保守视为可重试（transient），由 maxAttempts 兜底，避免把可自愈失败
- * 错误标记为永久。
+ * 错误标记为永久或人工。
  */
 export function classifyError(code: string | undefined | null): ErrorDisposition {
   if (code === undefined || code === null || code === "") return "retryable";
   if (RETRYABLE_ERROR_CODES.has(code)) return "retryable";
   if (PERMANENT_ERROR_CODES.has(code)) return "permanent";
+  if (MANUAL_ACTION_ERROR_CODES.has(code)) return "manual_action";
   return "retryable";
 }
 
@@ -162,6 +187,18 @@ const FIXED_ERROR_SUMMARIES: Record<string, string> = {
   OPERATION_MAX_ATTEMPTS_EXCEEDED: "任务已达到最大尝试次数",
   OPERATION_HANDLER_MISSING: "未注册的 operation handler",
   OPERATION_ABORTED: "任务已中止",
+  // 工单 05 seam 修复（Ticket 04→05）：WIKI 错误固定、脱敏摘要契约。
+  // 只存储固定领域文案，绝不保存 provider 原文（含响应正文/标题/词条片段/路径/密钥）。
+  WIKI_TRANSIENT: "Wiki 数据源临时失败，等待自动重试",
+  WIKI_RESPONSE_MALFORMED: "Wiki 数据源响应格式异常",
+  WIKI_RESPONSE_TOO_LARGE: "Wiki 数据源响应过大",
+  WIKI_UNSAFE_CONTENT: "Wiki 数据源包含不安全内容",
+  WIKI_PROVIDER_CONTRACT: "Wiki 数据源提供者契约不符",
+  WIKI_PAGE_NOT_FOUND: "Wiki 页面不存在，需人工确认",
+  WIKI_REVISION_NOT_FOUND: "Wiki 修订版本不存在，需人工确认",
+  WIKI_LICENSE_INCOMPLETE: "Wiki 来源许可信息不完整，需人工补充",
+  WIKI_ATTRIBUTION_INCOMPLETE: "Wiki 来源归属信息不完整，需人工补充",
+  WIKI_AMBIGUOUS: "Wiki 目标存在歧义，需人工确认",
 };
 
 export function safeErrorSummary(errorCode: string | undefined, rawMessage?: string): string {
