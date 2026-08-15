@@ -491,7 +491,7 @@ export default function StudyPage() {
     <section className="study-shell">
       {/* 语义 h1：视觉隐藏、读屏与 heading 结构可识别；不放大标题破坏专注学习页。 */}
       <h1 className="visually-hidden">学习会话</h1>
-      <div className="study-header glass-surface glass-surface--regular">
+      <header className="study-header glass-surface glass-surface--regular">
         <button
           ref={exitButtonRef}
           type="button"
@@ -516,7 +516,7 @@ export default function StudyPage() {
             {position} / {total}
           </span>
         </div>
-      </div>
+      </header>
 
       {error !== "" && (
         <p className="study-error" role="alert">
@@ -550,55 +550,59 @@ export default function StudyPage() {
 
       {item ? (
         <div className="study-card">
-          <p className="study-direction">
-            {item.direction === "en_to_zh" ? "英文 → 中文" : "中文 → 英文"}
-          </p>
-          <p
-            className={`study-prompt ${item.direction === "en_to_zh" ? "study-text-english" : "study-text-zh"}`}
-          >
-            {promptText(item)}
-          </p>
-          {item.hint ? <p className="study-hint">提示：{item.hint}</p> : null}
-
-          {!revealed ? (
-            <button
-              ref={revealButtonRef}
-              type="button"
-              className="primary study-reveal-btn"
-              disabled={submitting}
-              onClick={() => void doReveal()}
+          <div className="study-card__intro">
+            <p className="study-direction">
+              {item.direction === "en_to_zh" ? "英文 → 中文" : "中文 → 英文"}
+            </p>
+            <p
+              className={`study-prompt ${item.direction === "en_to_zh" ? "study-text-english" : "study-text-zh"}`}
             >
-              显示答案
-            </button>
-          ) : (
-            <>
-              <div className="study-answer">
-                <p className="study-answer-label">答案</p>
-                <p
-                  className={`study-answer-value ${item.direction === "en_to_zh" ? "study-text-zh" : "study-text-english"}`}
-                >
-                  {answerText(item)}
-                </p>
-              </div>
-              <div className="study-ratings">
-                {RATINGS.map((r, i) => (
-                  <button
-                    key={r.key}
-                    ref={i === 0 ? firstRatingRef : undefined}
-                    type="button"
-                    className="study-rating"
-                    // 网络失败且仍持有待重试评分意图时，四个评分按钮全部禁用：
-                    // 只能通过下方「重新提交 {rating}」复用同一意图（同一 clientEventId + 同一 rating）。
-                    disabled={submitting || pendingRating.current !== null}
-                    onClick={() => void submitRating(r.key)}
+              {promptText(item)}
+            </p>
+            {item.hint ? <p className="study-hint">提示：{item.hint}</p> : null}
+          </div>
+
+          <div className="study-card__decision">
+            {!revealed ? (
+              <button
+                ref={revealButtonRef}
+                type="button"
+                className="primary study-reveal-btn"
+                disabled={submitting}
+                onClick={() => void doReveal()}
+              >
+                显示答案
+              </button>
+            ) : (
+              <>
+                <div className="study-answer">
+                  <p className="study-answer-label">答案</p>
+                  <p
+                    className={`study-answer-value ${item.direction === "en_to_zh" ? "study-text-zh" : "study-text-english"}`}
                   >
-                    <span>{r.label}</span>
-                    <span className="study-rating-key">快捷键 {r.shortcut}</span>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
+                    {answerText(item)}
+                  </p>
+                </div>
+                <div className="study-ratings" aria-label="选择记忆难度">
+                  {RATINGS.map((r, i) => (
+                    <button
+                      key={r.key}
+                      ref={i === 0 ? firstRatingRef : undefined}
+                      type="button"
+                      className="study-rating"
+                      // 网络失败且仍持有待重试评分意图时，四个评分按钮全部禁用：
+                      // 只能通过下方「重新提交 {rating}」复用同一意图（同一 clientEventId + 同一 rating）。
+                      disabled={submitting || pendingRating.current !== null}
+                      onClick={() => void submitRating(r.key)}
+                    >
+                      <span>{r.label}</span>
+                      <span className="study-rating-key">快捷键 {r.shortcut}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       ) : (
         <div className="study-card">
