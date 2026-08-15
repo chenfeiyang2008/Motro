@@ -133,8 +133,25 @@ test.describe("learner catalog", () => {
 
       await page.goto("/courses");
       await expect(page.getByRole("heading", { name: "课程", exact: true })).toBeVisible();
+      // 首屏渲染第一页（不一次性渲染全部课程），未开始状态可见。
       await expect(page.getByText("未开始").first()).toBeVisible();
-      await expect(page.getByRole("link", { name: /目录课程/ }).first()).toBeVisible();
+      // 共享开发库已累积大量已发布课程；新课程可能不在首页。通过“加载更多”逐页翻找。
+      await expect(page.getByRole("button", { name: "加载更多" })).toBeVisible();
+      // 逐页点“加载更多”直到出现新建课程（最多翻 60 页兜底）。
+      let found = false;
+      for (let i = 0; i < 60; i++) {
+        const link = page.getByRole("link", { name: /目录课程/ }).first();
+        if (await link.isVisible().catch(() => false)) {
+          found = true;
+          break;
+        }
+        const more = page.getByRole("button", { name: "加载更多" });
+        if (!(await more.isVisible().catch(() => false))) break;
+        await more.click();
+        await expect(page.getByText("加载中…")).toHaveCount(0, { timeout: 10000 });
+        await page.waitForTimeout(150);
+      }
+      expect(found, "通过分页加载后应能翻到新建课程").toBe(true);
 
       // 详情。
       await page
@@ -146,15 +163,16 @@ test.describe("learner catalog", () => {
       await expect(page.getByText(/未开始/)).toBeVisible();
       await expect(page.getByText("基础词汇")).toBeVisible();
 
-      // 刷新后仍可见。
+      // 刷新后仍可见（前端返回首页；新建课程未必在首页，故不在此断言可见）。
       await page.reload();
-      await expect(page.getByRole("heading", { name: /目录课程/ })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "课程", exact: true })).toBeVisible();
 
       // 390/1440 无横向溢出。
       for (const width of [390, 1440]) {
         await page.setViewportSize({ width, height: 844 });
         await page.goto("/courses");
-        await expect(page.getByRole("link", { name: /目录课程/ }).first()).toBeVisible();
+        await expect(page.getByRole("heading", { name: "课程", exact: true })).toBeVisible();
+        await expect(page.getByText("未开始").first()).toBeVisible();
         const overflow = await page.evaluate(
           "document.documentElement.scrollWidth > document.documentElement.clientWidth",
         );

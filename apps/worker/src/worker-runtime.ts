@@ -9,6 +9,7 @@ import type { OperationHandlerRegistry } from "@motro/domain";
 import { buildFixtureHandler } from "./fixture-handler.js";
 import { buildTaskList } from "./task-list.js";
 import { buildWiktionaryFakeHandler } from "./wiktionary-fake-handler.js";
+import { buildDeepSeekFakeHandler } from "./deepseek-fake-handler.js";
 
 export interface WorkerRuntime {
   config: AppConfig;
@@ -26,10 +27,11 @@ export function toDbConfig(cfg: AppConfig): DbConfig {
 export function createWorkerRuntime(env: NodeJS.ProcessEnv = process.env): WorkerRuntime {
   const config = loadConfig(env);
   const pool = createPool({ ...config.db, max: config.worker.maxPoolSize });
-  // 合并 fixture handler 与 wiktionary fake handler 为一个 registry（task identifier 唯一）。
+  // 合并 fixture / wiktionary / deepseek 假 handler 为一个 registry（task identifier 唯一）。
   const fixture = buildFixtureHandler(pool);
   const wiktionary = buildWiktionaryFakeHandler(pool);
-  const registry: OperationHandlerRegistry = new Map([...fixture, ...wiktionary]);
+  const deepseek = buildDeepSeekFakeHandler(pool);
+  const registry: OperationHandlerRegistry = new Map([...fixture, ...wiktionary, ...deepseek]);
   const taskList = buildTaskList(pool, registry, config.worker.leaseMs);
   return {
     config,

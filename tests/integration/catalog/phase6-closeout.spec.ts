@@ -319,12 +319,12 @@ describe("phase 6 learning core closeout", () => {
       const applied = await migrate(isoConfig, MIGRATIONS_DIR);
       expect(applied.map((m) => m.version)).toEqual([
         1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
-        26, 27, 28, 29, 30, 31, 32,
+        26, 27, 28, 29, 30, 31, 32, 33,
       ]);
       const recorded = await listAppliedMigrations(isoConfig);
       expect(recorded.map((m) => m.version)).toEqual([
         1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
-        26, 27, 28, 29, 30, 31, 32,
+        26, 27, 28, 29, 30, 31, 32, 33,
       ]);
 
       const verify = createPool({ ...isoConfig, max: 1 });
@@ -404,6 +404,8 @@ describe("phase 6 learning core closeout", () => {
   it("阶段外业务表不存在：无 XP/挑战/导入/词汇来源之外的数据表与接口", async () => {
     const pool = createPool({ ...config, max: 1 });
     try {
+      // 说明：enrichment_drafts 已于 Ticket 06 创建（单一草稿表，符合设计），故不再列入
+      // "不应存在"清单；wikipedia_drafts / deepseek_drafts 是未采用的分表方案，仍应不存在。
       const tables = await pool.query<{ tablename: string }>(
         `SELECT tablename FROM pg_tables
          WHERE schemaname = 'public'
@@ -411,7 +413,7 @@ describe("phase 6 learning core closeout", () => {
              'xp_entries','xp_ledger','user_levels','user_level_progress','badges','user_badges',
              'streaks','streak_days','streak_protection','weekly_challenge_boards','challenge_weeks',
              'challenge_quizzes','quiz_questions','quiz_responses','challenge_points','game_rule_sets',
-             'enrichment_drafts','wikipedia_drafts','deepseek_drafts',
+             'wikipedia_drafts','deepseek_drafts',
              'raw_wordlists','daily_plans','card_reviews','memory_states','fsrs_states'
            )`,
       );

@@ -7,6 +7,7 @@ export * from "./schema/courses.js";
 export * from "./schema/imports.js";
 export * from "./schema/operations.js";
 export * from "./schema/wiktionary.js";
+export * from "./schema/enrichment-drafts.js";
 export { createPool, type DbConfig, loadDbConfigFromEnv } from "./client.js";
 export {
   assessMigrationState,

@@ -504,13 +504,94 @@ export function retryOperation(
   );
 }
 
-// ---- 学习者：已发布课程目录（只读 current release） ----
+// ---- 管理员：用户管理（账号）----
+// 后端 /admin/users 响应体的 OpenAPI 契约（AdminUserDto / AdminUserListDto /
+// AdminCreateUserResultDto）已由 openapi:types 同步到 @motro/api-client。
+// 这里以 generated client 的类型为唯一来源，避免手写类型漂移。
+// 安全边界：password_hash / session token / 审计原始 payload 永不进入此层。
+
+export type AdminUser = components["schemas"]["AdminUserDto"];
+export type AdminUserRole = AdminUser["role"];
+export type AdminUserStatus = AdminUser["status"];
+export type AdminUserList = components["schemas"]["AdminUserListDto"];
+export type AdminUserCreateResult = components["schemas"]["AdminCreateUserResultDto"];
+
+export interface CreateAdminUserPayload {
+  username: string;
+  displayName: string;
+  timezone: string;
+  dailyBudgetMinutes: number;
+  role?: AdminUserRole;
+}
+
+/** 管理员：列出账号（含状态/创建时间，供用户管理表格与停用状态展示）。 */
+export function listAdminUsers(): Promise<ApiResult<AdminUserList>> {
+  return apiFetch<AdminUserList>("/api/v1/admin/users", { method: "GET" });
+}
+
+/**
+ * 管理员：创建账号，返回一次性密码（仅此一次）。
+ * Idempotency-Key 由调用方按“意图”生成并复用。
+ */
+export function createAdminUser(
+  payload: CreateAdminUserPayload,
+  idempotencyKey: string,
+): Promise<ApiResult<AdminUserCreateResult>> {
+  return apiFetch<AdminUserCreateResult>("/api/v1/admin/users", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    headers: { "idempotency-key": idempotencyKey },
+  });
+}
+
+/** 管理员：停用账号并撤销其全部会话（非幂等，无 Idempotency-Key）。 */
+export function disableAdminUser(id: string): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(`/api/v1/admin/users/${encodeURIComponent(id)}/disable`, {
+    method: "POST",
+  });
+}
+
+/**
+ * 管理员：重置一次性密码并撤销全部会话，返回新一次性密码。
+ * Idempotency-Key 由调用方按“意图”生成并复用。
+ */
+export function resetAdminUserPassword(
+  id: string,
+  idempotencyKey: string,
+): Promise<ApiResult<AdminUserCreateResult>> {
+  return apiFetch<AdminUserCreateResult>(
+    `/api/v1/admin/users/${encodeURIComponent(id)}/reset-password`,
+    { method: "POST", headers: { "idempotency-key": idempotencyKey } },
+  );
+}
+
+// ---- 学习者：已发布课程目录（只读 current release + keyset 游标分页） ----
 
 export type CatalogCourseSummary = components["schemas"]["CatalogCourseSummaryDto"];
 export type CatalogCourseDetail = components["schemas"]["CatalogCourseDetailDto"];
 
-export function listCatalogCourses(): Promise<ApiResult<{ items: CatalogCourseSummary[] }>> {
-  return apiFetch<{ items: CatalogCourseSummary[] }>("/api/v1/catalog/courses", { method: "GET" });
+export interface CatalogCourseList {
+  items: CatalogCourseSummary[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+export interface ListCatalogCoursesOptions {
+  /** 每页条目数，默认 24，最大 50。 */
+  limit?: number;
+  /** 不透明分页游标（由上一页返回），首页不传。 */
+  cursor?: string;
+}
+
+export function listCatalogCourses(
+  opts: ListCatalogCoursesOptions = {},
+): Promise<ApiResult<CatalogCourseList>> {
+  const search = new URLSearchParams();
+  if (opts.limit !== undefined) search.set("limit", String(opts.limit));
+  if (opts.cursor !== undefined) search.set("cursor", opts.cursor);
+  const qs = search.toString();
+  const path = qs ? `/api/v1/catalog/courses?${qs}` : "/api/v1/catalog/courses";
+  return apiFetch<CatalogCourseList>(path, { method: "GET" });
 }
 
 export function getCatalogCourse(courseId: string): Promise<ApiResult<CatalogCourseDetail>> {

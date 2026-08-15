@@ -198,7 +198,14 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminCreateUserResultDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -216,7 +223,14 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserListDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -245,7 +259,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -274,7 +295,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "停用成功（OK）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminOkDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -311,7 +339,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminCreateUserResultDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1276,7 +1311,27 @@
     "/api/v1/catalog/courses": {
       "get": {
         "operationId": "CatalogController_list",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "每页条目数，默认 24，最大 50",
+            "schema": {
+              "default": 24,
+              "type": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "不透明分页游标（由上一页返回），首页不传",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
@@ -1294,7 +1349,7 @@
             "bearer": []
           }
         ],
-        "summary": "学习者可见课程列表（只读 current release + 本人报名/主课程状态）",
+        "summary": "学习者可见课程列表（只读 current release + 本人报名/主课程状态），keyset 游标分页",
         "tags": [
           "catalog"
         ]
@@ -1713,6 +1768,33 @@
           }
         ],
         "summary": "进度概览（只读）：主课程 current release 各单元解锁 + 首测完成 + 稳定派生状态，由事件与快照完全重建",
+        "tags": [
+          "study"
+        ]
+      }
+    },
+    "/api/v1/study/metrics": {
+      "get": {
+        "operationId": "MetricsController_getMetrics",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LearningMetricsDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "可重建学习指标（只读）：已稳定词项、待复习数、7日节奏、会话统计、课程完成度。由 review_events / learning_cards / study_sessions 完全重建，标注事实来源、timezone、去重规则。",
         "tags": [
           "study"
         ]
@@ -2460,6 +2542,109 @@
           "timezone",
           "dailyBudgetMinutes",
           "role"
+        ]
+      },
+      "AdminUserDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "账号 UUID"
+          },
+          "username": {
+            "type": "string",
+            "description": "登录用户名（小写）"
+          },
+          "displayName": {
+            "type": "string",
+            "description": "显示名"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "learner",
+              "admin"
+            ]
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA 时区"
+          },
+          "dailyBudgetMinutes": {
+            "type": "number",
+            "description": "每日学习预算（分钟）",
+            "minimum": 1,
+            "maximum": 120
+          },
+          "mustChangePassword": {
+            "type": "boolean",
+            "description": "是否首登必须修改密码"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "disabled"
+            ],
+            "description": "真实数据库账号状态"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "账号创建时间（ISO 字符串）"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "displayName",
+          "role",
+          "timezone",
+          "dailyBudgetMinutes",
+          "mustChangePassword",
+          "status",
+          "createdAt"
+        ]
+      },
+      "AdminCreateUserResultDto": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/AdminUserDto"
+          },
+          "oneTimePassword": {
+            "type": "string",
+            "description": "一次性密码（仅此一次返回，绝不停留）"
+          }
+        },
+        "required": [
+          "user",
+          "oneTimePassword"
+        ]
+      },
+      "AdminUserListDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminUserDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "AdminOkDto": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "description": "操作成功"
+          }
+        },
+        "required": [
+          "ok"
         ]
       },
       "LexicalEntrySummaryDto": {
@@ -3657,10 +3842,21 @@
             "items": {
               "$ref": "#/components/schemas/CatalogCourseSummaryDto"
             }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true,
+            "description": "下一页不透明游标；最后一页为 null"
+          },
+          "hasMore": {
+            "type": "boolean",
+            "description": "是否还有后续页"
           }
         },
         "required": [
-          "items"
+          "items",
+          "nextCursor",
+          "hasMore"
         ]
       },
       "CatalogUnitSummaryDto": {
@@ -4692,6 +4888,289 @@
           "releaseNumber",
           "highestUnlockedUnit",
           "units"
+        ]
+      },
+      "MetricScopeDto": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "指标事实来源表",
+            "example": "learning_cards,review_events,study_sessions"
+          },
+          "asOf": {
+            "type": "string",
+            "description": "计算截止时刻（ISO 8601，UTC）"
+          },
+          "timezone": {
+            "type": "string",
+            "description": "用户 timezone",
+            "example": "Asia/Shanghai"
+          },
+          "dedup": {
+            "type": "string",
+            "description": "去重规则说明"
+          }
+        },
+        "required": [
+          "source",
+          "asOf",
+          "timezone",
+          "dedup"
+        ]
+      },
+      "StableWordsDto": {
+        "type": "object",
+        "properties": {
+          "globalCount": {
+            "type": "number",
+            "description": "全局（所有课程）已稳定词项数"
+          },
+          "timezone": {
+            "type": "string",
+            "description": "用户 timezone"
+          },
+          "asOf": {
+            "type": "string",
+            "description": "计算截止时刻"
+          }
+        },
+        "required": [
+          "globalCount",
+          "timezone",
+          "asOf"
+        ]
+      },
+      "CurrentCourseStableWordsDto": {
+        "type": "object",
+        "properties": {
+          "courseId": {
+            "type": "string",
+            "description": "主课程 ID"
+          },
+          "courseItemCount": {
+            "type": "number",
+            "description": "主课程当前 release 中的词项数"
+          },
+          "stableCount": {
+            "type": "number",
+            "description": "已稳定词项数（双向 scheduled_days >= 21）"
+          },
+          "timezone": {
+            "type": "string",
+            "description": "用户 timezone"
+          },
+          "asOf": {
+            "type": "string",
+            "description": "计算截止时刻"
+          }
+        },
+        "required": [
+          "courseId",
+          "courseItemCount",
+          "stableCount",
+          "timezone",
+          "asOf"
+        ]
+      },
+      "DueReviewCountDto": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "number",
+            "description": "当前待复习词项数（去重：每 item 至多计 1）"
+          },
+          "asOf": {
+            "type": "string",
+            "description": "计算截止时刻（ISO 8601，UTC）"
+          },
+          "timezone": {
+            "type": "string",
+            "description": "用户 timezone"
+          }
+        },
+        "required": [
+          "count",
+          "asOf",
+          "timezone"
+        ]
+      },
+      "DailyRhythmPointDto": {
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "string",
+            "description": "本地日键 YYYY-MM-DD",
+            "example": "2026-08-14"
+          },
+          "reviewCount": {
+            "type": "number",
+            "description": "当日有效 review 事件数（同一 client_event_id 去重）"
+          }
+        },
+        "required": [
+          "day",
+          "reviewCount"
+        ]
+      },
+      "SevenDayRhythmDto": {
+        "type": "object",
+        "properties": {
+          "timezone": {
+            "type": "string",
+            "description": "用户 timezone"
+          },
+          "startDay": {
+            "type": "string",
+            "description": "区间最早日（YYYY-MM-DD，用户本地日）"
+          },
+          "endDay": {
+            "type": "string",
+            "description": "区间最晚日（YYYY-MM-DD，用户本地日）"
+          },
+          "daily": {
+            "description": "各日的复习事件数",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DailyRhythmPointDto"
+            }
+          },
+          "total": {
+            "type": "number",
+            "description": "区间总复习次数"
+          }
+        },
+        "required": [
+          "timezone",
+          "startDay",
+          "endDay",
+          "daily",
+          "total"
+        ]
+      },
+      "SessionsDto": {
+        "type": "object",
+        "properties": {
+          "sessionCount": {
+            "type": "number",
+            "description": "历史会话总次数（status IN active/completed/abandoned）"
+          },
+          "completedCount": {
+            "type": "number",
+            "description": "已完成（status='completed'）会话数"
+          },
+          "totalDurationMinutes": {
+            "type": "number",
+            "description": "已完成会话累计时长（分钟），由 started_at→completed_at 计算"
+          },
+          "asOf": {
+            "type": "string",
+            "description": "计算截止时刻"
+          }
+        },
+        "required": [
+          "sessionCount",
+          "completedCount",
+          "totalDurationMinutes",
+          "asOf"
+        ]
+      },
+      "CourseCompletionDto": {
+        "type": "object",
+        "properties": {
+          "courseId": {
+            "type": "string",
+            "description": "主课程 ID"
+          },
+          "totalItemCount": {
+            "type": "number",
+            "description": "当前 release 中的词项总数"
+          },
+          "initiallyCompletedItemCount": {
+            "type": "number",
+            "description": "双向首测完成数"
+          },
+          "ratio": {
+            "type": "number",
+            "description": "完成度 0..1",
+            "example": 0.6
+          }
+        },
+        "required": [
+          "courseId",
+          "totalItemCount",
+          "initiallyCompletedItemCount",
+          "ratio"
+        ]
+      },
+      "LearningMetricsDto": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "description": "指标元信息",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MetricScopeDto"
+              }
+            ]
+          },
+          "stableWords": {
+            "description": "全局已稳定词项",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StableWordsDto"
+              }
+            ]
+          },
+          "currentCourseStableWords": {
+            "description": "当前课程已稳定词项",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CurrentCourseStableWordsDto"
+              }
+            ]
+          },
+          "dueReviews": {
+            "description": "待复习词项数",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DueReviewCountDto"
+              }
+            ]
+          },
+          "sevenDayRhythm": {
+            "description": "过去 7 日学习节奏",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SevenDayRhythmDto"
+              }
+            ]
+          },
+          "sessions": {
+            "description": "学习会话统计",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SessionsDto"
+              }
+            ]
+          },
+          "currentCourseCompletion": {
+            "description": "当前课程完成度",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CourseCompletionDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "scope",
+          "stableWords",
+          "currentCourseStableWords",
+          "dueReviews",
+          "sevenDayRhythm",
+          "sessions",
+          "currentCourseCompletion"
         ]
       },
       "OperationSummaryDto": {

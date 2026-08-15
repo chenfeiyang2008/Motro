@@ -155,8 +155,8 @@ test.describe("study web experience", () => {
       const learner = await createLearner(ctx, csrf);
       await loginAsLearner(page, learner, courseId);
 
-      // --- 首页：今日计划标题 + 主课程 + 预算 + 新学习计数 + 唯一主操作“开始学习” ---
-      await expect(page.getByRole("heading", { name: "今天的学习" })).toBeVisible();
+      // --- 首页：仪表盘标题 + 主课程 + 预算 + 新学习计数 + 唯一主操作“开始学习” ---
+      await expect(page.getByRole("heading", { name: "学习仪表盘" })).toBeVisible();
       await expect(page.getByText(/学习端课程/)).toBeVisible();
       await expect(page.getByText(/每日预算 10 分钟/)).toBeVisible();
       // 一个词项 → 双向两张新卡 → 新学习计数为 2。
@@ -222,7 +222,7 @@ test.describe("study web experience", () => {
       // “首复习”候选项（学习态）→ 首页主操作回到“开始学习”（开启新一轮会话）。
       await page.getByRole("link", { name: "返回首页" }).click();
       await expect(page).toHaveURL(/\/$/, { timeout: 15000 });
-      await expect(page.getByRole("heading", { name: "今天的学习" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "学习仪表盘" })).toBeVisible();
       await expect(page.getByRole("button", { name: "开始学习", exact: true })).toBeVisible();
     } finally {
       await ctx.dispose();

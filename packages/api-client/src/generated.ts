@@ -409,7 +409,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** 学习者可见课程列表（只读 current release + 本人报名/主课程状态） */
+    /** 学习者可见课程列表（只读 current release + 本人报名/主课程状态），keyset 游标分页 */
     get: operations["CatalogController_list"];
     put?: never;
     post?: never;
@@ -623,6 +623,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/study/metrics": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 可重建学习指标（只读）：已稳定词项、待复习数、7日节奏、会话统计、课程完成度。由 review_events / learning_cards / study_sessions 完全重建，标注事实来源、timezone、去重规则。 */
+    get: operations["MetricsController_getMetrics"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/admin/operations": {
     parameters: {
       query?: never;
@@ -808,6 +825,41 @@ export interface components {
        * @enum {string}
        */
       role: "learner" | "admin";
+    };
+    AdminUserDto: {
+      /** @description 账号 UUID */
+      id: string;
+      /** @description 登录用户名（小写） */
+      username: string;
+      /** @description 显示名 */
+      displayName: string;
+      /** @enum {string} */
+      role: "learner" | "admin";
+      /** @description IANA 时区 */
+      timezone: string;
+      /** @description 每日学习预算（分钟） */
+      dailyBudgetMinutes: number;
+      /** @description 是否首登必须修改密码 */
+      mustChangePassword: boolean;
+      /**
+       * @description 真实数据库账号状态
+       * @enum {string}
+       */
+      status: "active" | "disabled";
+      /** @description 账号创建时间（ISO 字符串） */
+      createdAt: string;
+    };
+    AdminCreateUserResultDto: {
+      user: components["schemas"]["AdminUserDto"];
+      /** @description 一次性密码（仅此一次返回，绝不停留） */
+      oneTimePassword: string;
+    };
+    AdminUserListDto: {
+      items: components["schemas"]["AdminUserDto"][];
+    };
+    AdminOkDto: {
+      /** @description 操作成功 */
+      ok: boolean;
     };
     LexicalEntrySummaryDto: {
       /** @description 词条 ID */
@@ -1227,6 +1279,10 @@ export interface components {
     };
     CatalogCourseListResponseDto: {
       items: components["schemas"]["CatalogCourseSummaryDto"][];
+      /** @description 下一页不透明游标；最后一页为 null */
+      nextCursor: string | null;
+      /** @description 是否还有后续页 */
+      hasMore: boolean;
     };
     CatalogUnitSummaryDto: {
       /** @description 稳定 unit_id */
@@ -1611,6 +1667,110 @@ export interface components {
       highestUnlockedUnit: number;
       /** @description 按 position 升序的单元进度 */
       units: components["schemas"]["ProgressUnitDto"][];
+    };
+    MetricScopeDto: {
+      /**
+       * @description 指标事实来源表
+       * @example learning_cards,review_events,study_sessions
+       */
+      source: string;
+      /** @description 计算截止时刻（ISO 8601，UTC） */
+      asOf: string;
+      /**
+       * @description 用户 timezone
+       * @example Asia/Shanghai
+       */
+      timezone: string;
+      /** @description 去重规则说明 */
+      dedup: string;
+    };
+    StableWordsDto: {
+      /** @description 全局（所有课程）已稳定词项数 */
+      globalCount: number;
+      /** @description 用户 timezone */
+      timezone: string;
+      /** @description 计算截止时刻 */
+      asOf: string;
+    };
+    CurrentCourseStableWordsDto: {
+      /** @description 主课程 ID */
+      courseId: string;
+      /** @description 主课程当前 release 中的词项数 */
+      courseItemCount: number;
+      /** @description 已稳定词项数（双向 scheduled_days >= 21） */
+      stableCount: number;
+      /** @description 用户 timezone */
+      timezone: string;
+      /** @description 计算截止时刻 */
+      asOf: string;
+    };
+    DueReviewCountDto: {
+      /** @description 当前待复习词项数（去重：每 item 至多计 1） */
+      count: number;
+      /** @description 计算截止时刻（ISO 8601，UTC） */
+      asOf: string;
+      /** @description 用户 timezone */
+      timezone: string;
+    };
+    DailyRhythmPointDto: {
+      /**
+       * @description 本地日键 YYYY-MM-DD
+       * @example 2026-08-14
+       */
+      day: string;
+      /** @description 当日有效 review 事件数（同一 client_event_id 去重） */
+      reviewCount: number;
+    };
+    SevenDayRhythmDto: {
+      /** @description 用户 timezone */
+      timezone: string;
+      /** @description 区间最早日（YYYY-MM-DD，用户本地日） */
+      startDay: string;
+      /** @description 区间最晚日（YYYY-MM-DD，用户本地日） */
+      endDay: string;
+      /** @description 各日的复习事件数 */
+      daily: components["schemas"]["DailyRhythmPointDto"][];
+      /** @description 区间总复习次数 */
+      total: number;
+    };
+    SessionsDto: {
+      /** @description 历史会话总次数（status IN active/completed/abandoned） */
+      sessionCount: number;
+      /** @description 已完成（status='completed'）会话数 */
+      completedCount: number;
+      /** @description 已完成会话累计时长（分钟），由 started_at→completed_at 计算 */
+      totalDurationMinutes: number;
+      /** @description 计算截止时刻 */
+      asOf: string;
+    };
+    CourseCompletionDto: {
+      /** @description 主课程 ID */
+      courseId: string;
+      /** @description 当前 release 中的词项总数 */
+      totalItemCount: number;
+      /** @description 双向首测完成数 */
+      initiallyCompletedItemCount: number;
+      /**
+       * @description 完成度 0..1
+       * @example 0.6
+       */
+      ratio: number;
+    };
+    LearningMetricsDto: {
+      /** @description 指标元信息 */
+      scope: components["schemas"]["MetricScopeDto"];
+      /** @description 全局已稳定词项 */
+      stableWords: components["schemas"]["StableWordsDto"];
+      /** @description 当前课程已稳定词项 */
+      currentCourseStableWords: components["schemas"]["CurrentCourseStableWordsDto"];
+      /** @description 待复习词项数 */
+      dueReviews: components["schemas"]["DueReviewCountDto"];
+      /** @description 过去 7 日学习节奏 */
+      sevenDayRhythm: components["schemas"]["SevenDayRhythmDto"];
+      /** @description 学习会话统计 */
+      sessions: components["schemas"]["SessionsDto"];
+      /** @description 当前课程完成度 */
+      currentCourseCompletion: components["schemas"]["CourseCompletionDto"];
     };
     OperationSummaryDto: {
       /** @description operation ID */
@@ -2076,7 +2236,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["AdminUserListDto"];
+        };
       };
     };
   };
@@ -2099,7 +2261,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["AdminCreateUserResultDto"];
+        };
       };
     };
   };
@@ -2118,7 +2282,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["AdminUserDto"];
+        };
       };
     };
   };
@@ -2133,11 +2299,14 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
+      /** @description 停用成功（OK） */
       200: {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["AdminOkDto"];
+        };
       };
     };
   };
@@ -2158,7 +2327,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["AdminCreateUserResultDto"];
+        };
       };
     };
   };
@@ -2732,7 +2903,12 @@ export interface operations {
   };
   CatalogController_list: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description 每页条目数，默认 24，最大 50 */
+        limit?: number;
+        /** @description 不透明分页游标（由上一页返回），首页不传 */
+        cursor?: string;
+      };
       header?: never;
       path?: never;
       cookie?: never;
@@ -3001,6 +3177,25 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ProgressDto"];
+        };
+      };
+    };
+  };
+  MetricsController_getMetrics: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LearningMetricsDto"];
         };
       };
     };

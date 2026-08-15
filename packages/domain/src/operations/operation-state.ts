@@ -59,6 +59,14 @@ export const RETRYABLE_ERROR_CODES = new Set([
   // 工单 05 seam 修复（Ticket 04→05）：WIKI transient 契约。真实 provider 仍未实现；
   // 此分类只建立稳定错误契约，供未来 adapter 复用，不新增任何 provider 逻辑或网络请求。
   "WIKI_TRANSIENT",
+  // 工单 06 seam（Ticket 06）：DRAFT 瞬态契约。网络/限流/5xx 可自动重试；
+  // 空输出/非 JSON 至多重试 1 次（由 maxAttempts 兜底，耗尽转 failed→manual）。
+  "DRAFT_NETWORK_ERROR",
+  "DRAFT_TIMEOUT",
+  "DRAFT_RATE_LIMIT",
+  "DRAFT_SERVER_ERROR",
+  "DRAFT_EMPTY_OUTPUT",
+  "DRAFT_INVALID_JSON",
 ]);
 
 /** 永久错误：任何重试都不会改变结果，operation 直接 failed。 */
@@ -73,6 +81,11 @@ export const PERMANENT_ERROR_CODES = new Set([
   "WIKI_RESPONSE_TOO_LARGE",
   "WIKI_UNSAFE_CONTENT",
   "WIKI_PROVIDER_CONTRACT",
+  // 工单 06 seam（Ticket 06）：DRAFT permanent 契约。重试不自愈，直接 failed。
+  "DRAFT_SCHEMA_INVALID",
+  "DRAFT_EXTRA_FIELD",
+  "DRAFT_UNSAFE_CONTENT",
+  "DRAFT_OVER_LENGTH",
 ]);
 
 /**
@@ -87,6 +100,11 @@ export const MANUAL_ACTION_ERROR_CODES = new Set([
   "WIKI_LICENSE_INCOMPLETE",
   "WIKI_ATTRIBUTION_INCOMPLETE",
   "WIKI_AMBIGUOUS",
+  // 工单 06 seam（Ticket 06）：DRAFT manual_action 契约。认证/预算/缺来源/模型身份不足需人工。
+  "DRAFT_AUTH_FAILED",
+  "DRAFT_BUDGET_EXCEEDED",
+  "DRAFT_SOURCE_MISSING",
+  "DRAFT_MODEL_IDENTITY_INSUFFICIENT",
 ]);
 
 export type ErrorDisposition = "retryable" | "permanent" | "manual_action";
@@ -199,6 +217,23 @@ const FIXED_ERROR_SUMMARIES: Record<string, string> = {
   WIKI_LICENSE_INCOMPLETE: "Wiki 来源许可信息不完整，需人工补充",
   WIKI_ATTRIBUTION_INCOMPLETE: "Wiki 来源归属信息不完整，需人工补充",
   WIKI_AMBIGUOUS: "Wiki 目标存在歧义，需人工确认",
+  // 工单 06 seam：DRAFT 错误固定、脱敏摘要契约（Ticket 06 DeepSeek draft）。
+  // 只存储固定领域文案，绝不保存 prompt / provider response / 例句 / 密钥 / 路径。
+  DRAFT_TRANSIENT: "DeepSeek 草稿临时失败，等待自动重试",
+  DRAFT_EMPTY_OUTPUT: "模型返回空内容",
+  DRAFT_INVALID_JSON: "草稿解析失败",
+  DRAFT_SCHEMA_INVALID: "草稿内容不合规",
+  DRAFT_EXTRA_FIELD: "草稿内容不合规",
+  DRAFT_UNSAFE_CONTENT: "草稿含不安全内容",
+  DRAFT_OVER_LENGTH: "草稿内容过长",
+  DRAFT_RATE_LIMIT: "服务繁忙，稍后重试",
+  DRAFT_SERVER_ERROR: "服务暂时不可用",
+  DRAFT_NETWORK_ERROR: "网络连接失败",
+  DRAFT_TIMEOUT: "请求超时",
+  DRAFT_AUTH_FAILED: "认证失败，请检查配置",
+  DRAFT_BUDGET_EXCEEDED: "预算/配额不足",
+  DRAFT_SOURCE_MISSING: "来源事实缺失或存在歧义",
+  DRAFT_MODEL_IDENTITY_INSUFFICIENT: "模型身份不足，需人工确认",
 };
 
 export function safeErrorSummary(errorCode: string | undefined, rawMessage?: string): string {

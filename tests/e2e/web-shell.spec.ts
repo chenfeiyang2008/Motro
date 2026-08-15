@@ -21,7 +21,7 @@ test.describe("web shell", () => {
       await expect(page).toHaveURL(/\/login/, { timeout: 15000 });
     } else {
       // 无 API 的 web-shell job：getStudyToday 网络失败 → 诚实错误态，仍保留首页标题结构。
-      await expect(page.getByRole("heading", { name: "今天的学习" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "学习仪表盘" })).toBeVisible();
     }
   });
 

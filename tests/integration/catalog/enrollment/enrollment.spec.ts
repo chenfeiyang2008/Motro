@@ -7,6 +7,7 @@ import { resolve } from "node:path";
 import { createPool, loadDbConfigFromEnv, migrate } from "@motro/db";
 import { createApp } from "../../../../apps/api/src/bootstrap-app.js";
 import { PasswordService } from "../../../../apps/api/src/auth/password.service.js";
+import { closeAppDbPools, dropIsolatedDatabase } from "../isolated-db.helper.js";
 
 type App = Awaited<ReturnType<typeof createApp>>;
 
@@ -97,11 +98,23 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
     let otherLearner: Client;
     let learnerUserId: string;
     let otherUserId: string;
+    let isolatedDbName: string | undefined;
+    const previousDb = process.env.POSTGRES_DB;
 
     beforeAll(async () => {
-      await migrate(config, MIGRATIONS_DIR);
+      // 一次性隔离库，避免共享开发库已累积海量已发布课程导致分页断言不稳定。
+      isolatedDbName = `motro_enroll_${Date.now().toString(36)}_${randomBytes(3).toString("hex")}`;
+      const adminPool = createPool({ ...config, database: "postgres", max: 1 });
+      try {
+        await adminPool.query(`CREATE DATABASE "${isolatedDbName}"`);
+      } finally {
+        await adminPool.end();
+      }
+      const isolatedConfig = { ...config, database: isolatedDbName };
+      await migrate(isolatedConfig, MIGRATIONS_DIR);
+      process.env.POSTGRES_DB = isolatedDbName;
       const ps = new PasswordService();
-      const seedPool = createPool({ ...config, max: 1 });
+      const seedPool = createPool({ ...isolatedConfig, max: 1 });
       const adminHash = await ps.hashPassword("enroll-itest-admin-pass-123");
       await seedPool.query(
         `INSERT INTO users (username, display_name, role, status, timezone, daily_budget_minutes, password_hash, must_change_password)
@@ -156,7 +169,19 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
     });
 
     afterAll(async () => {
-      await app.close();
+      try {
+        if (app) {
+          // 先显式 end 各模块池/health 池，再 close，避免 DROP 隔离库时强杀待释放连接（57P01）。
+          await closeAppDbPools(app);
+          await app.close();
+        }
+      } finally {
+        if (previousDb === undefined) delete process.env.POSTGRES_DB;
+        else process.env.POSTGRES_DB = previousDb;
+        if (isolatedDbName) {
+          await dropIsolatedDatabase(isolatedDbName);
+        }
+      }
     });
 
     function body(res: Res): Record<string, unknown> {
@@ -218,7 +243,7 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
 
     /** 直接读取某用户的 active primary 报名数量（DB 断言）。 */
     async function countActivePrimary(userId: string): Promise<number> {
-      const pool = createPool({ ...config, max: 1 });
+      const pool = createPool({ ...loadDbConfigFromEnv(), max: 1 });
       try {
         const res = await pool.query<{ n: string }>(
           `SELECT count(*)::text AS n FROM course_enrollments
@@ -233,7 +258,7 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
 
     /** 直接读取某用户的报名行数。 */
     async function countEnrollments(userId: string): Promise<number> {
-      const pool = createPool({ ...config, max: 1 });
+      const pool = createPool({ ...loadDbConfigFromEnv(), max: 1 });
       try {
         const res = await pool.query<{ n: string }>(
           `SELECT count(*)::text AS n FROM course_enrollments WHERE user_id = $1`,
@@ -390,7 +415,7 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
     it("数据库 partial unique index 是并发防线：直接插入第二个 active primary 被拒绝", async () => {
       const a = await createPublishedCourse({ title: "索引课程A" });
       const b = await createPublishedCourse({ title: "索引课程B" });
-      const pool = createPool({ ...config, max: 1 });
+      const pool = createPool({ ...loadDbConfigFromEnv(), max: 1 });
       try {
         // 清空该用户现有报名，从干净状态验证唯一索引本身。
         await pool.query(`DELETE FROM course_enrollments WHERE user_id = $1`, [learnerUserId]);
@@ -418,7 +443,7 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
       });
       expect(await countActivePrimary(learnerUserId)).toBe(1);
 
-      const pool = createPool({ ...config, max: 1 });
+      const pool = createPool({ ...loadDbConfigFromEnv(), max: 1 });
       try {
         await pool.query(
           `UPDATE course_enrollments SET active = false, is_primary = false, updated_at = now()
@@ -500,7 +525,7 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
     });
 
     it("报名/设主不创建学习产物（learning_cards 表存在但不产生行；review_events/xp 无表）", async () => {
-      const pool = createPool({ ...config, max: 1 });
+      const pool = createPool({ ...loadDbConfigFromEnv(), max: 1 });
       try {
         // 阶段 5 已引入 learning_cards/learning_exposures/review_events；XP/每日计划表仍不存在。
         const tables = await pool.query<{ tablename: string }>(
@@ -523,7 +548,7 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
       expect(d).not.toHaveProperty("xp");
 
       // 报名/设主不产生学习卡行（卡由学习接口按需同步）。
-      const pool2 = createPool({ ...config, max: 1 });
+      const pool2 = createPool({ ...loadDbConfigFromEnv(), max: 1 });
       try {
         const cards = await pool2.query<{ n: string }>(
           `SELECT count(*)::text AS n FROM learning_cards

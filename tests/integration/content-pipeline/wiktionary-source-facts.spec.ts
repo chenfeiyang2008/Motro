@@ -215,8 +215,9 @@ describe("wiktionary source fact foundation", () => {
       );
       expect(versions.rows.map((r) => r.version)).toContain(31);
       expect(versions.rows.map((r) => r.version)).toContain(32);
+      expect(versions.rows.map((r) => r.version)).toContain(33);
       const max = Math.max(...versions.rows.map((r) => r.version));
-      expect(max).toBe(32);
+      expect(max).toBe(33);
       const tbl = await pool.query<{ n: string }>(
         `SELECT count(*)::text AS n FROM information_schema.tables WHERE table_name = 'wiktionary_source_facts'`,
       );

@@ -11,16 +11,19 @@ import {
   ParseUUIDPipe,
   Post,
   Put,
+  Query,
   Req,
+  UnprocessableEntityException,
   UseGuards,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { SessionGuard, type AuthenticatedRequest } from "../../auth/session.guard.js";
-import { CourseService } from "./courses/course.service.js";
+import { CourseService, decodeCatalogCursor } from "./courses/course.service.js";
 import {
   CatalogCourseDetailDto,
   CatalogCourseListResponseDto,
   EnrollCourseDto,
+  ListCatalogCoursesQueryDto,
   SetPrimaryCourseDto,
 } from "./courses/dto.js";
 
@@ -32,10 +35,22 @@ export class CatalogController {
 
   @Get("courses")
   @ApiBearerAuth()
-  @ApiOperation({ summary: "学习者可见课程列表（只读 current release + 本人报名/主课程状态）" })
+  @ApiOperation({
+    summary: "学习者可见课程列表（只读 current release + 本人报名/主课程状态），keyset 游标分页",
+  })
   @ApiOkResponse({ type: CatalogCourseListResponseDto })
-  list(@Req() req: AuthenticatedRequest) {
-    return this.courseService.listCatalogCourses(req.user.id);
+  list(@Req() req: AuthenticatedRequest, @Query() query: ListCatalogCoursesQueryDto) {
+    // 非法 cursor → 422 错误信封（不回落默认，避免把非法边界当空首屏）。
+    if (query.cursor !== undefined && decodeCatalogCursor(query.cursor) === null) {
+      throw new UnprocessableEntityException({
+        message: "分页游标无效",
+        fieldErrors: [{ path: "cursor", code: "invalid", message: "分页游标无效或已过期" }],
+      });
+    }
+    const opts: { limit?: number; cursor?: string } = {};
+    if (query.limit !== undefined) opts.limit = query.limit;
+    if (query.cursor !== undefined) opts.cursor = query.cursor;
+    return this.courseService.listCatalogCourses(req.user.id, opts);
   }
 
   @Get("courses/:id")

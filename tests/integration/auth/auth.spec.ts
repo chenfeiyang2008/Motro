@@ -304,6 +304,92 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")("auth inte
     expect(relogin.statusCode).toBe(401);
   });
 
+  it("管理端列表返回完整安全投影且不泄露敏感字段；管理员不能停用自己（409）", async () => {
+    // admin 自己的 id（itest-admin 由 beforeAll 插入）。
+    const pool = createPool({ ...config, max: 1 });
+    let adminId: string;
+    try {
+      const row = await pool.query<{ id: string }>(
+        `SELECT id FROM users WHERE username = 'itest-admin'`,
+      );
+      expect(row.rows[0]).toBeTruthy();
+      adminId = row.rows[0]!.id;
+    } finally {
+      await pool.end();
+    }
+
+    // 列表必须包含状态/创建时间/预算等安全投影字段（管理端用户管理 IA 需要）。
+    const list = await admin.req("GET", "/api/v1/admin/users", {});
+    expect(list.statusCode).toBe(200);
+    const items = (list.json() as { items: Array<Record<string, unknown>> }).items;
+    expect(Array.isArray(items)).toBe(true);
+    const shaped = items.find((u) => u.id === adminId);
+    expect(shaped).toBeTruthy();
+
+    // 必须存在完整的 whitelist 投影字段。
+    const expectedFields = [
+      "id",
+      "username",
+      "displayName",
+      "role",
+      "timezone",
+      "dailyBudgetMinutes",
+      "mustChangePassword",
+      "status",
+      "createdAt",
+    ];
+    for (const f of expectedFields) {
+      expect(shaped, `列表投影应包含字段 ${f}`).toHaveProperty(f);
+    }
+    expect(shaped?.status).toBe("active");
+    expect(typeof shaped?.createdAt).toBe("string");
+    expect(new Date(shaped!.createdAt as string).getTime()).not.toBeNaN();
+    expect(typeof shaped?.dailyBudgetMinutes).toBe("number");
+
+    // 敏感字段绝不进入列表投影。
+    const keys = Object.keys(shaped as Record<string, unknown>);
+    for (const sensitive of [
+      "password_hash",
+      "passwordHash",
+      "password_version",
+      "sessionToken",
+      "session_token",
+      "oneTimePassword",
+      "otp_consumed",
+      "otpConsumed",
+      "before_summary",
+      "after_summary",
+      "request_id",
+    ]) {
+      expect(keys, `列表不得泄露敏感字段 ${sensitive}`).not.toContain(sensitive);
+    }
+    // 列表绝不包含审计原始 payload（audit_events 相关字段）。
+    const ser = JSON.stringify(list.json());
+    expect(ser).not.toContain("password_hash");
+    expect(ser).not.toContain("passwordHash");
+    expect(ser).not.toContain("sessionToken");
+    expect(ser).not.toContain("oneTimePassword");
+
+    // 详情（GET /admin/users/:id）同样只返回安全投影，不泄露敏感字段。
+    const detail = await admin.req("GET", `/api/v1/admin/users/${adminId}`, {});
+    expect(detail.statusCode).toBe(200);
+    const detailBody = detail.json() as Record<string, unknown>;
+    for (const f of expectedFields) {
+      expect(detailBody, `详情投影应包含字段 ${f}`).toHaveProperty(f);
+    }
+    const detailSer = JSON.stringify(detailBody);
+    expect(detailSer).not.toContain("password_hash");
+    expect(detailSer).not.toContain("sessionToken");
+    expect(detailSer).not.toContain("oneTimePassword");
+
+    // 当前登录管理员停用自己 → 409（不能停用自己）。
+    const self = await admin.req("POST", `/api/v1/admin/users/${adminId}/disable`, {});
+    expect(self.statusCode).toBe(409);
+    expect(String((self.json() as { error: { message: string } }).error.message)).toContain(
+      "不能停用自己的账号",
+    );
+  });
+
   it("重置密码后旧密码失效、新一次性密码可登录", async () => {
     const { client, otp, username } = await createLearner("reset");
     await client.req("POST", "/api/v1/auth/login", { payload: { username, password: otp } });

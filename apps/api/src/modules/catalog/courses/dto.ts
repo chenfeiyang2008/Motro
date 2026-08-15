@@ -1,5 +1,6 @@
 // 课程/草稿/单元 DTO：请求校验（ValidationPipe → 422 fieldErrors）与 OpenAPI 响应形状。
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { Type } from "class-transformer";
 import {
   IsArray,
   IsBoolean,
@@ -10,6 +11,7 @@ import {
   MaxLength,
   Min,
   MinLength,
+  Max,
 } from "class-validator";
 import { COURSE_LEVELS } from "@motro/domain";
 
@@ -598,6 +600,27 @@ export class CatalogCourseDetailDto extends CatalogCourseSummaryDto {
 export class CatalogCourseListResponseDto {
   @ApiProperty({ type: [CatalogCourseSummaryDto] })
   items!: CatalogCourseSummaryDto[];
+
+  @ApiProperty({ type: String, nullable: true, description: "下一页不透明游标；最后一页为 null" })
+  nextCursor!: string | null;
+
+  @ApiProperty({ description: "是否还有后续页" })
+  hasMore!: boolean;
+}
+
+export class ListCatalogCoursesQueryDto {
+  @ApiPropertyOptional({ description: "每页条目数，默认 24，最大 50", default: 24 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  limit?: number;
+
+  @ApiPropertyOptional({ description: "不透明分页游标（由上一页返回），首页不传" })
+  @IsOptional()
+  @IsString()
+  cursor?: string;
 }
 
 export class EnrollCourseDto {

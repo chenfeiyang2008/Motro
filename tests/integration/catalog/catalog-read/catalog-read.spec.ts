@@ -7,6 +7,7 @@ import { resolve } from "node:path";
 import { createPool, loadDbConfigFromEnv, migrate } from "@motro/db";
 import { createApp } from "../../../../apps/api/src/bootstrap-app.js";
 import { PasswordService } from "../../../../apps/api/src/auth/password.service.js";
+import { closeAppDbPools, dropIsolatedDatabase } from "../isolated-db.helper.js";
 
 type App = Awaited<ReturnType<typeof createApp>>;
 
@@ -99,26 +100,37 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")("learner c
   let app: App;
   let admin: Client;
   let learner: Client;
+  let isolatedDbName: string | undefined;
+  const previousDb = process.env.POSTGRES_DB;
 
   beforeAll(async () => {
-    await migrate(config, MIGRATIONS_DIR);
-    const adminPool = createPool({ ...config, max: 1 });
+    // 一次性隔离库，避免共享开发库已累积海量已发布课程导致分页断言不稳定。
+    isolatedDbName = `motro_catalog_read_${Date.now().toString(36)}_${randomBytes(3).toString("hex")}`;
+    const adminPool = createPool({ ...config, database: "postgres", max: 1 });
+    try {
+      await adminPool.query(`CREATE DATABASE "${isolatedDbName}"`);
+    } finally {
+      await adminPool.end();
+    }
+    const isolatedConfig = { ...config, database: isolatedDbName };
+    await migrate(isolatedConfig, MIGRATIONS_DIR);
+    // 让 createApp / @motro/config 与本测试池都指向隔离库。
+    process.env.POSTGRES_DB = isolatedDbName;
+    const adminPool2 = createPool({ ...isolatedConfig, max: 1 });
     const ps = new PasswordService();
     const hash = await ps.hashPassword("catalog-itest-admin-pass-123");
-    await adminPool.query(
+    await adminPool2.query(
       `INSERT INTO users (username, display_name, role, status, timezone, daily_budget_minutes, password_hash, must_change_password)
-       VALUES ('catalog-itest-admin', 'Catalog ITest Admin', 'admin', 'active', 'Asia/Shanghai', 10, $1, false)
-       ON CONFLICT (username) DO UPDATE SET password_hash = $1, must_change_password = false, status = 'active'`,
+       VALUES ('catalog-itest-admin', 'Catalog ITest Admin', 'admin', 'active', 'Asia/Shanghai', 10, $1, false)`,
       [hash],
     );
     const learnerHash = await ps.hashPassword("catalog-itest-learner-pass-123");
-    await adminPool.query(
+    await adminPool2.query(
       `INSERT INTO users (username, display_name, role, status, timezone, daily_budget_minutes, password_hash, must_change_password)
-       VALUES ('catalog-itest-learner', 'Catalog ITest Learner', 'learner', 'active', 'Asia/Shanghai', 10, $1, false)
-       ON CONFLICT (username) DO UPDATE SET password_hash = $1, must_change_password = false, status = 'active'`,
+       VALUES ('catalog-itest-learner', 'Catalog ITest Learner', 'learner', 'active', 'Asia/Shanghai', 10, $1, false)`,
       [learnerHash],
     );
-    await adminPool.end();
+    await adminPool2.end();
 
     app = await createApp();
     await app.init();
@@ -136,7 +148,19 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")("learner c
   });
 
   afterAll(async () => {
-    await app.close();
+    try {
+      if (app) {
+        // 先显式 end 各模块池/health 池，再 close，避免 DROP 隔离库时强杀待释放连接（57P01）。
+        await closeAppDbPools(app);
+        await app.close();
+      }
+    } finally {
+      if (previousDb === undefined) delete process.env.POSTGRES_DB;
+      else process.env.POSTGRES_DB = previousDb;
+      if (isolatedDbName) {
+        await dropIsolatedDatabase(isolatedDbName);
+      }
+    }
   });
 
   function body(res: Res): Record<string, unknown> {
@@ -254,7 +278,8 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")("learner c
 
     // 不可见课程（visibility 非 published）详情 404。
     const pub = await createPublishedCourse();
-    const pool = createPool({ ...config, max: 1 });
+    // 用当前环境（已指向隔离库）的连接更新可见性。
+    const pool = createPool({ ...loadDbConfigFromEnv(), max: 1 });
     try {
       await pool.query(`UPDATE courses SET visibility = 'archived' WHERE id = $1`, [pub.courseId]);
     } finally {

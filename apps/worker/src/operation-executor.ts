@@ -19,6 +19,7 @@ import {
   type DeferredSourceFact,
   type OperationHandlerRegistry,
   type OperationStatus,
+  type DeferredDraft,
 } from "@motro/domain";
 
 export interface OperationRow {
@@ -409,6 +410,56 @@ export async function writeDeferredFactsInTx(
   return { inserted, replayed };
 }
 
+/**
+ * 在【已开好的事务 client 上】写入 deferred drafts（append-only，幂等 ON CONFLICT）。
+ * 与 completeAttempt 同事务 → 任一步失败整体 rollback，绝不留孤儿 draft 事实。
+ * 不关闭事务/连接。
+ */
+export async function writeDeferredDraftsInTx(
+  client: PoolClient,
+  drafts: DeferredDraft[],
+): Promise<{ inserted: number; replayed: number }> {
+  let inserted = 0;
+  let replayed = 0;
+  for (const d of drafts) {
+    const res = await client.query(
+      `INSERT INTO enrichment_drafts
+         (import_batch_commit_row_id, lexical_entry_id, wiktionary_source_fact_id, operation_id,
+          provider, configured_model_alias, resolved_provider_model, provider_fingerprint,
+          prompt_template_version, input_hash, request_hash, response_hash,
+          draft_schema_version, status, simplified_chinese_meaning, learning_hint,
+          validation_metadata, error_code, safe_error_summary, completed_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+       ON CONFLICT DO NOTHING`,
+      [
+        d.importBatchCommitRowId,
+        d.lexicalEntryId,
+        d.wiktionarySourceFactId,
+        d.operationId,
+        d.provider,
+        d.configuredModelAlias,
+        d.resolvedProviderModel,
+        d.providerFingerprint,
+        d.promptTemplateVersion,
+        d.inputHash,
+        d.requestHash,
+        d.responseHash,
+        d.draftSchemaVersion,
+        d.status,
+        d.simplifiedChineseMeaning,
+        d.learningHint,
+        JSON.stringify(d.validationMetadata ?? {}),
+        d.errorCode,
+        d.safeErrorSummary,
+        d.status !== "drafting" ? new Date() : null,
+      ],
+    );
+    if ((res.rowCount ?? 0) > 0) inserted++;
+    else replayed++;
+  }
+  return { inserted, replayed };
+}
+
 export type ExecuteResult =
   | "succeeded"
   | "failed"
@@ -561,6 +612,20 @@ export async function executeOperation(
         }
       }
       await writeDeferredFactsInTx(txClient, facts);
+    }
+
+    // 校验并写入 deferred drafts（Ticket 06；与 completion 同一事务，任一步失败整体回滚）。
+    const drafts = result.deferredDrafts ?? [];
+    if (drafts.length > 0) {
+      const { validateDeferredDraft } = await import("@motro/domain");
+      for (const d of drafts) {
+        const v = validateDeferredDraft(d);
+        if (!v.ok) {
+          await txClient.query("ROLLBACK").catch(() => {});
+          return "failed";
+        }
+      }
+      await writeDeferredDraftsInTx(txClient, drafts);
     }
 
     if (outcome === "succeeded") {

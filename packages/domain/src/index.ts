@@ -5,3 +5,5 @@ export * from "./courses/index.js";
 export * from "./imports/index.js";
 export * from "./operations/index.js";
 export * from "./wiktionary/index.js";
+export * from "./drafts/index.js";
+export * from "./learning-metrics/index.js";

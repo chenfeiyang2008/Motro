@@ -80,6 +80,16 @@ For Web, reproduce the **functional hierarchy and perceptual cues**, not Apple p
 - **Edge treatment is a boundary, not an outline style.** Use one quiet rim that communicates separation from content; avoid doubled strokes, glowing blue borders, and a separate glossy tile around every destination. The opaque fallback keeps an equivalent boundary using the standard border token.
 - **No browser-costly imitation.** Do not animate `filter`, `backdrop-filter`, or a large full-screen blur on every pointer or scroll frame. Limit simultaneous Glass regions, keep the Dock/rail/header as one group, and animate only composited state properties when possible. If the material cannot remain responsive on a target device, retain the semantic grouping with the opaque fallback.
 
+#### Reference implementation: `rdev/liquid-glass-react`
+
+[`rdev/liquid-glass-react`](https://github.com/rdev/liquid-glass-react) is an approved **visual and interaction reference**, not a dependency requirement or a source of platform guarantees. Its useful ideas are edge-local displacement/refraction, backdrop-derived highlights, bounded elasticity, and a larger mouse container that can drive one coherent glass group. Motro implementations may borrow those perceptual cues while remaining within the rules above.
+
+- Treat its `displacementScale`, frost/blur, saturation, aberration and elasticity controls as **tuning vocabulary**, never universal values. Start with the quietest setting that preserves separation; normal navigation must not show conspicuous chromatic fringes, a large moving light spot, or a perpetual glossy sweep.
+- Pointer tracking belongs in an isolated client-side glass component. Update CSS custom properties in a `requestAnimationFrame` loop or use compositor-friendly transforms; do not call React state updates, change layout dimensions, or animate `filter`/`backdrop-filter` for every pointer event. Selection motion stays interruptible and must coalesce rapid repeated activation into the current destination.
+- A parent “mouse container” may coordinate a Dock, rail, or compact toolbar only when it is the same navigation group. It must not make unrelated page content, cards, forms, or text appear to refract.
+- The library itself notes that Safari and Firefox only partially support displacement. Motro therefore treats native-looking refraction as progressive enhancement: the tested opaque fallback is the required baseline, and no label, icon, focus ring, hit target, or meaning may depend on displacement being visible.
+- Do not import the library merely to obtain an effect. Any dependency proposal must separately pass the project dependency, bundle-size, browser-support, security and reduced-motion review. Existing CSS/SVG implementation is preferred when it meets this specification.
+
 ### 3.6 Glass component states
 
 - A Glass control exposes real `default`, `hover` (pointer-capable devices only), `focus-visible`, `pressed`, `selected`, and `disabled` states. The focus indication must be independently visible; do not use a brighter Glass rim as the only keyboard-focus cue.

@@ -1,30 +1,18 @@
 "use client";
 
-// 管理端外壳：标准后台侧栏，内容分组导航。
+// 管理端外壳：标准后台左贴边侧栏，内容分组导航（spec §4.3）。
 // 路由级鉴权守卫：未登录跳转 /login，非管理员显示无权限页，首登未改密跳转改密页。
 // 会话密钥/密码/Token 始终在服务端（HttpOnly cookie），客户端只通过 /api/v1/auth/me 校验角色。
+// 壳层结构：桌面固定左贴边侧栏（Liquid Glass 仅作用于此功能层），
+// 窄屏折叠为可访问菜单；正文/表单/表格保持实体表面。
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { fetchMe } from "@/lib/auth";
 
-const NAV_GROUPS = [
-  {
-    label: "内容",
-    items: [
-      { href: "/admin/lexicon", label: "词条" },
-      { href: "/admin/courses", label: "课程" },
-    ],
-  },
-  {
-    label: "导入",
-    items: [{ href: "/admin/imports", label: "导入" }],
-  },
-  {
-    label: "系统",
-    items: [{ href: "/admin/operations", label: "任务状态" }],
-  },
-];
+import { AdminMobileNav } from "@/components/admin/mobile-nav";
+import { ADMIN_NAV_GROUPS } from "@/components/admin/nav";
+import { AdminSidebar } from "@/components/admin/sidebar";
 
 type AuthState = "loading" | "admin" | "forbidden";
 
@@ -78,26 +66,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="admin-shell">
-      <nav className="admin-sidebar" aria-label="管理端导航">
-        {NAV_GROUPS.map((group) => (
-          <section key={group.label} className="admin-nav-group">
-            <h2>{group.label}</h2>
-            <ul>
-              {group.items.map((item) => {
-                const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-                return (
-                  <li key={item.href}>
-                    <Link href={item.href} aria-current={active ? "page" : undefined}>
-                      {item.label}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        ))}
-      </nav>
-      <div className="admin-content">{children}</div>
+      {/* 桌面固定侧栏（>=1024px 显示；窄屏隐藏） */}
+      <AdminSidebar pathname={pathname} />
+
+      {/* 窄屏折叠菜单（<1024px 显示） */}
+      <AdminMobileNav groups={ADMIN_NAV_GROUPS} pathname={pathname} />
+
+      <div className="admin-content">
+        {/* 内容区由子页面提供自己的 h1 / section landmark */}
+        {children}
+      </div>
     </div>
   );
 }

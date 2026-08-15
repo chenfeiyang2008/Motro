@@ -21,6 +21,10 @@ export interface PublicUser {
   timezone: string;
   dailyBudgetMinutes: number;
   mustChangePassword: boolean;
+  /** 账号状态：active | disabled（来自 users.status）。 */
+  status: "active" | "disabled";
+  /** 账号创建时间 ISO 字符串。 */
+  createdAt: string;
 }
 
 function toPublicUser(user: UserRecord): PublicUser {
@@ -32,7 +36,13 @@ function toPublicUser(user: UserRecord): PublicUser {
     timezone: user.timezone,
     dailyBudgetMinutes: user.daily_budget_minutes,
     mustChangePassword: user.must_change_password,
+    status: user.status,
+    createdAt: toIso(user.created_at),
   };
+}
+
+function toIso(d: Date): string {
+  return new Date(d).toISOString();
 }
 
 export interface LoginResult {
@@ -209,6 +219,9 @@ export class AuthService {
 
   /** 管理员：停用账号并撤销全部会话。审计。 */
   async disableUser(actor: UserRecord, userId: string, requestId: string): Promise<void> {
+    if (actor.id === userId) {
+      throw new ConflictException("不能停用自己的账号");
+    }
     const result = await this.pool.query<UserRecord>(
       `UPDATE users SET status = 'disabled', updated_at = now() WHERE id = $1 AND status = 'active' RETURNING id, username`,
       [userId],

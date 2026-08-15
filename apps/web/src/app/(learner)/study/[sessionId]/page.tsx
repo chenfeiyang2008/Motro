@@ -491,7 +491,7 @@ export default function StudyPage() {
     <section className="study-shell">
       {/* 语义 h1：视觉隐藏、读屏与 heading 结构可识别；不放大标题破坏专注学习页。 */}
       <h1 className="visually-hidden">学习会话</h1>
-      <div className="study-header">
+      <div className="study-header glass-surface glass-surface--regular">
         <button
           ref={exitButtonRef}
           type="button"

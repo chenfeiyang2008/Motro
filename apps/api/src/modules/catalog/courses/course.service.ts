@@ -46,6 +46,57 @@ import type {
   UnitDto,
 } from "./dto.js";
 
+// ---- 学习者目录 keyset 分页 ----
+// 排序固定为 `release_number DESC, course_id ASC`。游标编码上一页末条的排序边界
+// (releaseNumber, courseId)，下一页用 keyset 谓词继续，不使用 offset。
+export const CATALOG_DEFAULT_LIMIT = 24;
+export const CATALOG_MAX_LIMIT = 50;
+
+export interface CatalogCursor {
+  releaseNumber: number;
+  courseId: string;
+}
+
+const CURSOR_PREFIX = "motro.catalog.course.v1";
+const UUID_HEX_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** 把排序边界编码为不透明游标（base64url JSON，带版本前缀）。 */
+export function encodeCatalogCursor(cursor: CatalogCursor): string {
+  const payload = Buffer.from(
+    `${CURSOR_PREFIX}.${JSON.stringify({
+      r: cursor.releaseNumber,
+      c: cursor.courseId,
+    })}`,
+    "utf8",
+  ).toString("base64url");
+  return payload;
+}
+
+/**
+ * 解码不透明游标；非法/不可解密/字段缺失 → 返回 null（调用方转 422）。
+ * 绝不因解码错误回落默认，把非法游标当空处理会泄露边界。
+ */
+export function decodeCatalogCursor(encoded: string): CatalogCursor | null {
+  let decoded: string;
+  try {
+    decoded = Buffer.from(encoded, "base64url").toString("utf8");
+  } catch {
+    return null;
+  }
+  if (!decoded.startsWith(`${CURSOR_PREFIX}.`)) return null;
+  const json = decoded.slice(CURSOR_PREFIX.length + 1);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    return null;
+  }
+  const obj = parsed as { r?: unknown; c?: unknown };
+  if (typeof obj.r !== "number" || !Number.isInteger(obj.r) || obj.r < 1) return null;
+  if (typeof obj.c !== "string" || !UUID_HEX_RE.test(obj.c)) return null;
+  return { releaseNumber: obj.r, courseId: obj.c };
+}
+
 /** 草稿版本冲突：服务端当前版本随异常携带，供控制器返回 409 信封。 */
 export class DraftVersionConflictError extends Error {
   constructor(public readonly currentVersion: number) {
@@ -311,20 +362,71 @@ export class CourseService {
     }));
   }
 
-  /** 学习者目录列表：只读可见课程的 current release，不读草稿。 */
-  async listCatalogCourses(userId: string): Promise<CatalogCourseListResponseDto> {
-    const result = await this.pool.query<CatalogCourseRow>(
-      `SELECT c.id AS course_id, r.id AS release_id, r.release_number, r.title, r.level, r.description,
-              e.active AS enrolled_active, e.is_primary AS enrolled_primary
-       FROM courses c
-       JOIN course_releases r ON r.id = c.current_release_id
-       LEFT JOIN course_enrollments e ON e.course_id = c.id AND e.user_id = $1
-       WHERE c.visibility = 'published' AND c.status = 'active'
-       ORDER BY r.release_number DESC, c.id ASC`,
-      [userId],
-    );
+  /** 学习者目录列表：只读可见课程的 current release，不读草稿；支持 keyset 游标分页。 */
+  async listCatalogCourses(
+    userId: string,
+    opts: { limit?: number; cursor?: string } = {},
+  ): Promise<CatalogCourseListResponseDto> {
+    const limit = Math.min(Math.max(opts.limit ?? CATALOG_DEFAULT_LIMIT, 1), CATALOG_MAX_LIMIT);
+    // 显式提供但无法解码的 cursor → 422，绝不回落默认（把非法边界当空首屏会跳过课程）。
+    let parsedCursor: CatalogCursor | null = null;
+    if (opts.cursor !== undefined) {
+      parsedCursor = decodeCatalogCursor(opts.cursor);
+      if (parsedCursor === null) {
+        throw new UnprocessableEntityException({
+          message: "分页游标无效",
+          fieldErrors: [{ path: "cursor", code: "invalid", message: "分页游标无效或已过期" }],
+        });
+      }
+    }
+    const pgLimit = limit + 1;
+
+    let sql: string;
+    let params: unknown[];
+
+    if (parsedCursor) {
+      // keyset 谓词：ORDER BY r.release_number DESC, c.id ASC
+      //   同 release_number 内取 courseId > 游标 courseId（升序）；
+      //   release_number 小于游标的全部保留（DESC 越小越靠后）。
+      sql = `SELECT c.id AS course_id, r.id AS release_id, r.release_number, r.title, r.level, r.description,
+                    e.active AS enrolled_active, e.is_primary AS enrolled_primary
+             FROM courses c
+             JOIN course_releases r ON r.id = c.current_release_id
+             LEFT JOIN course_enrollments e ON e.course_id = c.id AND e.user_id = $1
+             WHERE c.visibility = 'published' AND c.status = 'active'
+               AND (r.release_number < $2
+                    OR (r.release_number = $2 AND c.id > $3))
+             ORDER BY r.release_number DESC, c.id ASC
+             LIMIT $4`;
+      params = [userId, parsedCursor.releaseNumber, parsedCursor.courseId, pgLimit];
+    } else {
+      sql = `SELECT c.id AS course_id, r.id AS release_id, r.release_number, r.title, r.level, r.description,
+                    e.active AS enrolled_active, e.is_primary AS enrolled_primary
+             FROM courses c
+             JOIN course_releases r ON r.id = c.current_release_id
+             LEFT JOIN course_enrollments e ON e.course_id = c.id AND e.user_id = $1
+             WHERE c.visibility = 'published' AND c.status = 'active'
+             ORDER BY r.release_number DESC, c.id ASC
+             LIMIT $2`;
+      params = [userId, pgLimit];
+    }
+
+    const result = await this.pool.query<CatalogCourseRow>(sql, params);
+    const rows = result.rows;
+    const hasMore = rows.length > limit;
+    const items = rows.slice(0, limit);
+
+    let nextCursor: string | null = null;
+    if (hasMore) {
+      const last = items[items.length - 1]!;
+      nextCursor = encodeCatalogCursor({
+        releaseNumber: last.release_number,
+        courseId: last.course_id,
+      });
+    }
+
     return {
-      items: result.rows.map((row) => {
+      items: items.map((row) => {
         const enrollment =
           row.enrolled_active !== null
             ? buildEnrollmentState({
@@ -342,6 +444,8 @@ export class CourseService {
           enrollment,
         });
       }),
+      nextCursor,
+      hasMore,
     };
   }
 

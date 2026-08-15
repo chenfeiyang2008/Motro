@@ -7,6 +7,7 @@
 // 队列、operation、attempt、重试、审计、状态 API 或管理 UI。
 // 本 seam 不携带任何供应商 payload、秘密、路径或完整异常堆栈。
 import type { DeferredSourceFact } from "../wiktionary/deferred-fact.js";
+import type { DeferredDraft } from "../drafts/draft-fact.js";
 
 export interface OperationHandlerResult {
   /** 稳定、脱敏、受限长度的结果摘要（写入 attempt 投影；绝不包含供应商正文或秘密）。 */
@@ -26,6 +27,13 @@ export interface OperationHandlerResult {
    * 默认空数组：普通 handler/已有 handler（如 fixture）不受影响。
    */
   deferredFacts?: DeferredSourceFact[];
+  /**
+   * 由 handler 生成、经 domain 校验的 deferred draft 草稿（Ticket 06）。
+   *
+   * 原子性契约与 deferredFacts 相同：draft 写入与 operation completion 在同一事务，
+   * 任一步失败整体 rollback。handler 绝不可通过 autocommit 自行写 enrichment_drafts。
+   */
+  deferredDrafts?: DeferredDraft[];
 }
 
 /**

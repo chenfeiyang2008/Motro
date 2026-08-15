@@ -54,3 +54,54 @@ export class CreateUserDto {
   @IsIn(["learner", "admin"])
   role?: "learner" | "admin";
 }
+
+// ---- 管理账号响应 DTO（契约投影）----
+// 只把可安全暴露的账号字段投影给 /admin/users；绝不包含 password_hash / session / OTP / 审计内部字段。
+// status 来自真实数据库 users.status；createdAt 来自真实 users.created_at。
+
+export class AdminUserDto {
+  @ApiProperty({ description: "账号 UUID" })
+  id!: string;
+
+  @ApiProperty({ description: "登录用户名（小写）" })
+  username!: string;
+
+  @ApiProperty({ description: "显示名" })
+  displayName!: string;
+
+  @ApiProperty({ enum: ["learner", "admin"] })
+  role!: "learner" | "admin";
+
+  @ApiProperty({ description: "IANA 时区" })
+  timezone!: string;
+
+  @ApiProperty({ description: "每日学习预算（分钟）", minimum: 1, maximum: 120 })
+  dailyBudgetMinutes!: number;
+
+  @ApiProperty({ description: "是否首登必须修改密码" })
+  mustChangePassword!: boolean;
+
+  @ApiProperty({ enum: ["active", "disabled"], description: "真实数据库账号状态" })
+  status!: "active" | "disabled";
+
+  @ApiProperty({ description: "账号创建时间（ISO 字符串）" })
+  createdAt!: string;
+}
+
+export class AdminUserListDto {
+  @ApiProperty({ type: [AdminUserDto] })
+  items!: AdminUserDto[];
+}
+
+export class AdminOkDto {
+  @ApiProperty({ description: "操作成功" })
+  ok!: boolean;
+}
+
+export class AdminCreateUserResultDto {
+  @ApiProperty({ type: AdminUserDto })
+  user!: AdminUserDto;
+
+  @ApiProperty({ description: "一次性密码（仅此一次返回，绝不停留）" })
+  oneTimePassword!: string;
+}
