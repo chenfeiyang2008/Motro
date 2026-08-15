@@ -69,15 +69,20 @@ export default function ResultPage() {
 
   if (state.phase === "loading") {
     return (
-      <section className="learner-result">
-        <p role="status">正在读取结果…</p>
+      <section className="learner-result learner-result--state">
+        <p className="result-eyebrow">学习完成</p>
+        <h1>正在读取结果…</h1>
+        <p role="status" className="result-state-note">
+          正在确认这次学习的已接受记录。
+        </p>
       </section>
     );
   }
 
   if (state.phase === "network-error") {
     return (
-      <section className="learner-result">
+      <section className="learner-result learner-result--state">
+        <p className="result-eyebrow result-eyebrow--warning">需要重新连接</p>
         <h1>暂时无法确认结果</h1>
         <p role="alert" className="result-network-error">
           连接失败，暂时无法确认本次学习结果。可重试；你的学习进度已保存在系统中。
@@ -98,50 +103,72 @@ export default function ResultPage() {
 
   return (
     <section className="learner-result">
-      <h1>这次学习完成</h1>
+      <header className="result-hero">
+        <p className="result-eyebrow">
+          <span className="result-eyebrow-mark" aria-hidden="true">
+            ✓
+          </span>
+          学习完成
+        </p>
+        <h1>这次学习完成</h1>
+        <p className="result-lede">
+          {snapshot
+            ? `你完成了本次安排的 ${snapshot.completedCount} 项学习。`
+            : "本次学习已完成，已接受的进度会继续由系统安排。"}
+        </p>
+      </header>
 
       {snapshot ? (
-        <div className="result-panel">
-          {snapshot.completedCount > 0 && (
-            <p>
-              本次完成了 <strong>{snapshot.completedCount}</strong> 项学习。
-            </p>
-          )}
+        <div className="result-summary">
+          <div className="result-total">
+            <span className="result-total-label">本次完成</span>
+            <strong>{snapshot.completedCount}</strong>
+            <span className="result-total-unit">项学习</span>
+          </div>
 
-          {(counts!.newLearning > 0 || counts!.initial > 0 || counts!.review > 0) && (
-            <ul className="result-counts">
-              {counts!.newLearning > 0 && (
-                <li>
-                  <span className="result-count-label">新学习</span>
-                  <span className="result-count-value">{counts!.newLearning}</span>
-                </li>
-              )}
-              {counts!.initial > 0 && (
-                <li>
-                  <span className="result-count-label">首复习</span>
-                  <span className="result-count-value">{counts!.initial}</span>
-                </li>
-              )}
-              {counts!.review > 0 && (
-                <li>
-                  <span className="result-count-label">复习</span>
-                  <span className="result-count-value">{counts!.review}</span>
-                </li>
-              )}
-            </ul>
-          )}
+          <div className="result-breakdown">
+            <p className="result-section-label">学习构成</p>
+            {counts!.newLearning > 0 || counts!.initial > 0 || counts!.review > 0 ? (
+              <ul className="result-counts">
+                {counts!.newLearning > 0 && (
+                  <li>
+                    <span className="result-count-label">新学习</span>
+                    <span className="result-count-value">{counts!.newLearning}</span>
+                  </li>
+                )}
+                {counts!.initial > 0 && (
+                  <li>
+                    <span className="result-count-label">首复习</span>
+                    <span className="result-count-value">{counts!.initial}</span>
+                  </li>
+                )}
+                {counts!.review > 0 && (
+                  <li>
+                    <span className="result-count-label">复习</span>
+                    <span className="result-count-value">{counts!.review}</span>
+                  </li>
+                )}
+              </ul>
+            ) : (
+              <p className="result-state-note">本次没有可细分的学习分类。</p>
+            )}
+          </div>
 
-          <p className="result-next">下一次复习由系统按记忆状态安排。</p>
+          <div className="result-next">
+            <span className="result-next-label">下一步</span>
+            <p>下一次复习由系统按记忆状态安排。</p>
+          </div>
         </div>
       ) : (
-        <div className="result-panel">
-          <p className="result-next">
-            本次学习已完成。刷新页面后无法恢复本次统计，但学习进度不受影响。
-          </p>
+        <div className="result-summary result-summary--empty">
+          <div className="result-next">
+            <span className="result-next-label">记录已保存</span>
+            <p>本次学习已完成。刷新页面后无法恢复本次统计，但学习进度不受影响。</p>
+          </div>
         </div>
       )}
 
-      <div className="result-actions">
+      <nav className="result-actions" aria-label="结果操作">
         <Link href="/" className="primary">
           返回首页
         </Link>
@@ -150,7 +177,7 @@ export default function ResultPage() {
             继续学习
           </Link>
         )}
-      </div>
+      </nav>
     </section>
   );
 }
