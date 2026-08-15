@@ -64,11 +64,11 @@ test.describe("auth web loop", () => {
     await page.getByLabel(/确认新密码/).fill("e2e-strong-password-123");
     await page.getByRole("button", { name: "保存新密码" }).click();
     await expect(page).toHaveURL(/\/app/);
-    await expect(page.getByRole("heading", { name: "已登录" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "学习仪表盘" })).toBeVisible();
 
     // 4. 刷新后会话保持。
     await page.reload();
-    await expect(page.getByRole("heading", { name: "已登录" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "学习仪表盘" })).toBeVisible();
 
     // 5. 登出后受保护页拒绝并回登录页。
     await page.getByRole("button", { name: "登出", exact: true }).click();
