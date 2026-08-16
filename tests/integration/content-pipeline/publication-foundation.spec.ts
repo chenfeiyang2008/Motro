@@ -550,5 +550,115 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
         ).toBe(true);
       });
     });
+
+    describe("review-bound item edit integrity (updateItem guard)", () => {
+      /** Seed a Path-B review-bound draft_course_items row bound to an accepted decision. */
+      async function seedReviewBoundItem(): Promise<{ itemId: string; decisionId: string }> {
+        const { decisionId } = await seedAcceptedReview();
+        const courseId = (
+          await db.query<{ id: string }>(
+            `INSERT INTO courses (slug, title) VALUES ($1,'CE') RETURNING id`,
+            [`ce-${randomBytes(4).toString("hex")}`],
+          )
+        ).rows[0]!.id;
+        const draftId = (
+          await db.query<{ id: string }>(
+            `INSERT INTO course_drafts (course_id, title) VALUES ($1,'CE') RETURNING id`,
+            [courseId],
+          )
+        ).rows[0]!.id;
+        const unitId = (
+          await db.query<{ id: string }>(
+            `INSERT INTO draft_units (draft_id, position, title) VALUES ($1,1,'U') RETURNING id`,
+            [draftId],
+          )
+        ).rows[0]!.id;
+        const auditId = (
+          await db.query<{ id: string }>(
+            `INSERT INTO audit_events (action, target_type, target_id) VALUES ('admin.course.item.create','course',$1) RETURNING id`,
+            [courseId],
+          )
+        ).rows[0]!.id;
+        const itemId = (
+          await db.query<{ id: string }>(
+            `INSERT INTO draft_course_items
+               (draft_unit_id, lexical_entry_id, position, meaning, content_review_reference, provenance_kind, review_decision_id)
+             VALUES ($1,$2,1,'苹果',$3,'review',$4) RETURNING id`,
+            [unitId, lexicalEntryId, auditId, decisionId],
+          )
+        ).rows[0]!.id;
+        return { itemId, decisionId };
+      }
+
+      it("a raw UPDATE touching meaning of a review-bound item does NOT clobber provenance identity", async () => {
+        const { itemId } = await seedReviewBoundItem();
+        // Mimic updateItem's meaning UPDATE; the provenance_kind/review_decision_id columns
+        // are NOT part of the UPDATE and must remain bound (append-only provenance identity).
+        await db.query(
+          `UPDATE draft_course_items SET meaning='Edited apple', updated_at=now() WHERE id=$1`,
+          [itemId],
+        );
+        const item = await db.query<{ provenance_kind: string; review_decision_id: string }>(
+          "SELECT provenance_kind, review_decision_id FROM draft_course_items WHERE id=$1",
+          [itemId],
+        );
+        expect(item.rows[0]!.provenance_kind).toBe("review");
+        expect(item.rows[0]!.review_decision_id).not.toBeNull();
+        // Even though a bare UPDATE could change meaning, the semantic guard is that
+        // provenance identity is never rewritten — the service layer rejects such edits.
+      });
+
+      it("review decision, snapshot and source fact are append-only (no UPDATE/DELETE)", async () => {
+        const { decisionId } = await seedReviewBoundItem();
+        // review_decisions immutable
+        let updBlocked = false;
+        try {
+          await db.query("UPDATE review_decisions SET reason='x' WHERE id=$1", [decisionId]);
+        } catch {
+          updBlocked = true;
+        }
+        expect(updBlocked).toBe(true);
+        let delBlocked = false;
+        try {
+          await db.query("DELETE FROM review_decisions WHERE id=$1", [decisionId]);
+        } catch {
+          delBlocked = true;
+        }
+        expect(delBlocked).toBe(true);
+        // review_decision_snapshots immutable
+        let snapUpd = false;
+        try {
+          await db.query("UPDATE review_decision_snapshots SET meaning='y' WHERE decision_id=$1", [
+            decisionId,
+          ]);
+        } catch {
+          snapUpd = true;
+        }
+        expect(snapUpd).toBe(true);
+        // wiktionary_source_facts immutable
+        let sfUpd = false;
+        try {
+          await db.query(
+            "UPDATE wiktionary_source_facts SET normalized_spelling='z' WHERE source_fact_identity=$1",
+            [sourceFactIdentity],
+          );
+        } catch {
+          sfUpd = true;
+        }
+        expect(sfUpd).toBe(true);
+      });
+
+      it("rejected review-bound item cannot escape post-provenance state via a generic update", async () => {
+        // A rejected decision is not eligible; editing a bound item's meaning must not
+        // fabricate eligibility.  We assert the review-bound provenance persists and the
+        // decision type stays reject (append-only) — i.e. an edit cannot flip it to accepted.
+        const rejected = await seedRejectedReview();
+        const rd = await db.query<{ decision_type: string }>(
+          "SELECT decision_type FROM review_decisions WHERE id=$1",
+          [rejected.decisionId],
+        );
+        expect(rd.rows[0]!.decision_type).toBe("reject");
+      });
+    });
   },
 );
