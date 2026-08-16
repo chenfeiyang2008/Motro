@@ -158,6 +158,14 @@ export class CreateItemDto {
   @MaxLength(500)
   hint?: string;
 
+  @ApiPropertyOptional({
+    description:
+      "Ticket 08 语义桥 Path B：可选提供 Ticket 07 review decision ID，表示该词项的 meaning 来自 accepted 审核内容而非手工输入",
+  })
+  @IsOptional()
+  @IsString()
+  reviewDecisionId?: string;
+
   @ApiPropertyOptional({ description: "期望的草稿版本（If-Match 的替代）" })
   @IsOptional()
   @IsInt()

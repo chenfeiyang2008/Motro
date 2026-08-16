@@ -14,6 +14,9 @@ import {
   buildCatalogDetail,
   buildCatalogSummary,
   buildEnrollmentState,
+  evaluateDraftPublicationEligibility,
+  type ItemProvenanceInput,
+  type ReviewDecisionProvenance,
   nextReleaseNumber,
   normalizeSlug,
   resolveReleasedUnitId,
@@ -197,6 +200,9 @@ export interface CreateItemInput {
   lexicalEntryId: string;
   meaning: string;
   hint: string | undefined;
+  /** Ticket 08 语义桥 Path B：可选提供 Ticket 07 review decision 引用，
+      该词项的 meaning 视为来自 accepted 审核内容而非手工输入。 */
+  reviewDecisionId: string | undefined;
 }
 
 export interface UpdateItemInput {
@@ -223,6 +229,9 @@ interface ReleaseCopyRow {
   lexical_entry_id: string | null;
   content_review_reference: string | null;
   english_spelling: string | null;
+  // ---- Ticket 08 provenance bridge (frozen into release) ----
+  provenance_kind: string | null;
+  review_decision_id: string | null;
 }
 
 interface ReleaseListRow {
@@ -280,6 +289,29 @@ interface ValidationRow {
   content_review_reference: string | null;
   lexical_entry_exists: boolean;
   content_review_valid: boolean;
+  // ---- Ticket 08 provenance bridge ----
+  provenance_kind: string | null;
+  review_decision_id: string | null;
+  review_decision_type: string | null;
+  /** Original enrichment_drafts.status this decision was minted on. */
+  review_draft_status: string | null;
+  review_provenance_complete: boolean;
+  review_handled: boolean;
+  review_conflicting: boolean;
+  /** True if snapshot source fact is fetched. */
+  review_source_fact_fetched: boolean;
+  /** True if snapshot source fact carries a content_hash. */
+  review_source_fact_hash_present: boolean;
+  /** True if snapshot.english_spelling == current lexical canonical_spelling. */
+  review_snapshot_spelling_matches: boolean;
+  /** True if source_fact.normalized_spelling == current lexical normalized_spelling. */
+  review_normalized_spelling_matches: boolean;
+  /** True if snapshot.source_fact_identity == draft.wiktionary_source_fact_id. */
+  review_source_fact_identity_matches: boolean;
+  /** True if source_fact.commit_row_id == draft.import_batch_commit_row_id. */
+  review_commit_row_matches: boolean;
+  /** True if snapshot page/revision == source fact page/revision. */
+  review_revision_page_consistent: boolean;
 }
 
 const VALIDATION_SQL = `SELECT d.version, d.title,
@@ -287,6 +319,44 @@ const VALIDATION_SQL = `SELECT d.version, d.title,
         u.description AS unit_description,
         i.id AS item_id, i.position AS item_position, i.meaning, i.hint,
         i.lexical_entry_id, i.content_review_reference,
+        i.provenance_kind,
+        i.review_decision_id,
+        rd.decision_type AS review_decision_type,
+        -- P1-1: original draft status (draft_ready vs manual_action vs other)
+        ed.status AS review_draft_status,
+        -- provenance complete: snapshot carries source + revision + license + attribution
+        (s.source_fact_identity IS NOT NULL
+           AND s.source_revision_id IS NOT NULL
+           AND NULLIF(s.license_name, '') IS NOT NULL
+           AND NULLIF(s.license_url, '') IS NOT NULL
+           AND NULLIF(s.attribution, '') IS NOT NULL) AS review_provenance_complete,
+        -- handled: resolvable manual_action with a complete handling fact
+        EXISTS (
+          SELECT 1 FROM manual_handling_facts h
+          WHERE h.draft_id = rd.draft_id AND h.next_status = 'draft_ready'
+        ) AS review_handled,
+        -- conflicting: this review_decision_id was already used by another draft item
+        EXISTS (
+          SELECT 1 FROM draft_course_items other
+          WHERE other.review_decision_id = i.review_decision_id
+            AND other.id <> i.id
+        ) AS review_conflicting,
+        -- final P1: source fact fetched + content_hash present
+        (sf.status = 'fetched') AS review_source_fact_fetched,
+        (sf.content_hash IS NOT NULL AND length(sf.content_hash) = 64) AS review_source_fact_hash_present,
+        -- final P1: identity bindings.  e = current lexical entry, i = course item,
+        -- ed = enrichment draft, s = review snapshot, sf = source fact.
+        -- snapshot.english_spelling == current lexical canonical_spelling
+        (s.english_spelling = e.canonical_spelling) AS review_snapshot_spelling_matches,
+        -- source_fact.normalized_spelling == current lexical normalized_spelling
+        (sf.normalized_spelling = e.normalized_spelling) AS review_normalized_spelling_matches,
+        -- snapshot.source_fact_identity == draft.wiktionary_source_fact_id
+        (s.source_fact_identity = ed.wiktionary_source_fact_id) AS review_source_fact_identity_matches,
+        -- source_fact.commit_row_id == draft.import_batch_commit_row_id
+        (sf.commit_row_id = ed.import_batch_commit_row_id) AS review_commit_row_matches,
+        -- snapshot page/revision identity == source fact page/revision identity
+        (s.source_page_id = sf.page_id
+         AND s.source_revision_id = sf.revision_id) AS review_revision_page_consistent,
         (e.id IS NOT NULL) AS lexical_entry_exists,
         (a.id IS NOT NULL) AS content_review_valid
  FROM course_drafts d
@@ -294,6 +364,10 @@ const VALIDATION_SQL = `SELECT d.version, d.title,
  LEFT JOIN draft_course_items i ON i.draft_unit_id = u.id
  LEFT JOIN lexical_entries e ON e.id = i.lexical_entry_id
  LEFT JOIN audit_events a ON a.id = i.content_review_reference
+ LEFT JOIN review_decisions rd ON rd.id = i.review_decision_id
+ LEFT JOIN review_decision_snapshots s ON s.decision_id = rd.id
+ LEFT JOIN enrichment_drafts ed ON ed.id = rd.draft_id
+ LEFT JOIN wiktionary_source_facts sf ON sf.source_fact_identity = s.source_fact_identity
  WHERE d.course_id = $1 AND d.status = 'active'
  ORDER BY u.position ASC, u.id ASC, i.position ASC, i.id ASC`;
 
@@ -327,11 +401,68 @@ function buildSnapshotFromRows(rows: ValidationRow[]): ValidateDraftInput | null
         lexicalEntryExists: row.lexical_entry_exists,
         contentReviewReference: row.content_review_reference ?? "",
         contentReviewValid: row.content_review_valid,
+        provenanceKind: row.provenance_kind === "review" ? "review" : "manual",
+        reviewDecisionId: row.review_decision_id ?? null,
+        reviewDecisionType:
+          row.review_decision_type === "accept" ||
+          row.review_decision_type === "accept_with_edits" ||
+          row.review_decision_type === "reject"
+            ? row.review_decision_type
+            : null,
+        reviewProvenanceComplete: row.review_provenance_complete,
+        reviewHandled: row.review_handled,
+        reviewConflicting: row.review_conflicting,
+        reviewDraftStatus:
+          row.review_draft_status === "draft_ready" || row.review_draft_status === "manual_action"
+            ? row.review_draft_status
+            : "other",
+        reviewSourceFactFetched: row.review_source_fact_fetched,
+        reviewSnapshotSpellingMatches: row.review_snapshot_spelling_matches,
+        reviewNormalizedSpellingMatches: row.review_normalized_spelling_matches,
+        reviewSourceFactIdentityMatches: row.review_source_fact_identity_matches,
+        reviewCommitRowMatches: row.review_commit_row_matches,
+        reviewRevisionPageConsistent: row.review_revision_page_consistent,
+        reviewSourceFactHashPresent: row.review_source_fact_hash_present,
       });
     }
   }
   units.sort((a, b) => a.position - b.position);
   return { draftVersion: first.version, title: first.title, units };
+}
+
+/** 把发布资格领域规则应用到草稿快照的每个词项，返回阻断 issue（Ticket 08）。 */
+function collectEligibilityIssues(
+  snapshot: ValidateDraftInput,
+): ReturnType<typeof evaluateDraftPublicationEligibility> {
+  const items: ItemProvenanceInput[] = snapshot.units.flatMap((u) =>
+    u.items.map((item) => ({
+      itemId: item.id,
+      provenanceKind: item.provenanceKind,
+      contentReviewValid: item.contentReviewValid,
+      lexicalEntryExists: item.lexicalEntryExists,
+      reviewDecision: item.reviewDecisionId
+        ? ({
+            decisionType: item.reviewDecisionType ?? "reject",
+            // P1-1: pass the ORIGINAL draft status; handling requirement is decided by it.
+            draftStatus:
+              item.reviewDraftStatus === "draft_ready" || item.reviewDraftStatus === "manual_action"
+                ? (item.reviewDraftStatus as "draft_ready" | "manual_action")
+                : "other",
+            provenanceComplete: item.reviewProvenanceComplete,
+            handled: item.reviewHandled,
+            sourceFactFetched: item.reviewSourceFactFetched,
+            snapshotSpellingMatches: item.reviewSnapshotSpellingMatches,
+            normalizedSpellingMatches: item.reviewNormalizedSpellingMatches,
+            sourceFactIdentityMatches: item.reviewSourceFactIdentityMatches,
+            commitRowMatches: item.reviewCommitRowMatches,
+            revisionPageConsistent: item.reviewRevisionPageConsistent,
+            sourceFactContentHashPresent: item.reviewSourceFactHashPresent,
+            conflictingDecision: item.reviewConflicting,
+          } satisfies ReviewDecisionProvenance)
+        : null,
+    })),
+  );
+  return evaluateDraftPublicationEligibility(items);
 }
 
 @Injectable()
@@ -705,13 +836,15 @@ export class CourseService {
     const input = buildSnapshotFromRows(rows);
     if (!input) throw new NotFoundException("课程或草稿不存在");
     const outcome = validateCourseDraft(input);
+    // Ticket 08：发布资格（accepted/provenance 语义桥）作为阻断错误并入。
+    const eligibility = collectEligibilityIssues(input);
+    const allBlocking = [...outcome.blockingErrors, ...eligibility.issues];
     return {
       draftVersion: outcome.draftVersion,
-      isPublishable: outcome.isPublishable,
-      blockingErrors: outcome.blockingErrors,
+      isPublishable: outcome.isPublishable && eligibility.isEligible,
+      blockingErrors: allBlocking,
       warnings: outcome.warnings,
       diffSummary: outcome.diffSummary,
-      // 第 7 张工单接入真实报名关系后，复用同一字段返回真实影响人数；第 4 阶段无报名数据。
       affectedLearnerCount: 0,
       validatedAt: new Date().toISOString(),
       contentHash: outcome.contentHash,
@@ -766,10 +899,14 @@ export class CourseService {
       const snapshot = buildSnapshotFromRows(rows);
       if (!snapshot) throw new NotFoundException("课程或草稿不存在");
       const outcome = validateCourseDraft(snapshot);
-      if (!outcome.isPublishable) {
+      // Ticket 08：发布资格（accepted 审核决定 / provenance 语义桥）必须在发布事务内重检，
+      // fail-closed —— 任何阻断 item 使整个发布回滚，绝不发布不完整/未审核/来源不完整内容。
+      const eligibility = collectEligibilityIssues(snapshot);
+      const allBlocking = [...outcome.blockingErrors, ...eligibility.issues];
+      if (!outcome.isPublishable || !eligibility.isEligible) {
         throw new UnprocessableEntityException({
-          message: "草稿存在阻断错误，无法发布",
-          fieldErrors: outcome.blockingErrors.map((e) => ({
+          message: "草稿存在阻断错误或发布资格不满足，无法发布",
+          fieldErrors: allBlocking.map((e) => ({
             path: e.path,
             code: e.code,
             message: e.message,
@@ -817,6 +954,7 @@ export class CourseService {
                   u.description AS unit_description,
                   i.id AS item_id, i.position AS item_position, i.meaning, i.hint,
                   i.lexical_entry_id, i.content_review_reference,
+                  i.provenance_kind, i.review_decision_id,
                   e.canonical_spelling AS english_spelling
            FROM draft_units u
            LEFT JOIN draft_course_items i ON i.draft_unit_id = u.id
@@ -853,8 +991,8 @@ export class CourseService {
           await client.query(
             `INSERT INTO released_course_items
                (release_id, released_unit_id, course_item_id, lexical_entry_id, position,
-                english_spelling, meaning, hint, content_review_reference)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                english_spelling, meaning, hint, content_review_reference, provenance_kind, review_decision_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
              ON CONFLICT (release_id, course_item_id) DO NOTHING`,
             [
               releaseId,
@@ -866,6 +1004,8 @@ export class CourseService {
               row.meaning,
               row.hint,
               row.content_review_reference,
+              row.provenance_kind === "review" ? "review" : "manual",
+              row.review_decision_id ?? null,
             ],
           );
         }
@@ -1457,6 +1597,8 @@ export class CourseService {
       }
 
       // 手工中文内容 provenance：预生成审计事件 id 作为 content_review_reference。
+      // Path B（reviewDecisionId 提供）：该引用记录“吸收 accepted 内容”的审计，
+      // provenance_kind='review' 且 review_decision_id 指向真实 review decision。
       const auditId = randomUUID();
       const meaningHash = createHash("sha256").update(meaning).digest("hex");
       await client.query(
@@ -1472,16 +1614,114 @@ export class CourseService {
             unitId: input.unitId,
             lexicalEntryId: input.lexicalEntryId,
             meaningHash,
+            ...(input.reviewDecisionId ? { reviewDecisionId: input.reviewDecisionId } : {}),
           }),
           requestId,
         ],
       );
+      if (input.reviewDecisionId) {
+        // Path B：校验 review_decision 存在、为接受态、且与当前词条目一致（P1-2 fail-closed）。
+        const rd = await client.query<{
+          decision_type: string;
+          draft_id: string;
+          draft_lexical_entry_id: string;
+          snapshot_source_fact_identity: string;
+          snapshot_english_spelling: string;
+          source_fact_status: string | null;
+          source_fact_normalized_spelling: string | null;
+          entry_canonical_spelling: string | null;
+          entry_normalized_spelling: string | null;
+        }>(
+          `SELECT rd.decision_type AS decision_type, rd.draft_id AS draft_id,
+                  ed.lexical_entry_id AS draft_lexical_entry_id,
+                  s.source_fact_identity AS snapshot_source_fact_identity,
+                  s.english_spelling AS snapshot_english_spelling,
+                  sf.status AS source_fact_status,
+                  sf.normalized_spelling AS source_fact_normalized_spelling,
+                  e.canonical_spelling AS entry_canonical_spelling,
+                  e.normalized_spelling AS entry_normalized_spelling
+             FROM review_decisions rd
+             JOIN enrichment_drafts ed ON ed.id = rd.draft_id
+             LEFT JOIN review_decision_snapshots s ON s.decision_id = rd.id
+             LEFT JOIN wiktionary_source_facts sf ON sf.source_fact_identity = s.source_fact_identity
+             LEFT JOIN lexical_entries e ON e.id = ed.lexical_entry_id
+            WHERE rd.id = $1`,
+          [input.reviewDecisionId],
+        );
+        const rdRow = rd.rows[0];
+        if (!rdRow) {
+          throw new UnprocessableEntityException({
+            path: "reviewDecisionId",
+            code: "not_found",
+            message: "引用的 review decision 不存在",
+          });
+        }
+        if (rdRow.decision_type !== "accept" && rdRow.decision_type !== "accept_with_edits") {
+          throw new UnprocessableEntityException({
+            path: "reviewDecisionId",
+            code: "not_accepted",
+            message: "只有 accepted / accepted_with_edits 的审核决定可作为词项来源",
+          });
+        }
+        // P1-2: 审核决定必须属于当前词项的 lexical entry（Apple decision 不能绑到 Banana）。
+        if (
+          rdRow.draft_lexical_entry_id === null ||
+          input.lexicalEntryId !== rdRow.draft_lexical_entry_id
+        ) {
+          throw new UnprocessableEntityException({
+            path: "reviewDecisionId",
+            code: "lexical_mismatch",
+            message: "该审核决定不属于当前词项（词条不匹配），不可绑定",
+          });
+        }
+        // P1-2: snapshot 必须存在、source fact 必须为 fetched 且属于同一来源。
+        if (rdRow.snapshot_source_fact_identity === null) {
+          throw new UnprocessableEntityException({
+            path: "reviewDecisionId",
+            code: "snapshot_missing",
+            message: "该审核决定缺少不可变快照，不可绑定",
+          });
+        }
+        if (rdRow.source_fact_status !== "fetched") {
+          throw new UnprocessableEntityException({
+            path: "reviewDecisionId",
+            code: "source_not_fetched",
+            message: "该审核决定的来源事实未处于可发布（fetched）状态，不可绑定",
+          });
+        }
+        // final P1: snapshot spelling must match the lexical entry's canonical spelling
+        // (Apple decision must not bind to a snapshot whose spelling is banana).
+        if (
+          rdRow.entry_canonical_spelling !== null &&
+          rdRow.snapshot_english_spelling !== null &&
+          rdRow.snapshot_english_spelling !== rdRow.entry_canonical_spelling
+        ) {
+          throw new UnprocessableEntityException({
+            path: "reviewDecisionId",
+            code: "snapshot_spelling_mismatch",
+            message: "该审核决定的快照拼写与词条不一致，不可绑定",
+          });
+        }
+        // final P1: source fact normalized spelling must match the lexical entry's normalized spelling
+        if (
+          rdRow.entry_normalized_spelling !== null &&
+          rdRow.source_fact_normalized_spelling !== null &&
+          rdRow.source_fact_normalized_spelling !== rdRow.entry_normalized_spelling
+        ) {
+          throw new UnprocessableEntityException({
+            path: "reviewDecisionId",
+            code: "normalized_spelling_mismatch",
+            message: "该审核决定的来源事实拼写与词条不一致，不可绑定",
+          });
+        }
+      }
 
       const position = await this.nextItemPosition(client, input.unitId);
       await client.query(
         `INSERT INTO draft_course_items
-           (id, draft_unit_id, lexical_entry_id, position, meaning, hint, content_review_reference)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+           (id, draft_unit_id, lexical_entry_id, position, meaning, hint, content_review_reference,
+            provenance_kind, review_decision_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
         [
           itemId,
           input.unitId,
@@ -1490,6 +1730,8 @@ export class CourseService {
           meaning,
           input.hint?.trim() ?? null,
           auditId,
+          input.reviewDecisionId ? "review" : "manual",
+          input.reviewDecisionId ?? null,
         ],
       );
       const nextVersion = draft.version + 1;

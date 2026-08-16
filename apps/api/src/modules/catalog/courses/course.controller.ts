@@ -331,6 +331,7 @@ export class CourseController {
           lexicalEntryId: dto.lexicalEntryId,
           meaning: dto.meaning,
           hint: dto.hint,
+          reviewDecisionId: dto.reviewDecisionId,
         },
         expected,
         req.id,
