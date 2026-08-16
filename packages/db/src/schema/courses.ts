@@ -14,8 +14,10 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { auditEvents, users } from "./platform-identity.js";
 import { lexicalEntries } from "./lexicon.js";
+import { reviewDecisions } from "./reviews.js";
 
 export const courses = pgTable(
   "courses",
@@ -89,9 +91,15 @@ export const draftCourseItems = pgTable(
     position: integer("position").notNull(),
     meaning: text("meaning").notNull(),
     hint: text("hint"),
+    // 语义桥（Ticket 08）：manual 路径内容审核引用指向审计事件；review 路径指向
+    // 真实 review_decisions。两者不得混用（provenance_kind 一致性由 0036 CHECK 强制）。
     contentReviewReference: uuid("content_review_reference")
       .notNull()
       .references(() => auditEvents.id),
+    provenanceKind: text("provenance_kind").notNull().default("manual"),
+    reviewDecisionId: uuid("review_decision_id").references(() => reviewDecisions.id, {
+      onDelete: "restrict",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -100,6 +108,9 @@ export const draftCourseItems = pgTable(
     uniqueIndex("draft_course_items_draft_item_id_unique").on(t.draftUnitId, t.id),
     index("draft_course_items_unit_id_idx").on(t.draftUnitId),
     index("draft_course_items_lexical_entry_id_idx").on(t.lexicalEntryId),
+    index("draft_course_items_review_decision_idx")
+      .on(t.reviewDecisionId)
+      .where(sql`${t.reviewDecisionId} IS NOT NULL`),
   ],
 );
 
@@ -164,6 +175,12 @@ export const releasedCourseItems = pgTable(
     meaning: text("meaning").notNull(),
     hint: text("hint"),
     contentReviewReference: uuid("content_review_reference").notNull(),
+    // 发布快照中的冻结 provenance（Ticket 08）：review 路径保留指向真实 decision 的
+    // 不可变追踪；manual 路径保持默认。发布后再改 draft 不改变已冻结的 released 行。
+    provenanceKind: text("provenance_kind").notNull().default("manual"),
+    reviewDecisionId: uuid("review_decision_id").references(() => reviewDecisions.id, {
+      onDelete: "restrict",
+    }),
   },
   (t) => [
     uniqueIndex("released_items_release_unit_position_unique").on(
@@ -173,6 +190,9 @@ export const releasedCourseItems = pgTable(
     ),
     uniqueIndex("released_items_release_item_unique").on(t.releaseId, t.courseItemId),
     index("released_items_release_id_idx").on(t.releaseId),
+    index("released_course_items_review_decision_idx")
+      .on(t.reviewDecisionId)
+      .where(sql`${t.reviewDecisionId} IS NOT NULL`),
   ],
 );
 

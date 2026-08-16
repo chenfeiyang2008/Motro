@@ -23,6 +23,23 @@ export interface ItemSnapshot {
   contentReviewReference: string;
   /** content_review_reference 是否指向有效审计事件（服务端解析后传入）。 */
   contentReviewValid: boolean;
+  // ---- Ticket 08 provenance bridge ----
+  provenanceKind: "manual" | "review";
+  /** Path B: 指向 Ticket 07 review decision 的不可变引用；Path A 为 null。 */
+  reviewDecisionId: string | null;
+  reviewDecisionType: "accept" | "accept_with_edits" | "reject" | null;
+  /** Original enrichment_drafts.status this decision was minted on. */
+  reviewDraftStatus: "draft_ready" | "manual_action" | "other" | null;
+  reviewProvenanceComplete: boolean;
+  reviewHandled: boolean;
+  reviewConflicting: boolean;
+  reviewSourceFactFetched: boolean;
+  reviewSnapshotSpellingMatches: boolean;
+  reviewNormalizedSpellingMatches: boolean;
+  reviewSourceFactIdentityMatches: boolean;
+  reviewCommitRowMatches: boolean;
+  reviewRevisionPageConsistent: boolean;
+  reviewSourceFactHashPresent: boolean;
 }
 
 export interface UnitSnapshot {

@@ -1379,6 +1379,8 @@ export interface components {
             meaning: string;
             /** @description 可选提示 */
             hint?: string;
+            /** @description Ticket 08 语义桥 Path B：可选提供 Ticket 07 review decision ID，表示该词项的 meaning 来自 accepted 审核内容而非手工输入 */
+            reviewDecisionId?: string;
             /** @description 期望的草稿版本（If-Match 的替代） */
             draftVersion?: number;
         };
