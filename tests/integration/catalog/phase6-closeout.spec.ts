@@ -319,12 +319,12 @@ describe("phase 6 learning core closeout", () => {
       const applied = await migrate(isoConfig, MIGRATIONS_DIR);
       expect(applied.map((m) => m.version)).toEqual([
         1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
-        26, 27, 28, 29, 30, 31, 32, 33,
+        26, 27, 28, 29, 30, 31, 32, 33, 34, 35,
       ]);
       const recorded = await listAppliedMigrations(isoConfig);
       expect(recorded.map((m) => m.version)).toEqual([
         1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
-        26, 27, 28, 29, 30, 31, 32, 33,
+        26, 27, 28, 29, 30, 31, 32, 33, 34, 35,
       ]);
 
       const verify = createPool({ ...isoConfig, max: 1 });
@@ -410,9 +410,9 @@ describe("phase 6 learning core closeout", () => {
         `SELECT tablename FROM pg_tables
          WHERE schemaname = 'public'
            AND tablename IN (
-             'xp_entries','xp_ledger','user_levels','user_level_progress','badges','user_badges',
+             'xp_ledger','user_levels','user_level_progress','badges','user_badges',
              'streaks','streak_days','streak_protection','weekly_challenge_boards','challenge_weeks',
-             'challenge_quizzes','quiz_questions','quiz_responses','challenge_points','game_rule_sets',
+             'challenge_quizzes','quiz_questions','quiz_responses','challenge_points',
              'wikipedia_drafts','deepseek_drafts',
              'raw_wordlists','daily_plans','card_reviews','memory_states','fsrs_states'
            )`,
@@ -432,7 +432,6 @@ describe("phase 6 learning core closeout", () => {
       "/api/v1/challenges",
       "/api/v1/challenge",
       "/api/v1/import",
-      "/api/v1/leaderboard",
       "/api/v1/quiz",
       "/api/v1/weekly",
     ];

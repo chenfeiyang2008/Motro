@@ -410,6 +410,13 @@ export class SubmitReviewResultDto {
 
   @ApiProperty({ type: ReviewNextItemDto, description: "若有下一项，返回下一项安全摘要；无则留空" })
   next!: ReviewNextItemDto;
+
+  @ApiProperty({
+    description:
+      "本次评分奖励的 XP。合格首测/到期复习为 5；不符合 XP 条件为 0。幂等重放返回与首次一致的值，绝不因重放重复记 XP。",
+    example: 5,
+  })
+  xpAwarded!: number;
 }
 
 export class RevealResultDto {

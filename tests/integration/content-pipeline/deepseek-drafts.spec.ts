@@ -1,7 +1,7 @@
 // 阶段 6 工单 06：DeepSeek draft 内网零网络基础集成验收（真实 PostgreSQL）。
 //
 // 覆盖（每项都在一次性隔离库上进行，完成后销毁数据库，绝不动共享开发库）：
-//   1. 空库 migration 0001–0033；enrichment_drafts 表存在；0033 校验/触发/FK 就位；
+//   1. 空库 migration 0001–0035；enrichment_drafts/review decisions/game 表存在；校验/触发/FK 就位；
 //   2. fake success：operation → succeeded，写入一条 draft_ready draft（原子 append-only）；
 //   3. 同输入重放：第二次执行 no-op，不新增 draft（identity 幂等）；
 //   4. retryable（empty/非JSON/429/5xx）→ 各自正确路由到 retry_wait/failed；
@@ -245,13 +245,13 @@ describe("deepseek draft foundation", () => {
   });
 
   describe("1. migration 就绪", () => {
-    it("0001–0033 已应用，enrichment_drafts 表存在，immutable trigger 就位", async () => {
+    it("0001–0035 已应用，enrichment_drafts 表存在，immutable trigger 就位", async () => {
       const versions = await pool.query<{ version: number }>(
         "SELECT version FROM schema_migrations ORDER BY version",
       );
       expect(versions.rows.map((r) => r.version)).toContain(33);
       const max = Math.max(...versions.rows.map((r) => r.version));
-      expect(max).toBe(33);
+      expect(max).toBe(35);
       const tbl = await pool.query<{ n: string }>(
         `SELECT count(*)::text AS n FROM information_schema.tables WHERE table_name = 'enrichment_drafts'`,
       );

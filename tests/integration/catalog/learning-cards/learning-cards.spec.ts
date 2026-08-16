@@ -373,7 +373,7 @@ describe("learning cards and exposures", () => {
       const applied = await migrate(isoConfig, MIGRATIONS_DIR);
       expect(applied.map((m) => m.version)).toEqual([
         1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
-        26, 27, 28, 29, 30, 31, 32, 33,
+        26, 27, 28, 29, 30, 31, 32, 33, 34, 35,
       ]);
 
       const verify = createPool({ ...isoConfig, max: 1 });
@@ -381,7 +381,7 @@ describe("learning cards and exposures", () => {
         const recorded = await listAppliedMigrations(isoConfig);
         expect(recorded.map((m) => m.version)).toEqual([
           1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
-          26, 27, 28, 29, 30, 31, 32, 33,
+          26, 27, 28, 29, 30, 31, 32, 33, 34, 35,
         ]);
 
         const tables = await verify.query<{ tablename: string }>(
@@ -873,8 +873,8 @@ describe("learning cards and exposures", () => {
          WHERE schemaname = 'public'
            AND tablename IN (
              'card_reviews','memory_states','fsrs_states',
-             'xp_entries','xp_ledger','daily_plans',
-             'game_rule_sets','badges','user_levels','streak_days','streak_protections',
+             'xp_ledger','daily_plans',
+             'badges','user_levels','streak_days','streak_protections',
              'quest_instances','quest_progress_events','challenge_weeks','quiz_attempts',
              'quiz_question_snapshots','quiz_responses','challenge_score_events',
              'challenge_score_adjustments','weekly_challenge_rewards','weekly_challenge_boards'

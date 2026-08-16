@@ -26,6 +26,7 @@ import { CatalogModule } from "../../../apps/api/src/modules/catalog/catalog.mod
 import { StudyModule } from "../../../apps/api/src/modules/study/study.module.js";
 import { ImportModule } from "../../../apps/api/src/modules/admin/imports/import.module.js";
 import { OperationsModule } from "../../../apps/api/src/modules/operations/operations.module.js";
+import { GameModule } from "../../../apps/api/src/modules/game/game.module.js";
 import { DbHealthService } from "../../../apps/api/src/health/db-health.service.js";
 
 type App = Awaited<ReturnType<typeof createApp>>;
@@ -36,7 +37,14 @@ type App = Awaited<ReturnType<typeof createApp>>;
  */
 export async function closeAppDbPools(app: App, extraPools: Pool[] = []): Promise<void> {
   const pools = new Set<Pool>();
-  for (const module of [AuthModule, CatalogModule, StudyModule, ImportModule, OperationsModule]) {
+  for (const module of [
+    AuthModule,
+    CatalogModule,
+    StudyModule,
+    ImportModule,
+    OperationsModule,
+    GameModule,
+  ]) {
     try {
       pools.add(app.select(module).get<Pool>(POOL, { strict: true }));
     } catch {

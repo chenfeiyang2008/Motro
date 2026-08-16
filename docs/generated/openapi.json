@@ -1800,6 +1800,162 @@
         ]
       }
     },
+    "/api/v1/me/xp": {
+      "get": {
+        "operationId": "GameController_meXp",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeXpDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "个人学习 XP（只属个人，不参与排行榜）",
+        "tags": [
+          "game"
+        ]
+      }
+    },
+    "/api/v1/me/learning-summary": {
+      "get": {
+        "operationId": "GameController_learningSummary",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LearningSummaryDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "个人学习概览（可重建，不含 XP/排行榜/CEFR）",
+        "tags": [
+          "game"
+        ]
+      }
+    },
+    "/api/v1/leaderboard/weekly": {
+      "get": {
+        "operationId": "GameController_weeklyLeaderboard",
+        "parameters": [
+          {
+            "name": "challengeWeek",
+            "required": false,
+            "in": "query",
+            "description": "挑战周键（默认当前周）；非法时返回 422",
+            "schema": {
+              "example": "cw-2026-08-11",
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "游标分页键（上一次响应返回）",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "每页行数，默认 20，最大 100",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklyLeaderboardDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "周挑战榜（仅挑战积分；日常 XP 不参与；支持周期/游标分页）",
+        "tags": [
+          "game"
+        ]
+      }
+    },
+    "/api/v1/leaderboard/visibility": {
+      "post": {
+        "operationId": "GameController_setVisibility",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaderboardVisibilityDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaderboardVisibilityDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "设置周挑战榜公开参与状态（默认公开；退出仅隐藏公开行，保留积分/名次）。幂等：Idempotency-Key 可选。",
+        "tags": [
+          "game"
+        ]
+      }
+    },
     "/api/v1/admin/operations": {
       "get": {
         "operationId": "OperationsController_list",
@@ -2458,6 +2614,196 @@
         "summary": "下载仅含不可提交行的服务端生成错误报告 CSV（当前映射版本；公式注入已中和）",
         "tags": [
           "admin imports"
+        ]
+      }
+    },
+    "/api/v1/admin/reviews": {
+      "get": {
+        "operationId": "ReviewsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewDraftListDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "列出来源完整、等待审核的草稿队列",
+        "tags": [
+          "admin reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/reviews/{id}": {
+      "get": {
+        "operationId": "ReviewsController_detail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewDraftDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "查看单个草稿和完整来源投影",
+        "tags": [
+          "admin reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/reviews/{id}/history": {
+      "get": {
+        "operationId": "ReviewsController_history",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewDraftListDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "查看该草稿的历史审核决定（不可变只读）",
+        "tags": [
+          "admin reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/reviews/{id}/decision": {
+      "post": {
+        "operationId": "ReviewsController_decide",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewDecisionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewDecisionResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "提交不可变人工审核决定（accept / accept_with_edits / reject）",
+        "tags": [
+          "admin reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/reviews/{id}/resolve": {
+      "post": {
+        "operationId": "ReviewsController_resolve",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "人工处理可补全的 manual_action：生成不可变人工处理事实（append-only）",
+        "tags": [
+          "admin reviews"
         ]
       }
     }
@@ -4759,6 +5105,11 @@
                 "$ref": "#/components/schemas/ReviewNextItemDto"
               }
             ]
+          },
+          "xpAwarded": {
+            "type": "number",
+            "description": "本次评分奖励的 XP。合格首测/到期复习为 5；不符合 XP 条件为 0。幂等重放返回与首次一致的值，绝不因重放重复记 XP。",
+            "example": 5
           }
         },
         "required": [
@@ -4771,7 +5122,8 @@
           "newCursor",
           "sessionCompleted",
           "unlock",
-          "next"
+          "next",
+          "xpAwarded"
         ]
       },
       "ProgressItemStateDto": {
@@ -5171,6 +5523,193 @@
           "sevenDayRhythm",
           "sessions",
           "currentCourseCompletion"
+        ]
+      },
+      "XpSummaryEntryDto": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "description": "XP 事实金额（correction/void 可为负）"
+          },
+          "reason": {
+            "type": "string",
+            "description": "原因：initial_review / due_review / correction / void"
+          },
+          "ruleVersion": {
+            "type": "number",
+            "description": "规则版本"
+          },
+          "earnedAt": {
+            "type": "string",
+            "description": "获得时间（ISO 8601 UTC）"
+          }
+        },
+        "required": [
+          "amount",
+          "reason",
+          "ruleVersion",
+          "earnedAt"
+        ]
+      },
+      "MeXpDto": {
+        "type": "object",
+        "properties": {
+          "totalXp": {
+            "type": "number",
+            "description": "个人学习 XP 总额（只属个人，不参与排行榜）"
+          },
+          "entries": {
+            "description": "XP 明细（按时间倒序）",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/XpSummaryEntryDto"
+            }
+          },
+          "ruleVersion": {
+            "type": "number",
+            "description": "当前规则版本"
+          },
+          "asOf": {
+            "type": "string",
+            "description": "计算截止时刻"
+          }
+        },
+        "required": [
+          "totalXp",
+          "entries",
+          "ruleVersion",
+          "asOf"
+        ]
+      },
+      "LearningSummaryDto": {
+        "type": "object",
+        "properties": {
+          "exposedLexicalEntryCount": {
+            "type": "number",
+            "description": "已接触全局词条数（来自 learning_exposures，去重）"
+          },
+          "initiallyReviewedCourseItemCount": {
+            "type": "number",
+            "description": "已完成双向首测的课程词项数"
+          },
+          "stableLexicalEntryCount": {
+            "type": "number",
+            "description": "已稳定全局词条数（双向 scheduled_days ≥21）"
+          },
+          "dueReviewCount": {
+            "type": "number",
+            "description": "到期复习负荷（当前主课程 state=review 且 due ≤ now）"
+          },
+          "asOf": {
+            "type": "string",
+            "description": "计算截止时刻"
+          }
+        },
+        "required": [
+          "exposedLexicalEntryCount",
+          "initiallyReviewedCourseItemCount",
+          "stableLexicalEntryCount",
+          "dueReviewCount",
+          "asOf"
+        ]
+      },
+      "LeaderboardRowDto": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "description": "参与者显示名（安全别名；非 username / user_id）"
+          },
+          "challengePoints": {
+            "type": "number",
+            "description": "本周挑战积分（仅挑战积分，非日常 XP）"
+          },
+          "rank": {
+            "type": "number",
+            "description": "dense rank（并列者共享名次）"
+          }
+        },
+        "required": [
+          "displayName",
+          "challengePoints",
+          "rank"
+        ]
+      },
+      "WeeklyLeaderboardDto": {
+        "type": "object",
+        "properties": {
+          "challengeWeek": {
+            "type": "string",
+            "description": "挑战周键，例如 cw-2026-08-11"
+          },
+          "weekStart": {
+            "type": "string",
+            "description": "周期起点（Asia/Shanghai 周一 00:00 UTC ISO）"
+          },
+          "weekEnd": {
+            "type": "string",
+            "description": "周期终点（下一周一 00:00 UTC ISO，开区间）"
+          },
+          "timezone": {
+            "type": "string",
+            "description": "固定挑战周时区"
+          },
+          "rows": {
+            "description": "当前周公开行（分页）",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LeaderboardRowDto"
+            }
+          },
+          "totalParticipants": {
+            "type": "number",
+            "description": "当周参与用户总数（含退出公开榜者）"
+          },
+          "hasMore": {
+            "type": "boolean",
+            "description": "是否有下一页（游标分页）"
+          },
+          "nextCursor": {
+            "type": "string",
+            "description": "下一页游标"
+          },
+          "viewerRank": {
+            "type": "object",
+            "description": "当前登录用户的公开排名（未上榜/退出则为 null）"
+          },
+          "viewerChallengePoints": {
+            "type": "number",
+            "description": "当前登录用户的挑战积分"
+          },
+          "asOf": {
+            "type": "string",
+            "description": "计算截止时刻"
+          }
+        },
+        "required": [
+          "challengeWeek",
+          "weekStart",
+          "weekEnd",
+          "timezone",
+          "rows",
+          "totalParticipants",
+          "hasMore",
+          "viewerRank",
+          "viewerChallengePoints",
+          "asOf"
+        ]
+      },
+      "LeaderboardVisibilityDto": {
+        "type": "object",
+        "properties": {
+          "public": {
+            "type": "boolean",
+            "description": "true=公开参与（默认）；false=退出公开榜单"
+          }
+        },
+        "required": [
+          "public"
         ]
       },
       "OperationSummaryDto": {
@@ -5980,6 +6519,224 @@
         "required": [
           "mappingVersion",
           "validationInputSha256"
+        ]
+      },
+      "ReviewSourceProjectionDto": {
+        "type": "object",
+        "properties": {
+          "sourceName": {
+            "type": "string"
+          },
+          "pageId": {
+            "type": "string"
+          },
+          "revisionId": {
+            "type": "string"
+          },
+          "revisionTimestamp": {
+            "type": "string"
+          },
+          "sourceUrl": {
+            "type": "string"
+          },
+          "licenseName": {
+            "type": "string"
+          },
+          "licenseVersion": {
+            "type": "string"
+          },
+          "licenseUrl": {
+            "type": "string"
+          },
+          "attribution": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceName",
+          "pageId",
+          "revisionId",
+          "revisionTimestamp",
+          "sourceUrl",
+          "licenseName",
+          "licenseUrl",
+          "attribution"
+        ]
+      },
+      "ReviewDraftListItemDto": {
+        "type": "object",
+        "properties": {
+          "draftId": {
+            "type": "string"
+          },
+          "spelling": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "decisionType": {
+            "type": "string"
+          },
+          "reviewVersion": {
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ReviewSourceProjectionDto"
+          }
+        },
+        "required": [
+          "draftId",
+          "spelling",
+          "status",
+          "createdAt",
+          "source"
+        ]
+      },
+      "ReviewDraftListDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewDraftListItemDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "ReviewDecisionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "draftId": {
+            "type": "string"
+          },
+          "decisionType": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "reviewerId": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ReviewSourceProjectionDto"
+          },
+          "englishSpelling": {
+            "type": "string"
+          },
+          "simplifiedChineseMeaning": {
+            "type": "string"
+          },
+          "learningHint": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "draftId",
+          "decisionType",
+          "reason",
+          "reviewerId",
+          "createdAt",
+          "source",
+          "englishSpelling"
+        ]
+      },
+      "ReviewDraftDetailDto": {
+        "type": "object",
+        "properties": {
+          "draftId": {
+            "type": "string"
+          },
+          "spelling": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "simplifiedChineseMeaning": {
+            "type": "string"
+          },
+          "learningHint": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "reviewVersion": {
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ReviewSourceProjectionDto"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/ReviewDecisionDto"
+          }
+        },
+        "required": [
+          "draftId",
+          "spelling",
+          "status",
+          "simplifiedChineseMeaning",
+          "createdAt",
+          "reviewVersion",
+          "source"
+        ]
+      },
+      "ReviewDecisionRequestDto": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "accept",
+              "accept_with_edits",
+              "reject"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "description": "审核理由；reject 必填"
+          },
+          "editedContent": {
+            "type": "object",
+            "description": "accept_with_edits 时的受控编辑内容"
+          },
+          "expectedVersion": {
+            "type": "string",
+            "description": "乐观并发版本文本：由 detail/list 返回的 reviewVersion 回填；过期则返回 409（stale-review 防护）"
+          }
+        },
+        "required": [
+          "decision"
+        ]
+      },
+      "ReviewDecisionResponseDto": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "$ref": "#/components/schemas/ReviewDecisionDto"
+          },
+          "isIdempotentReplay": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "decision",
+          "isIdempotentReplay"
         ]
       }
     }

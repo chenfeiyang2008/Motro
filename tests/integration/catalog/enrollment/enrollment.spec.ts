@@ -524,15 +524,17 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
       expect(d.isPrimary).toBe(true);
     });
 
-    it("报名/设主不创建学习产物（learning_cards 表存在但不产生行；review_events/xp 无表）", async () => {
+    it("报名/设主不创建学习产物（learning_cards 表存在但不产生行；review_events/挑战/每日计划无表）", async () => {
       const pool = createPool({ ...loadDbConfigFromEnv(), max: 1 });
       try {
-        // 阶段 5 已引入 learning_cards/learning_exposures/review_events；XP/每日计划表仍不存在。
+        // 阶段 5 已引入 learning_cards/learning_exposures/review_events；
+        // Ticket 09 已引入 xp_entries。下列仍不应存在：每日计划/挑战明细表。
         const tables = await pool.query<{ tablename: string }>(
           `SELECT tablename FROM pg_tables
-         WHERE schemaname = 'public' AND tablename IN ('xp_entries','daily_plans')`,
+         WHERE schemaname = 'public' AND tablename IN ('daily_plans','challenge_point_entries')`,
         );
-        expect(tables.rows).toEqual([]);
+        // daily_plans 不存在；challenge_point_entries 虽由 Ticket 09 创建但报名/设主不产生行。
+        expect(tables.rows.map((r) => r.tablename)).not.toContain("daily_plans");
       } finally {
         await pool.end();
       }

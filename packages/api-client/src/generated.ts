@@ -4,3622 +4,4090 @@
  */
 
 export interface paths {
-  "/api/v1/health/live": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/health/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["HealthController_live"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get: operations["HealthController_live"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/health/ready": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/health/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["HealthController_ready"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get: operations["HealthController_ready"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/auth/login": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 登录并建立会话 cookie */
+        post: operations["AuthController_login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** 登录并建立会话 cookie */
-    post: operations["AuthController_login"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/auth/me": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 当前账号 */
+        get: operations["AuthController_me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** 当前账号 */
-    get: operations["AuthController_me"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/auth/logout": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 撤销当前会话并清除 cookie */
+        post: operations["AuthController_logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** 撤销当前会话并清除 cookie */
-    post: operations["AuthController_logout"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/auth/change-password": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/auth/change-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 修改当前/首次密码并撤销其他会话 */
+        post: operations["AuthController_changePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** 修改当前/首次密码并撤销其他会话 */
-    post: operations["AuthController_changePassword"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/auth/sessions": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/auth/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 列出当前用户会话摘要 */
+        get: operations["AuthController_sessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** 列出当前用户会话摘要 */
-    get: operations["AuthController_sessions"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/auth/sessions/{id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/auth/sessions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** 撤销一条自有会话 */
+        delete: operations["AuthController_revokeSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    post?: never;
-    /** 撤销一条自有会话 */
-    delete: operations["AuthController_revokeSession"];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/admin/users": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 列出账号 */
+        get: operations["AdminUsersController_list"];
+        put?: never;
+        /** 创建受邀账号，返回一次性密码（仅此一次） */
+        post: operations["AdminUsersController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** 列出账号 */
-    get: operations["AdminUsersController_list"];
-    put?: never;
-    /** 创建受邀账号，返回一次性密码（仅此一次） */
-    post: operations["AdminUsersController_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/admin/users/{id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查看账号安全字段 */
+        get: operations["AdminUsersController_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** 查看账号安全字段 */
-    get: operations["AdminUsersController_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/admin/users/{id}/disable": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/users/{id}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 停用账号并撤销其全部会话 */
+        post: operations["AdminUsersController_disable"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** 停用账号并撤销其全部会话 */
-    post: operations["AdminUsersController_disable"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/admin/users/{id}/reset-password": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/users/{id}/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 重置一次性密码并撤销全部会话 */
+        post: operations["AdminUsersController_reset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** 重置一次性密码并撤销全部会话 */
-    post: operations["AdminUsersController_reset"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/admin/lexical-entries": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/lexical-entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 搜索/分页词条（规范化拼写、来源状态、引用次数、更新时间） */
+        get: operations["LexicalEntryController_list"];
+        put?: never;
+        /** 创建手工词条；重复候选返回 409 及候选，不静默落库 */
+        post: operations["LexicalEntryController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** 搜索/分页词条（规范化拼写、来源状态、引用次数、更新时间） */
-    get: operations["LexicalEntryController_list"];
-    put?: never;
-    /** 创建手工词条；重复候选返回 409 及候选，不静默落库 */
-    post: operations["LexicalEntryController_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/admin/lexical-entries/{id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/lexical-entries/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 词条事实与来源摘要 */
+        get: operations["LexicalEntryController_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** 词条事实与来源摘要 */
-    get: operations["LexicalEntryController_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/admin/courses": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/courses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 课程列表（草稿版本、可见状态） */
+        get: operations["CourseController_list"];
+        put?: never;
+        /** 创建稳定课程并同时创建初始草稿（draftVersion=1） */
+        post: operations["CourseController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** 课程列表（草稿版本、可见状态） */
-    get: operations["CourseController_list"];
-    put?: never;
-    /** 创建稳定课程并同时创建初始草稿（draftVersion=1） */
-    post: operations["CourseController_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/admin/courses/{id}/draft": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/courses/{id}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 草稿详情：元数据、版本与有序单元 */
+        get: operations["CourseController_getDraft"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** 更新草稿元数据（If-Match 或 draftVersion） */
+        patch: operations["CourseController_updateDraft"];
+        trace?: never;
     };
-    /** 草稿详情：元数据、版本与有序单元 */
-    get: operations["CourseController_getDraft"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    /** 更新草稿元数据（If-Match 或 draftVersion） */
-    patch: operations["CourseController_updateDraft"];
-    trace?: never;
-  };
-  "/api/v1/admin/courses/{id}/validate": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/courses/{id}/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 校验草稿：只读、不创建 release、不改变 current-release */
+        post: operations["CourseController_validate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** 校验草稿：只读、不创建 release、不改变 current-release */
-    post: operations["CourseController_validate"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/admin/courses/{id}/releases": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/courses/{id}/releases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 版本历史与当前版本标记（只读） */
+        get: operations["CourseController_releases"];
+        put?: never;
+        /** 发布不可变版本（需 Idempotency-Key；幂等重试返回原结果） */
+        post: operations["CourseController_publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** 版本历史与当前版本标记（只读） */
-    get: operations["CourseController_releases"];
-    put?: never;
-    /** 发布不可变版本（需 Idempotency-Key；幂等重试返回原结果） */
-    post: operations["CourseController_publish"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/admin/courses/{id}/current-release": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/courses/{id}/current-release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** 把当前版本指针指向已有 release（仅同一课程，不修改快照） */
+        put: operations["CourseController_setCurrentRelease"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    /** 把当前版本指针指向已有 release（仅同一课程，不修改快照） */
-    put: operations["CourseController_setCurrentRelease"];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/admin/courses/{id}/draft/units/{unitId}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/courses/{id}/draft/units/{unitId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 新增单元（客户端分配稳定 unitId，追加到末尾） */
+        post: operations["CourseController_createUnit"];
+        /** 删除单元并重排 */
+        delete: operations["CourseController_deleteUnit"];
+        options?: never;
+        head?: never;
+        /** 编辑单元标题/描述 */
+        patch: operations["CourseController_updateUnit"];
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** 新增单元（客户端分配稳定 unitId，追加到末尾） */
-    post: operations["CourseController_createUnit"];
-    /** 删除单元并重排 */
-    delete: operations["CourseController_deleteUnit"];
-    options?: never;
-    head?: never;
-    /** 编辑单元标题/描述 */
-    patch: operations["CourseController_updateUnit"];
-    trace?: never;
-  };
-  "/api/v1/admin/courses/{id}/draft/reorder": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/courses/{id}/draft/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 提交完整单元顺序并事务重排 */
+        post: operations["CourseController_reorder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** 提交完整单元顺序并事务重排 */
-    post: operations["CourseController_reorder"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/admin/courses/{id}/draft/items/reorder": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/courses/{id}/draft/items/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 提交单元内完整词项顺序并事务重排 */
+        post: operations["CourseController_reorderItems"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** 提交单元内完整词项顺序并事务重排 */
-    post: operations["CourseController_reorderItems"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/admin/courses/{id}/draft/items/{itemId}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/courses/{id}/draft/items/{itemId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 新增课程词项（客户端分配稳定 course_item_id） */
+        post: operations["CourseController_createItem"];
+        /** 删除课程词项并重排 */
+        delete: operations["CourseController_deleteItem"];
+        options?: never;
+        head?: never;
+        /** 编辑课程词项（释义/提示/移动到其他单元） */
+        patch: operations["CourseController_updateItem"];
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** 新增课程词项（客户端分配稳定 course_item_id） */
-    post: operations["CourseController_createItem"];
-    /** 删除课程词项并重排 */
-    delete: operations["CourseController_deleteItem"];
-    options?: never;
-    head?: never;
-    /** 编辑课程词项（释义/提示/移动到其他单元） */
-    patch: operations["CourseController_updateItem"];
-    trace?: never;
-  };
-  "/api/v1/catalog/courses": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/catalog/courses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 学习者可见课程列表（只读 current release + 本人报名/主课程状态），keyset 游标分页 */
+        get: operations["CatalogController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** 学习者可见课程列表（只读 current release + 本人报名/主课程状态），keyset 游标分页 */
-    get: operations["CatalogController_list"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/catalog/courses/{id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/catalog/courses/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 课程详情：当前 release、有序单元概要与本人报名/主课程状态；不可见返回 404 */
+        get: operations["CatalogController_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** 课程详情：当前 release、有序单元概要与本人报名/主课程状态；不可见返回 404 */
-    get: operations["CatalogController_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/catalog/courses/{id}/enroll": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/catalog/courses/{id}/enroll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 加入已发布课程（幂等）；可选 makePrimary */
+        post: operations["CatalogController_enroll"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** 加入已发布课程（幂等）；可选 makePrimary */
-    post: operations["CatalogController_enroll"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/catalog/primary-course": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/catalog/primary-course": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** 把已报名课程设为主课程（事务内原子切换；未报名返回 409） */
+        put: operations["CatalogController_setPrimary"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    /** 把已报名课程设为主课程（事务内原子切换；未报名返回 409） */
-    put: operations["CatalogController_setPrimary"];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/study/cards/summary": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/study/cards/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 当前用户主课程的学习卡摘要（幂等补齐 current release 双向卡后统计） */
+        get: operations["StudyController_summary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** 当前用户主课程的学习卡摘要（幂等补齐 current release 双向卡后统计） */
-    get: operations["StudyController_summary"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/study/cards": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/study/cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 当前用户自己的学习卡状态列表（默认主课程，可按已报名课程过滤） */
+        get: operations["StudyController_cards"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** 当前用户自己的学习卡状态列表（默认主课程，可按已报名课程过滤） */
-    get: operations["StudyController_cards"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/study/exposures": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/study/exposures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 记录当前用户某课程词项学习面首次展示（幂等；只允许已报名课程 current release 词项，不改 FSRS，不产生复习/XP） */
+        post: operations["StudyController_expose"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** 记录当前用户某课程词项学习面首次展示（幂等；只允许已报名课程 current release 词项，不改 FSRS，不产生复习/XP） */
-    post: operations["StudyController_expose"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/study/today": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/study/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 今日概览：主课程、预算、计划候选数（due/initial/new）、是否有 active 会话、是否无任务（只读） */
+        get: operations["StudyController_today"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** 今日概览：主课程、预算、计划候选数（due/initial/new）、是否有 active 会话、是否无任务（只读） */
-    get: operations["StudyController_today"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/study/sessions": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/study/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 创建或恢复当前用户唯一 active 会话（幂等；刷新/重复调用返回同一会话；无候选返回 noWork，不创建空会话） */
+        post: operations["StudyController_createOrResume"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** 创建或恢复当前用户唯一 active 会话（幂等；刷新/重复调用返回同一会话；无候选返回 noWork，不创建空会话） */
-    post: operations["StudyController_createOrResume"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/study/sessions/active": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/study/sessions/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 读取当前用户 active 会话详情（会话头 + 按 position 有序计划项）；无 active 会话 → 404 */
+        get: operations["StudyController_activeDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** 读取当前用户 active 会话详情（会话头 + 按 position 有序计划项）；无 active 会话 → 404 */
-    get: operations["StudyController_activeDetail"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/study/sessions/{sessionId}/items/{itemId}/reveal": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/study/sessions/{sessionId}/items/{itemId}/reveal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 展示确认：把当前 cursor 所指的 pending 计划项标记为 shown（幂等；重复 reveal 返回已 shown 状态，不产生 ReviewEvent/不改 FSRS/不推进 cursor） */
+        post: operations["StudyController_reveal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** 展示确认：把当前 cursor 所指的 pending 计划项标记为 shown（幂等；重复 reveal 返回已 shown 状态，不产生 ReviewEvent/不改 FSRS/不推进 cursor） */
-    post: operations["StudyController_reveal"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/study/sessions/{sessionId}/reviews": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/study/sessions/{sessionId}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 评分提交：对当前 cursor 所指、已 reveal 的计划项提交四级评分；幂等键去重（同请求重放，不同请求 409 IDEMPOTENCY_CONFLICT），事务内原子结算 FSRS 与 cursor */
+        post: operations["StudyController_submitReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** 评分提交：对当前 cursor 所指、已 reveal 的计划项提交四级评分；幂等键去重（同请求重放，不同请求 409 IDEMPOTENCY_CONFLICT），事务内原子结算 FSRS 与 cursor */
-    post: operations["StudyController_submitReview"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/study/progress": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/study/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 进度概览（只读）：主课程 current release 各单元解锁 + 首测完成 + 稳定派生状态，由事件与快照完全重建 */
+        get: operations["StudyController_progress"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** 进度概览（只读）：主课程 current release 各单元解锁 + 首测完成 + 稳定派生状态，由事件与快照完全重建 */
-    get: operations["StudyController_progress"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/study/metrics": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/study/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 可重建学习指标（只读）：已稳定词项、待复习数、7日节奏、会话统计、课程完成度。由 review_events / learning_cards / study_sessions 完全重建，标注事实来源、timezone、去重规则。 */
+        get: operations["MetricsController_getMetrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** 可重建学习指标（只读）：已稳定词项、待复习数、7日节奏、会话统计、课程完成度。由 review_events / learning_cards / study_sessions 完全重建，标注事实来源、timezone、去重规则。 */
-    get: operations["MetricsController_getMetrics"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/admin/operations": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/me/xp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 个人学习 XP（只属个人，不参与排行榜） */
+        get: operations["GameController_meXp"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** 列出后台操作（游标分页；可安全按 status/type 过滤） */
-    get: operations["OperationsController_list"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/admin/operations/{id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/me/learning-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 个人学习概览（可重建，不含 XP/排行榜/CEFR） */
+        get: operations["GameController_learningSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** 查看单个 operation 详情（含 attempt 时间线与脱敏错误） */
-    get: operations["OperationsController_detail"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/admin/operations/{id}/retry": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/leaderboard/weekly": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 周挑战榜（仅挑战积分；日常 XP 不参与；支持周期/游标分页） */
+        get: operations["GameController_weeklyLeaderboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** 管理员重试失败/人工状态操作（CSRF + Idempotency-Key + 审计） */
-    post: operations["OperationsController_retry"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/admin/imports": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/leaderboard/visibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 设置周挑战榜公开参与状态（默认公开；退出仅隐藏公开行，保留积分/名次）。幂等：Idempotency-Key 可选。 */
+        post: operations["GameController_setVisibility"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** 导入批次列表（管理员共享；元数据，不含磁盘路径/存储键） */
-    get: operations["ImportController_list"];
-    put?: never;
-    /** 管理员上传原始文件并创建导入批次（multipart；Idempotency-Key 幂等；本票不解析文件内容） */
-    post: operations["ImportController_create"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/admin/imports/{id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/operations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 列出后台操作（游标分页；可安全按 status/type 过滤） */
+        get: operations["OperationsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** 单个导入批次详情（含映射/校验事实；不含磁盘路径/存储键） */
-    get: operations["ImportController_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    /** 更新导入批次映射/来源声明（乐观并发：version；映射变更使旧校验结果失效并写审计） */
-    patch: operations["ImportController_updateMapping"];
-    trace?: never;
-  };
-  "/api/v1/admin/imports/{id}/validate": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/operations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查看单个 operation 详情（含 attempt 时间线与脱敏错误） */
+        get: operations["OperationsController_detail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** 同步解析并校验批次：生成行事实与校验摘要（幂等） */
-    post: operations["ImportController_validate"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/admin/imports/{id}/rows": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/operations/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 管理员重试失败/人工状态操作（CSRF + Idempotency-Key + 审计） */
+        post: operations["OperationsController_retry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** 分页读取批次行结果（按 ordinal 升序；游标分页）。默认当前映射版本；可传 mappingVersion 读取历史映射版本的行事实 */
-    get: operations["ImportController_rows"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/admin/imports/{id}/commit": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 导入批次列表（管理员共享；元数据，不含磁盘路径/存储键） */
+        get: operations["ImportController_list"];
+        put?: never;
+        /** 管理员上传原始文件并创建导入批次（multipart；Idempotency-Key 幂等；本票不解析文件内容） */
+        post: operations["ImportController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** 仅提交有效候选行：事务内创建/关联全局词条与 lexical_sources(import)，形成可审计提交事实（幂等；绝不创建课程/发布） */
-    post: operations["ImportController_commit"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/admin/imports/{id}/error-report": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/v1/admin/imports/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 单个导入批次详情（含映射/校验事实；不含磁盘路径/存储键） */
+        get: operations["ImportController_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** 更新导入批次映射/来源声明（乐观并发：version；映射变更使旧校验结果失效并写审计） */
+        patch: operations["ImportController_updateMapping"];
+        trace?: never;
     };
-    /** 下载仅含不可提交行的服务端生成错误报告 CSV（当前映射版本；公式注入已中和） */
-    get: operations["ImportController_errorReport"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
+    "/api/v1/admin/imports/{id}/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 同步解析并校验批次：生成行事实与校验摘要（幂等） */
+        post: operations["ImportController_validate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/imports/{id}/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 分页读取批次行结果（按 ordinal 升序；游标分页）。默认当前映射版本；可传 mappingVersion 读取历史映射版本的行事实 */
+        get: operations["ImportController_rows"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/imports/{id}/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 仅提交有效候选行：事务内创建/关联全局词条与 lexical_sources(import)，形成可审计提交事实（幂等；绝不创建课程/发布） */
+        post: operations["ImportController_commit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/imports/{id}/error-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 下载仅含不可提交行的服务端生成错误报告 CSV（当前映射版本；公式注入已中和） */
+        get: operations["ImportController_errorReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 列出来源完整、等待审核的草稿队列 */
+        get: operations["ReviewsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reviews/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查看单个草稿和完整来源投影 */
+        get: operations["ReviewsController_detail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reviews/{id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查看该草稿的历史审核决定（不可变只读） */
+        get: operations["ReviewsController_history"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reviews/{id}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 提交不可变人工审核决定（accept / accept_with_edits / reject） */
+        post: operations["ReviewsController_decide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reviews/{id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 人工处理可补全的 manual_action：生成不可变人工处理事实（append-only） */
+        post: operations["ReviewsController_resolve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-  schemas: {
-    LoginDto: {
-      /** @description 登录用户名 */
-      username: string;
-      /** @description 密码 */
-      password: string;
-    };
-    ChangePasswordDto: {
-      /** @description 当前密码（或一次性密码） */
-      currentPassword: string;
-      /** @description 新密码 */
-      newPassword: string;
-    };
-    CreateUserDto: {
-      /** @description 登录用户名（小写） */
-      username: string;
-      /** @description 显示名 */
-      displayName: string;
-      /** @description IANA 时区 */
-      timezone: string;
-      /** @description 每日时间预算（分钟） */
-      dailyBudgetMinutes: number;
-      /**
-       * @default learner
-       * @enum {string}
-       */
-      role: "learner" | "admin";
-    };
-    AdminUserDto: {
-      /** @description 账号 UUID */
-      id: string;
-      /** @description 登录用户名（小写） */
-      username: string;
-      /** @description 显示名 */
-      displayName: string;
-      /** @enum {string} */
-      role: "learner" | "admin";
-      /** @description IANA 时区 */
-      timezone: string;
-      /** @description 每日学习预算（分钟） */
-      dailyBudgetMinutes: number;
-      /** @description 是否首登必须修改密码 */
-      mustChangePassword: boolean;
-      /**
-       * @description 真实数据库账号状态
-       * @enum {string}
-       */
-      status: "active" | "disabled";
-      /** @description 账号创建时间（ISO 字符串） */
-      createdAt: string;
-    };
-    AdminCreateUserResultDto: {
-      user: components["schemas"]["AdminUserDto"];
-      /** @description 一次性密码（仅此一次返回，绝不停留） */
-      oneTimePassword: string;
-    };
-    AdminUserListDto: {
-      items: components["schemas"]["AdminUserDto"][];
-    };
-    AdminOkDto: {
-      /** @description 操作成功 */
-      ok: boolean;
-    };
-    LexicalEntrySummaryDto: {
-      /** @description 词条 ID */
-      id: string;
-      /** @description 规范展示拼写 */
-      canonicalSpelling: string;
-      /** @description 查询/去重用规范化拼写 */
-      normalizedSpelling: string;
-      /** @description 词性（可空） */
-      partOfSpeech: string | null;
-      /** @description 来源状态（当前权威来源类型） */
-      sourceStatus: string;
-      /** @description 课程词项引用次数；课程词项工单落地前恒为 0（预留 lexicalEntryId 查询边界） */
-      referenceCount: number;
-      /** @description 最近更新时间 */
-      updatedAt: string;
-    };
-    PageInfoDto: {
-      /** @description 下一页游标；无更多时 null */
-      cursor: string | null;
-      /** @description 是否还有更多 */
-      hasMore: boolean;
-    };
-    LexicalEntryListResponseDto: {
-      items: components["schemas"]["LexicalEntrySummaryDto"][];
-      page: components["schemas"]["PageInfoDto"];
-    };
-    SenseDto: {
-      /** @description 中文释义 */
-      meaning: string;
-      /** @description 例句 */
-      example?: string;
-    };
-    CreateLexicalEntryDto: {
-      /** @description 规范展示拼写（保留原样，不因小写无条件合并同形异义词） */
-      canonicalSpelling: string;
-      /**
-       * @description 词性
-       * @enum {string}
-       */
-      partOfSpeech?:
-        | "noun"
-        | "verb"
-        | "adjective"
-        | "adverb"
-        | "pronoun"
-        | "preposition"
-        | "conjunction"
-        | "interjection"
-        | "determiner"
-        | "article"
-        | "numeral"
-        | "particle"
-        | "phrase"
-        | "abbreviation"
-        | "prefix"
-        | "suffix";
-      /** @description 发音标注 */
-      pronunciation?: string;
-      /** @description 结构化释义 */
-      senses?: components["schemas"]["SenseDto"][];
-      /** @description 来源说明（不进入审计摘要） */
-      sourceNote?: string;
-      /**
-       * @description 确认允许创建同形异义词条（重复候选提示后）
-       * @default false
-       */
-      confirmDuplicate: boolean;
-    };
-    ProvenanceDto: {
-      /** @description 来源类型 */
-      sourceType: string;
-      /** @description 来源说明 */
-      sourceNote: string | null;
-      /** @description 来源内容哈希 */
-      contentHash: string;
-      /** @description 创建者用户名 */
-      createdByUsername: string | null;
-      /** @description 来源记录时间 */
-      createdAt: string;
-    };
-    AuditSummaryDto: {
-      /** @description 审计动作 */
-      action: string;
-      /** @description 发生时间 */
-      createdAt: string;
-    };
-    LexicalEntryDetailDto: {
-      id: string;
-      canonicalSpelling: string;
-      normalizedSpelling: string;
-      partOfSpeech: string | null;
-      pronunciation: string | null;
-      /** @description 结构化释义 */
-      senses: components["schemas"]["SenseDto"][];
-      /** @description 词条状态 */
-      status: string;
-      /** @description 来源状态（当前权威来源类型） */
-      sourceStatus: string;
-      /** @description 课程词项引用次数（课程词项落地前恒为 0） */
-      referenceCount: number;
-      createdAt: string;
-      updatedAt: string;
-      provenance: components["schemas"]["ProvenanceDto"][];
-      /** @description 最近 10 条针对该词条的审计操作 */
-      recentOperations: components["schemas"]["AuditSummaryDto"][];
-    };
-    DuplicateCandidateDto: {
-      id: string;
-      canonicalSpelling: string;
-      normalizedSpelling: string;
-    };
-    DuplicateWarningErrorDto: {
-      /** @description 错误码：DUPLICATE_WARNING 或 DUPLICATE_ENTRY */
-      code: string;
-      message: string;
-      requestId: string;
-      /** @description 重复候选词条 */
-      duplicateCandidates: components["schemas"]["DuplicateCandidateDto"][];
-      /** @description 是否可重试 */
-      retryable: boolean;
-    };
-    DuplicateErrorEnvelopeDto: {
-      error: components["schemas"]["DuplicateWarningErrorDto"];
-    };
-    CourseListItemDto: {
-      id: string;
-      /** @description 课程 slug（唯一） */
-      slug: string;
-      /** @description 当前标题（来自 active 草稿） */
-      title: string;
-      level: string;
-      /** @description 当前描述（来自 active 草稿） */
-      description: string | null;
-      /** @description 课程可见性 */
-      visibility: string;
-      /** @description 课程状态 */
-      status: string;
-      /** @description active 草稿 ID */
-      draftId: string | null;
-      /** @description active 草稿版本 */
-      draftVersion: number | null;
-      /** @description 最近编辑时间（来自 active 草稿） */
-      updatedAt: string;
-    };
-    CourseListResponseDto: {
-      items: components["schemas"]["CourseListItemDto"][];
-    };
-    CreateCourseDto: {
-      /** @description 课程 slug（唯一，小写字母/数字/连字符） */
-      slug: string;
-      /** @description 课程标题 */
-      title: string;
-      /**
-       * @description 级别
-       * @default a1
-       * @enum {string}
-       */
-      level: "a1" | "a2" | "b1" | "b2" | "c1" | "c2";
-      /** @description 课程描述 */
-      description?: string;
-    };
-    CreateCourseResultDto: {
-      courseId: string;
-      draftId: string;
-      /** @description 初始草稿版本 */
-      draftVersion: number;
-      slug: string;
-      title: string;
-      level: string;
-    };
-    DraftItemSummaryDto: {
-      /** @description 全局词条 ID */
-      id: string;
-      /** @description 英语拼写 */
-      canonicalSpelling: string;
-      /** @description 规范化拼写 */
-      normalizedSpelling: string;
-      /** @description 词条来源状态 */
-      sourceStatus: string;
-    };
-    ItemDto: {
-      /** @description 稳定 course_item_id */
-      id: string;
-      /** @description 单元内 1 起始的位置 */
-      position: number;
-      /** @description 课程专属中文释义 */
-      meaning: string;
-      /** @description 可选提示 */
-      hint: string | null;
-      /** @description 人工内容 provenance：关联的管理员审计事件 ID */
-      contentReviewReference: string;
-      /** @description 引用的全局词条摘要 */
-      lexicalEntry: components["schemas"]["DraftItemSummaryDto"];
-      createdAt: string;
-      updatedAt: string;
-    };
-    UnitDto: {
-      /** @description 稳定 unit_id */
-      id: string;
-      /** @description 1 起始的位置 */
-      position: number;
-      title: string;
-      description: string | null;
-      /** @description 按 position 升序的课程词项 */
-      items: components["schemas"]["ItemDto"][];
-      createdAt: string;
-      updatedAt: string;
-    };
-    CourseDraftDetailDto: {
-      courseId: string;
-      draftId: string;
-      /** @description 课程 slug（唯一） */
-      slug: string;
-      title: string;
-      level: string;
-      description: string | null;
-      /** @description 当前草稿版本 */
-      version: number;
-      status: string;
-      /** @description 按 position 升序的单元大纲 */
-      units: components["schemas"]["UnitDto"][];
-    };
-    ValidationIssueDto: {
-      /** @description 稳定错误码 */
-      code: string;
-      /** @description 定位路径：course、unit.<unitId>、item.<itemId>.<field> */
-      path: string;
-      message: string;
-      /**
-       * @description error 阻断发布，warning 仅提示
-       * @enum {string}
-       */
-      severity: "error" | "warning";
-    };
-    DiffSummaryDto: {
-      /**
-       * @description 首次发布或相对当前版本的差异
-       * @enum {string}
-       */
-      kind: "initial" | "changed";
-      addedUnits: number;
-      removedUnits: number;
-      addedItems: number;
-      removedItems: number;
-      changedItems: number;
-      totalUnits: number;
-      totalItems: number;
-    };
-    CourseValidationResultDto: {
-      /** @description 被校验草稿的版本 */
-      draftVersion: number;
-      /** @description 是否存在阻断错误 */
-      isPublishable: boolean;
-      /** @description 阻断发布的问题 */
-      blockingErrors: components["schemas"]["ValidationIssueDto"][];
-      /** @description 提示但可发布的问题 */
-      warnings: components["schemas"]["ValidationIssueDto"][];
-      diffSummary: components["schemas"]["DiffSummaryDto"];
-      /** @description 受影响学习者数量；第 4 阶段无报名数据时为 0 */
-      affectedLearnerCount: number;
-      /** @description 校验时刻（RFC 3339 UTC） */
-      validatedAt: string;
-      /** @description 草稿内容规范化序列化 SHA-256 */
-      contentHash: string;
-      /** @description 校验令牌：draftVersion.contentHash 前缀，发布须携带精确版本 */
-      validationToken: string;
-    };
-    PublishReleaseDto: {
-      /** @description 精确草稿版本（发布须重新确认） */
-      draftVersion: number;
-      /** @description 发布说明 */
-      releaseNote?: string;
-      /** @description 校验令牌（可选，须与草稿版本+内容哈希匹配） */
-      validationToken?: string;
-    };
-    PublishReleaseResultDto: {
-      releaseId: string;
-      /** @description 每门课程单调递增的版本号 */
-      releaseNumber: number;
-      /** @description 发布快照内容哈希 */
-      contentHash: string;
-      /** @description 发布后成为当前版本指针 */
-      currentReleaseId: string;
-      createdAt: string;
-    };
-    DraftVersionConflictErrorDto: {
-      /** @description 错误码：DRAFT_VERSION_CONFLICT */
-      code: string;
-      message: string;
-      requestId: string;
-      /** @description 服务端当前草稿版本 */
-      currentDraftVersion: number;
-      /** @description 是否可重试 */
-      retryable: boolean;
-    };
-    DraftVersionConflictEnvelopeDto: {
-      error: components["schemas"]["DraftVersionConflictErrorDto"];
-    };
-    ReleaseListItemDto: {
-      id: string;
-      releaseNumber: number;
-      title: string;
-      level: string;
-      description: string | null;
-      /** @description 快照内容哈希 */
-      contentHash: string;
-      /** @description 来源草稿版本 */
-      sourceDraftVersion: number;
-      /** @description 发布说明 */
-      releaseNote: string | null;
-      /** @description 创建者用户名 */
-      createdByUsername: string;
-      createdAt: string;
-      /** @description 是否为当前版本 */
-      isCurrent: boolean;
-    };
-    ReleaseListResponseDto: {
-      items: components["schemas"]["ReleaseListItemDto"][];
-    };
-    SetCurrentReleaseDto: {
-      /** @description 指向的已有 release ID（必须属于同一课程） */
-      releaseId: string;
-    };
-    UpdateCourseDraftDto: {
-      /** @description 课程 slug（唯一，小写字母/数字/连字符） */
-      slug?: string;
-      /** @description 课程标题 */
-      title?: string;
-      /**
-       * @description 级别
-       * @enum {string}
-       */
-      level?: "a1" | "a2" | "b1" | "b2" | "c1" | "c2";
-      /** @description 课程描述 */
-      description?: string;
-      /** @description 期望的草稿版本（If-Match 的替代） */
-      draftVersion?: number;
-    };
-    CreateUnitDto: {
-      /** @description 单元标题 */
-      title: string;
-      /** @description 单元描述 */
-      description?: string;
-      /** @description 期望的草稿版本（If-Match 的替代） */
-      draftVersion?: number;
-    };
-    UpdateUnitDto: {
-      /** @description 单元标题 */
-      title?: string;
-      /** @description 单元描述 */
-      description?: string;
-      /** @description 期望的草稿版本（If-Match 的替代） */
-      draftVersion?: number;
-    };
-    DeleteUnitDto: {
-      /** @description 期望的草稿版本（If-Match 的替代） */
-      draftVersion?: number;
-    };
-    ReorderUnitsDto: {
-      /** @description 完整单元 ID 顺序（无重复、无遗漏） */
-      unitIds: string[];
-      /** @description 期望的草稿版本（If-Match 的替代） */
-      draftVersion?: number;
-    };
-    ReorderItemsDto: {
-      /** @description 所属草稿单元 ID */
-      unitId: string;
-      /** @description 该单元内完整词项 ID 顺序（无重复、无遗漏、无陌生 ID） */
-      itemIds: string[];
-      /** @description 期望的草稿版本（If-Match 的替代） */
-      draftVersion?: number;
-    };
-    CreateItemDto: {
-      /** @description 所属草稿单元 ID */
-      unitId: string;
-      /** @description 引用的全局词条 ID */
-      lexicalEntryId: string;
-      /** @description 课程专属中文释义（必填） */
-      meaning: string;
-      /** @description 可选提示 */
-      hint?: string;
-      /** @description 期望的草稿版本（If-Match 的替代） */
-      draftVersion?: number;
-    };
-    UpdateItemDto: {
-      /** @description 课程专属中文释义（必填） */
-      meaning?: string;
-      /** @description 可选提示 */
-      hint?: string;
-      /** @description 移动到其他草稿单元（追加到该单元末尾） */
-      unitId?: string;
-      /** @description 期望的草稿版本（If-Match 的替代） */
-      draftVersion?: number;
-    };
-    DeleteItemDto: {
-      /** @description 期望的草稿版本（If-Match 的替代） */
-      draftVersion?: number;
-    };
-    CatalogCourseSummaryDto: {
-      courseId: string;
-      title: string;
-      level: string;
-      description: string | null;
-      /** @description 当前版本 release ID */
-      releaseId: string;
-      /** @description 当前版本号 */
-      releaseNumber: number;
-      /** @description 内容来源：published_release（只读发布快照） */
-      contentSource: string;
-      /** @description 学习进度：阶段 4 恒为 not_started */
-      progressStatus: string;
-      /** @description 当前用户是否已报名 */
-      isEnrolled: boolean;
-      /** @description 当前用户是否将此课程设为主课程 */
-      isPrimary: boolean;
-    };
-    CatalogCourseListResponseDto: {
-      items: components["schemas"]["CatalogCourseSummaryDto"][];
-      /** @description 下一页不透明游标；最后一页为 null */
-      nextCursor: string | null;
-      /** @description 是否还有后续页 */
-      hasMore: boolean;
-    };
-    CatalogUnitSummaryDto: {
-      /** @description 稳定 unit_id */
-      unitId: string;
-      /** @description 1 起始的位置 */
-      position: number;
-      title: string;
-      description: string | null;
-    };
-    CatalogCourseDetailDto: {
-      courseId: string;
-      title: string;
-      level: string;
-      description: string | null;
-      /** @description 当前版本 release ID */
-      releaseId: string;
-      /** @description 当前版本号 */
-      releaseNumber: number;
-      /** @description 内容来源：published_release（只读发布快照） */
-      contentSource: string;
-      /** @description 学习进度：阶段 4 恒为 not_started */
-      progressStatus: string;
-      /** @description 当前用户是否已报名 */
-      isEnrolled: boolean;
-      /** @description 当前用户是否将此课程设为主课程 */
-      isPrimary: boolean;
-      /** @description 按 position 升序的单元概要 */
-      units: components["schemas"]["CatalogUnitSummaryDto"][];
-    };
-    EnrollCourseDto: {
-      /**
-       * @description 加入后是否设为主课程
-       * @default false
-       */
-      makePrimary: boolean;
-    };
-    SetPrimaryCourseDto: {
-      /** @description 要设为主课程的已报名课程 ID */
-      courseId: string;
-    };
-    LearningCardSummaryCountsDto: {
-      /** @description 卡总数 */
-      total: number;
-      /** @description new 状态卡数（待首测） */
-      new: number;
-      /** @description learning 状态卡数 */
-      learning: number;
-      /** @description review 状态卡数 */
-      review: number;
-      /** @description 英文→中文方向卡数 */
-      enToZh: number;
-      /** @description 中文→英文方向卡数 */
-      zhToEn: number;
-    };
-    LearningCardSummaryDto: {
-      /** @description 主课程 ID */
-      courseId: string;
-      /** @description 主课程当前版本 release ID */
-      releaseId: string;
-      /** @description 主课程当前版本号 */
-      releaseNumber: number;
-      /** @description 当前版本课程词项数 */
-      itemCount: number;
-      /** @description 学习卡计数（按方向/状态） */
-      cards: components["schemas"]["LearningCardSummaryCountsDto"];
-      /** @description 已记录学习展示的词项数（每词项至多一次） */
-      exposedItemCount: number;
-    };
-    LearningCardListItemDto: {
-      /** @description 学习卡 ID */
-      cardId: string;
-      /** @description 课程 ID */
-      courseId: string;
-      /** @description 查询时刻课程的 current release ID */
-      releaseId: string;
-      /** @description 稳定课程词项 ID */
-      courseItemId: string;
-      /**
-       * @description 卡方向
-       * @enum {string}
-       */
-      direction: "en_to_zh" | "zh_to_en";
-      /**
-       * @description 记忆状态
-       * @enum {string}
-       */
-      state: "new" | "learning" | "review";
-      /** @description FSRS 稳定性 */
-      stability: number;
-      /** @description FSRS 难度 */
-      difficulty: number;
-      /** @description 预计间隔天数 */
-      scheduledDays: number;
-      /** @description 距上次复习经过天数 */
-      elapsedDays: number;
-      /** @description 复习次数 */
-      reps: number;
-      /** @description 遗忘次数 */
-      lapses: number;
-      /** @description 上次复习时间（new 卡为 null） */
-      lastReviewAt: string | null;
-      /** @description 到期时间（new 卡为创建时刻，待首测） */
-      dueAt: string;
-      /** @description 调度器版本（阶段 5 工单 01 恒为 fsrs-v6） */
-      schedulerVersion: string;
-      /** @description 词项英文拼写（来自 current release 快照） */
-      englishSpelling: string;
-      /** @description 词项中文释义（来自 current release 快照） */
-      meaning: string;
-      /** @description 该词项是否已记录学习展示 */
-      exposed: boolean;
-    };
-    LearningCardListDto: {
-      /** @description 按单元/词项位置排序的学习卡状态 */
-      items: components["schemas"]["LearningCardListItemDto"][];
-    };
-    CreateExposureDto: {
-      /** @description 已发布课程词项的稳定 course_item_id（必须是已报名课程 current release 中的词项） */
-      courseItemId: string;
-    };
-    LearningExposureDto: {
-      /** @description 学习展示记录 ID */
-      exposureId: string;
-      /** @description 稳定课程词项 ID */
-      courseItemId: string;
-      /** @description 引用的全局词条 ID */
-      lexicalEntryId: string;
-      /** @description 课程 ID */
-      courseId: string;
-      /** @description 首次展示时该课程的 current release ID（首次事实不可变） */
-      releaseId: string;
-      /** @description 首次展示时间（重复提交返回原值） */
-      firstExposedAt: string;
-      /** @description 本次是否为幂等重放（false=首次写入，true=已存在） */
-      alreadyExisted: boolean;
-    };
-    TodayCountsDto: {
-      /** @description 到期复习卡数（state=review 且 due_at <= now） */
-      dueCount: number;
-      /** @description 首次复习卡数（state=learning） */
-      initialCount: number;
-      /** @description 新卡数（state=new，仅 first unit 内） */
-      newCount: number;
-    };
-    TodayDto: {
-      /** @description 主课程 ID */
-      courseId: string;
-      /** @description 主课程当前版本 release ID */
-      releaseId: string;
-      /** @description 主课程当前版本号 */
-      releaseNumber: number;
-      /** @description 用户每日预算（分钟） */
-      dailyBudgetMinutes: number;
-      /** @description 计划候选数 */
-      counts: components["schemas"]["TodayCountsDto"];
-      /** @description 当前是否存在可恢复的 active 会话 */
-      hasActiveSession: boolean;
-      /** @description true 表示本次查询下无任何候选卡（预算和卡计数为 0） */
-      noWork: boolean;
-    };
-    StudySessionDto: {
-      /** @description 会话 ID */
-      sessionId: string;
-      /** @description 课程 ID */
-      courseId: string;
-      /** @description 会话创建时冻结的 current release ID */
-      releaseId: string;
-      /** @description 主课程当前版本号 */
-      releaseNumber: number;
-      /**
-       * @description 会话状态
-       * @enum {string}
-       */
-      status: "active" | "completed" | "abandoned";
-      /** @description 用户每日预算（分钟） */
-      dailyBudgetMinutes: number;
-      /** @description 计划规则版本 */
-      planRuleVersion: string;
-      /** @description 计划创建时间 */
-      plannedAt: string;
-      /** @description 会话开始时间 */
-      startedAt: string;
-      /** @description 计划项数（总预算截断后的实际项数） */
-      itemCount: number;
-      /** @description 当前 cursor（下一个待展示项的 position） */
-      cursor: number;
-    };
-    StudySessionItemDto: {
-      /** @description 计划项 ID */
-      itemId: string;
-      /** @description 会话内展示顺序位置 */
-      position: number;
-      /** @description 学习卡 ID */
-      cardId: string;
-      /** @description 稳定课程词项 ID */
-      courseItemId: string;
-      /** @description 课程 ID */
-      courseId: string;
-      /**
-       * @description 计划项分类
-       * @enum {string}
-       */
-      itemKind: "due_review" | "initial_review" | "new_learning";
-      /**
-       * @description 计划项状态
-       * @enum {string}
-       */
-      state: "pending" | "shown" | "completed" | "skipped_by_server";
-      /**
-       * @description 该计划项复习方向
-       * @enum {string}
-       */
-      direction: "en_to_zh" | "zh_to_en";
-      /** @description 英文拼写（来自会话冻结 release 快照，绝不来自 current release） */
-      englishSpelling: string;
-      /** @description 中文释义（来自会话冻结 release 快照，绝不来自 current release） */
-      meaning: string;
-      /** @description 提示（可空；来自冻结 release 快照） */
-      hint: string | null;
-    };
-    StudySessionDetailDto: {
-      /** @description 会话头 */
-      session: components["schemas"]["StudySessionDto"];
-      /** @description 按 position 排序的计划项 */
-      items: components["schemas"]["StudySessionItemDto"][];
-    };
-    RevealResultDto: {
-      /** @description 计划项 ID */
-      itemId: string;
-      /** @description 计划项在会话内的 position */
-      position: number;
-      /** @description 计划项绑定的稳定课程词项 ID */
-      courseItemId: string;
-      /**
-       * @description reveal 后的计划项状态（应为 shown；幂等重放仍返回 shown）
-       * @enum {string}
-       */
-      state: "pending" | "shown" | "completed" | "skipped_by_server";
-      /**
-       * @description 计划项分类
-       * @enum {string}
-       */
-      itemKind: "due_review" | "initial_review" | "new_learning";
-      /** @description 本次是否为幂等重放（true 表示该项已处于 shown） */
-      alreadyShown: boolean;
-      /** @description 是否为 new_learning（需确认学习面实际展示） */
-      isNewLearning: boolean;
-    };
-    SubmitReviewDto: {
-      /** @description 会话计划项 ID（必须是当前 cursor 所指的 pending 项，且已 reveal） */
-      sessionItemId: string;
-      /** @description 该计划项绑定的学习卡 ID（必须等于 item.card_id） */
-      cardId: string;
-      /**
-       * @description 四级评分
-       * @enum {string}
-       */
-      rating: "again" | "hard" | "good" | "easy";
-      /** @description 客户端为「同一评分意图」生成的唯一 ID；重试复用同一 ID 以保证幂等 */
-      clientEventId: string;
-    };
-    ReviewMemorySummaryDto: {
-      /** @description 评分后的记忆状态 */
-      state: string;
-      /** @description FSRS 稳定性 */
-      stability: number;
-      /** @description FSRS 难度 */
-      difficulty: number;
-      /** @description 预计间隔天数 */
-      scheduledDays: number;
-      /** @description 下一次到期时间（服务器权威） */
-      dueAt: string;
-      /** @description 状态版本（乐观并发计数） */
-      stateVersion: number;
-      /** @description 调度器版本 */
-      schedulerVersion: string;
-      /** @description 调度参数版本 */
-      schedulerParametersVersion: string;
-    };
-    ReviewSessionItemStateDto: {
-      /** @description 计划项 ID */
-      itemId: string;
-      /**
-       * @description 计划项状态（评分后将推进到 completed）
-       * @enum {string}
-       */
-      state: "pending" | "shown" | "completed" | "skipped_by_server";
-    };
-    ReviewUnlockUnitDto: {
-      /** @description 单元 position */
-      position: number;
-      /** @description 本单元是否已解锁 */
-      unlocked: boolean;
-      /** @description 本单元课程词项总数（current release 快照） */
-      requiredItemCount: number;
-      /** @description 本单元已完成双向首测的词项数（含本次提交首测的投影） */
-      initialCompletedItemCount: number;
-    };
-    ReviewUnlockStateDto: {
-      /** @description 当前可学习（最高已解锁）的单元 position */
-      highestUnlockedUnit: number;
-      /** @description current release 各单元派生解锁状态（按 position 升序） */
-      units: components["schemas"]["ReviewUnlockUnitDto"][];
-    };
-    ReviewNextItemDto: {
-      /** @description 下一计划项 ID；会话完成时为空 */
-      itemId: Record<string, never>;
-      /** @description 下一计划项 position */
-      position: Record<string, never>;
-      /** @description 下一计划项绑定的稳定课程词项 ID（安全摘要，无答案内容） */
-      courseItemId: Record<string, never>;
-      /**
-       * @description 下一计划项分类；会话完成时为 null
-       * @enum {string}
-       */
-      itemKind: "due_review" | "initial_review" | "new_learning";
-    };
-    SubmitReviewResultDto: {
-      /** @description 本次是否为幂等重放（true=已存在同幂等键事件的回放） */
-      idempotentReplay: boolean;
-      /** @description ReviewEvent ID */
-      reviewEventId: string;
-      /**
-       * @description 接受的评分
-       * @enum {string}
-       */
-      rating: "again" | "hard" | "good" | "easy";
-      /** @description 本事件是否被记录为首测（该方向首次有效评分） */
-      isInitialReview: boolean;
-      /** @description FSRS 更新后的记忆摘要 */
-      memorySummary: components["schemas"]["ReviewMemorySummaryDto"];
-      /** @description 当前会话计划项状态 */
-      sessionItem: components["schemas"]["ReviewSessionItemStateDto"];
-      /** @description 新 cursor（下一个待展示项的 position；会话完成时为 null） */
-      newCursor: Record<string, never>;
-      /** @description 会话是否已完成 */
-      sessionCompleted: boolean;
-      /** @description 由当前事实派生的单元解锁状态 */
-      unlock: components["schemas"]["ReviewUnlockStateDto"];
-      /** @description 若有下一项，返回下一项安全摘要；无则留空 */
-      next: components["schemas"]["ReviewNextItemDto"];
-    };
-    ProgressItemStateDto: {
-      /** @description 稳定课程词项 ID */
-      courseItemId: string;
-      /**
-       * @description 方向
-       * @enum {string}
-       */
-      direction: "en_to_zh" | "zh_to_en";
-      /** @description 该方向是否已完成首测 */
-      initialReviewed: boolean;
-      /** @description 最近一次有效评分后的间隔天数（new 卡为 0） */
-      scheduledDays: number;
-      /** @description 是否已稳定（两方向间隔都 >= 21） */
-      stable: boolean;
-      /** @description 卡状态 */
-      state: string;
-    };
-    ProgressUnitDto: {
-      /** @description 单元 position */
-      position: number;
-      /** @description 单元标题（current release 快照） */
-      title: string;
-      /** @description 本单元是否已解锁 */
-      unlocked: boolean;
-      /** @description 本单元课程词项总数 */
-      itemCount: number;
-      /** @description 本单元已完成双向首测的词项数 */
-      initialCompletedItemCount: number;
-      /** @description 本单元各方向卡的首测/稳定派生状态 */
-      cards: components["schemas"]["ProgressItemStateDto"][];
-    };
-    ProgressDto: {
-      /** @description 主课程 ID */
-      courseId: string;
-      /** @description 主课程当前版本 release ID */
-      releaseId: string;
-      /** @description 主课程当前版本号 */
-      releaseNumber: number;
-      /** @description 当前最高已解锁单元 position */
-      highestUnlockedUnit: number;
-      /** @description 按 position 升序的单元进度 */
-      units: components["schemas"]["ProgressUnitDto"][];
-    };
-    MetricScopeDto: {
-      /**
-       * @description 指标事实来源表
-       * @example learning_cards,review_events,study_sessions
-       */
-      source: string;
-      /** @description 计算截止时刻（ISO 8601，UTC） */
-      asOf: string;
-      /**
-       * @description 用户 timezone
-       * @example Asia/Shanghai
-       */
-      timezone: string;
-      /** @description 去重规则说明 */
-      dedup: string;
-    };
-    StableWordsDto: {
-      /** @description 全局（所有课程）已稳定词项数 */
-      globalCount: number;
-      /** @description 用户 timezone */
-      timezone: string;
-      /** @description 计算截止时刻 */
-      asOf: string;
-    };
-    CurrentCourseStableWordsDto: {
-      /** @description 主课程 ID */
-      courseId: string;
-      /** @description 主课程当前 release 中的词项数 */
-      courseItemCount: number;
-      /** @description 已稳定词项数（双向 scheduled_days >= 21） */
-      stableCount: number;
-      /** @description 用户 timezone */
-      timezone: string;
-      /** @description 计算截止时刻 */
-      asOf: string;
-    };
-    DueReviewCountDto: {
-      /** @description 当前待复习词项数（去重：每 item 至多计 1） */
-      count: number;
-      /** @description 计算截止时刻（ISO 8601，UTC） */
-      asOf: string;
-      /** @description 用户 timezone */
-      timezone: string;
-    };
-    DailyRhythmPointDto: {
-      /**
-       * @description 本地日键 YYYY-MM-DD
-       * @example 2026-08-14
-       */
-      day: string;
-      /** @description 当日有效 review 事件数（同一 client_event_id 去重） */
-      reviewCount: number;
-    };
-    SevenDayRhythmDto: {
-      /** @description 用户 timezone */
-      timezone: string;
-      /** @description 区间最早日（YYYY-MM-DD，用户本地日） */
-      startDay: string;
-      /** @description 区间最晚日（YYYY-MM-DD，用户本地日） */
-      endDay: string;
-      /** @description 各日的复习事件数 */
-      daily: components["schemas"]["DailyRhythmPointDto"][];
-      /** @description 区间总复习次数 */
-      total: number;
-    };
-    SessionsDto: {
-      /** @description 历史会话总次数（status IN active/completed/abandoned） */
-      sessionCount: number;
-      /** @description 已完成（status='completed'）会话数 */
-      completedCount: number;
-      /** @description 已完成会话累计时长（分钟），由 started_at→completed_at 计算 */
-      totalDurationMinutes: number;
-      /** @description 计算截止时刻 */
-      asOf: string;
-    };
-    CourseCompletionDto: {
-      /** @description 主课程 ID */
-      courseId: string;
-      /** @description 当前 release 中的词项总数 */
-      totalItemCount: number;
-      /** @description 双向首测完成数 */
-      initiallyCompletedItemCount: number;
-      /**
-       * @description 完成度 0..1
-       * @example 0.6
-       */
-      ratio: number;
-    };
-    LearningMetricsDto: {
-      /** @description 指标元信息 */
-      scope: components["schemas"]["MetricScopeDto"];
-      /** @description 全局已稳定词项 */
-      stableWords: components["schemas"]["StableWordsDto"];
-      /** @description 当前课程已稳定词项 */
-      currentCourseStableWords: components["schemas"]["CurrentCourseStableWordsDto"];
-      /** @description 待复习词项数 */
-      dueReviews: components["schemas"]["DueReviewCountDto"];
-      /** @description 过去 7 日学习节奏 */
-      sevenDayRhythm: components["schemas"]["SevenDayRhythmDto"];
-      /** @description 学习会话统计 */
-      sessions: components["schemas"]["SessionsDto"];
-      /** @description 当前课程完成度 */
-      currentCourseCompletion: components["schemas"]["CourseCompletionDto"];
-    };
-    OperationSummaryDto: {
-      /** @description operation ID */
-      id: string;
-      /** @description 操作类型 */
-      operationType: string;
-      /** @description 操作版本 */
-      operationVersion: number;
-      /** @description 目标类型 */
-      targetType: string;
-      /** @description 目标 ID（安全摘要：UUID 前 8 位 + …） */
-      targetId: string;
-      /** @description 输入版本 */
-      inputVersion: number;
-      /** @description 状态（queued/running/retry_wait/succeeded/failed/manual_action） */
-      status: string;
-      /** @description 尝试次数 */
-      attemptCount: number;
-      /** @description 最大尝试次数 */
-      maxAttempts: number;
-      /** @description 是否仍可自动重试 */
-      retryable: boolean;
-      /** @description 是否允许管理员重试（failed/manual_action 为 true） */
-      canRetry: boolean;
-      /** @description 脱敏最近错误码 */
-      lastErrorCode?: string;
-      /** @description 脱敏最近错误摘要 */
-      lastErrorSummary?: string;
-      /** @description 创建时间（RFC 3339 UTC） */
-      createdAt: string;
-      /** @description 最近更新时间（RFC 3339 UTC） */
-      updatedAt: string;
-      /** @description 开始时间（RFC 3339 UTC） */
-      startedAt?: string;
-      /** @description 完成时间（RFC 3339 UTC） */
-      completedAt?: string;
-    };
-    OperationListResponseDto: {
-      /** @description 游标分页结果 */
-      items: components["schemas"]["OperationSummaryDto"][];
-      /** @description 下一页游标；null 表示无更多 */
-      nextCursor?: string;
-    };
-    OperationAttemptSummaryDto: {
-      /** @description attempt ID */
-      id: string;
-      /** @description attempt 编号（从 1 递增） */
-      attemptNumber: number;
-      /** @description 开始时间（RFC 3339 UTC） */
-      startedAt: string;
-      /** @description 结束时间（RFC 3339 UTC） */
-      finishedAt?: string;
-      /** @description 结果（succeeded/failed；运行中为空） */
-      outcome?: string;
-      /** @description 脱敏错误码 */
-      errorCode?: string;
-      /** @description 脱敏错误摘要（受限长度，无堆栈/供应商 payload） */
-      errorSummary?: string;
-    };
-    OperationDetailDto: {
-      /** @description operation 概要 */
-      operation: components["schemas"]["OperationSummaryDto"];
-      /** @description attempt 时间线（新→旧） */
-      attempts: components["schemas"]["OperationAttemptSummaryDto"][];
-    };
-    OperationRetryResultDto: {
-      /** @description 重试后的 operation 概要 */
-      operation: components["schemas"]["OperationSummaryDto"];
-      /** @description 是否幂等重放（同 Idempotency-Key 已重试过） */
-      isIdempotentReplay: boolean;
-    };
-    ImportUploadBodyDto: {
-      /**
-       * Format: binary
-       * @description 原始文件（txt/csv/json）
-       */
-      file: string;
-      /** @description 来源声明（必填） */
-      sourceDeclaration: string;
-    };
-    StoredFileMetaDto: {
-      /** @description 不透明文件 ID */
-      fileId: string;
-      /** @description 原文件名（仅元数据，绝不参与路径构造） */
-      originalFilename: string;
-      /** @description 嗅探到的 MIME 类型 */
-      sniffedMime: string;
-      /** @description 字节大小 */
-      byteSize: number;
-      /** @description SHA-256（十六进制） */
-      sha256Hex: string;
-      /** @description 上传人用户 ID */
-      uploadedBy: string;
-      /** @description 保留用途（本票固定 original_import） */
-      purpose: string;
-      /** @description 文件状态 */
-      status: string;
-      /** @description 格式（txt/csv/json/xlsx） */
-      format: string;
-      /** @description 创建时间（RFC 3339 UTC） */
-      createdAt: string;
-    };
-    ImportBatchDto: {
-      /** @description 批次 ID */
-      id: string;
-      /** @description 批次关联的文件元数据（不含磁盘路径/存储键） */
-      file: components["schemas"]["StoredFileMetaDto"];
-      /** @description 批次格式 */
-      format: string;
-      /** @description 管理员来源声明 */
-      sourceDeclaration: string;
-      /** @description 批次状态（uploaded/validating/ready/committed/failed） */
-      status: string;
-      /** @description 乐观并发版本 */
-      version: number;
-      /** @description 上传人用户 ID */
-      uploadedBy: string;
-      /** @description 创建时间（RFC 3339 UTC） */
-      createdAt: string;
-      /** @description 更新时间（RFC 3339 UTC） */
-      updatedAt?: string;
-    };
-    ImportErrorFieldDto: {
-      /** @description 出错字段路径 */
-      path: string;
-      /** @description 错误码 */
-      code: string;
-    };
-    ImportErrorDto: {
-      /** @description 错误码 */
-      code: string;
-      /** @description 安全的用户文案 */
-      message: string;
-      /** @description 可关联的请求 ID（服务端日志） */
-      requestId: string;
-      /** @description 是否为可重试错误 */
-      retryable: boolean;
-      /** @description 字段级错误（可选） */
-      fieldErrors?: components["schemas"]["ImportErrorFieldDto"][];
-      /** @description 内容冲突时既有批次的 ID */
-      existingBatchId?: string;
-    };
-    ImportErrorEnvelopeDto: {
-      /** @description 错误信封 */
-      error: components["schemas"]["ImportErrorDto"];
-    };
-    ImportMappingDto: {
-      /** @description 英文拼写来源字段标识（TXT 不提供） */
-      spellingField?: string;
-      /** @description XLSX 选定的工作表标识 */
-      sheet?: string;
-    };
-    ImportDiscoveredOptionDto: {
-      /** @description 稳定、不歧义的字段/工作表标识（保存到映射） */
-      fieldId: string;
-      /** @description 展示名 */
-      label: string;
-    };
-    ImportValidationSummaryDto: {
-      /** @description 可用于提交的有效候选行数 */
-      candidates: number;
-      /** @description 文件内重复行数 */
-      duplicates: number;
-      /** @description 系统已有词条行数 */
-      existingEntries: number;
-      /** @description 无效（拼写/超限/空值）行数 */
-      invalid: number;
-      /** @description 忽略的空白行数 */
-      ignored: number;
-      /** @description 总行数 */
-      total: number;
-    };
-    ImportCommitResultDto: {
-      /** @description 批次 ID */
-      batchId: string;
-      /** @description 提交所依据的映射版本 */
-      mappingVersion: number;
-      /** @description 提交时间（RFC 3339 UTC） */
-      committedAt: string;
-      /** @description 本轮新建的全局词条数 */
-      createdEntryCount: number;
-      /** @description 本轮关联到既有系统词条的数量 */
-      associatedExistingEntryCount: number;
-      /** @description 按 disposition 分组的跳过行数（invalid / duplicate_in_file / existing_entry / stale 等） */
-      skippedCountByDisposition: {
-        [key: string]: number;
-      };
-      /** @description 本轮实际写入提交事实的行数 */
-      committedRowCount: number;
-      /** @description 是否为幂等重放（true 表示返回原始结果） */
-      isIdempotentReplay: boolean;
-    };
-    ImportCommitConfirmationDto: {
-      /** @description 当前映射版本 */
-      mappingVersion: number;
-      /** @description 校验输入冻结哈希（validation_input_sha256，安全：仅哈希无路径/密钥） */
-      validationInputSha256: string;
-    };
-    ImportBatchDetailDto: {
-      /** @description 批次 ID */
-      id: string;
-      /** @description 批次关联的文件元数据 */
-      file: components["schemas"]["StoredFileMetaDto"];
-      /** @description 批次格式（txt/csv/json/xlsx） */
-      format: string;
-      /** @description 管理员来源声明 */
-      sourceDeclaration: string;
-      /** @description 批次状态 */
-      status: string;
-      /** @description 乐观并发版本 */
-      version: number;
-      /** @description 校验状态（not_validated/validating/validated/failed） */
-      validationStatus: string;
-      /** @description 当前映射版本 */
-      mappingVersion: number;
-      /** @description 当前映射（spellingField/sheet）；TXT 为空 */
-      mapping?: components["schemas"]["ImportMappingDto"];
-      /** @description 可选工作表（XLSX） */
-      sheets?: components["schemas"]["ImportDiscoveredOptionDto"][];
-      /** @description 可选字段（CSV/XLSX/JSON） */
-      fields?: components["schemas"]["ImportDiscoveredOptionDto"][];
-      /** @description XLSX 各工作表各自的字段集（供按当前选定工作表选择字段；键为工作表标识） */
-      sheetFields?: {
-        [key: string]: {
-          fieldIds?: string[];
-          labels?: string[];
+    schemas: {
+        LoginDto: {
+            /** @description 登录用户名 */
+            username: string;
+            /** @description 密码 */
+            password: string;
         };
-      };
-      /** @description 校验摘要 */
-      validationSummary?: components["schemas"]["ImportValidationSummaryDto"];
-      /** @description 可执行的唯一主操作状态 */
-      nextStep: string;
-      /** @description 上传人用户 ID */
-      uploadedBy: string;
-      /** @description 创建时间（RFC 3339 UTC） */
-      createdAt: string;
-      /** @description 更新时间（RFC 3339 UTC） */
-      updatedAt?: string;
-      /** @description 当前映射/校验结果是否仍有效 */
-      isStale: boolean;
-      /** @description 最近一次提交事实摘要（已提交批次提供，供重载后展示事实性计数） */
-      commitSummary?: components["schemas"]["ImportCommitResultDto"];
-      /** @description 提交确认身份（仅当前已校验且非 stale 时提供）：客户端提交时必须原样回传，服务器锁定后无条件比对 */
-      commitConfirmation?: components["schemas"]["ImportCommitConfirmationDto"];
+        ChangePasswordDto: {
+            /** @description 当前密码（或一次性密码） */
+            currentPassword: string;
+            /** @description 新密码 */
+            newPassword: string;
+        };
+        CreateUserDto: {
+            /** @description 登录用户名（小写） */
+            username: string;
+            /** @description 显示名 */
+            displayName: string;
+            /** @description IANA 时区 */
+            timezone: string;
+            /** @description 每日时间预算（分钟） */
+            dailyBudgetMinutes: number;
+            /**
+             * @default learner
+             * @enum {string}
+             */
+            role: "learner" | "admin";
+        };
+        AdminUserDto: {
+            /** @description 账号 UUID */
+            id: string;
+            /** @description 登录用户名（小写） */
+            username: string;
+            /** @description 显示名 */
+            displayName: string;
+            /** @enum {string} */
+            role: "learner" | "admin";
+            /** @description IANA 时区 */
+            timezone: string;
+            /** @description 每日学习预算（分钟） */
+            dailyBudgetMinutes: number;
+            /** @description 是否首登必须修改密码 */
+            mustChangePassword: boolean;
+            /**
+             * @description 真实数据库账号状态
+             * @enum {string}
+             */
+            status: "active" | "disabled";
+            /** @description 账号创建时间（ISO 字符串） */
+            createdAt: string;
+        };
+        AdminCreateUserResultDto: {
+            user: components["schemas"]["AdminUserDto"];
+            /** @description 一次性密码（仅此一次返回，绝不停留） */
+            oneTimePassword: string;
+        };
+        AdminUserListDto: {
+            items: components["schemas"]["AdminUserDto"][];
+        };
+        AdminOkDto: {
+            /** @description 操作成功 */
+            ok: boolean;
+        };
+        LexicalEntrySummaryDto: {
+            /** @description 词条 ID */
+            id: string;
+            /** @description 规范展示拼写 */
+            canonicalSpelling: string;
+            /** @description 查询/去重用规范化拼写 */
+            normalizedSpelling: string;
+            /** @description 词性（可空） */
+            partOfSpeech: string | null;
+            /** @description 来源状态（当前权威来源类型） */
+            sourceStatus: string;
+            /** @description 课程词项引用次数；课程词项工单落地前恒为 0（预留 lexicalEntryId 查询边界） */
+            referenceCount: number;
+            /** @description 最近更新时间 */
+            updatedAt: string;
+        };
+        PageInfoDto: {
+            /** @description 下一页游标；无更多时 null */
+            cursor: string | null;
+            /** @description 是否还有更多 */
+            hasMore: boolean;
+        };
+        LexicalEntryListResponseDto: {
+            items: components["schemas"]["LexicalEntrySummaryDto"][];
+            page: components["schemas"]["PageInfoDto"];
+        };
+        SenseDto: {
+            /** @description 中文释义 */
+            meaning: string;
+            /** @description 例句 */
+            example?: string;
+        };
+        CreateLexicalEntryDto: {
+            /** @description 规范展示拼写（保留原样，不因小写无条件合并同形异义词） */
+            canonicalSpelling: string;
+            /**
+             * @description 词性
+             * @enum {string}
+             */
+            partOfSpeech?: "noun" | "verb" | "adjective" | "adverb" | "pronoun" | "preposition" | "conjunction" | "interjection" | "determiner" | "article" | "numeral" | "particle" | "phrase" | "abbreviation" | "prefix" | "suffix";
+            /** @description 发音标注 */
+            pronunciation?: string;
+            /** @description 结构化释义 */
+            senses?: components["schemas"]["SenseDto"][];
+            /** @description 来源说明（不进入审计摘要） */
+            sourceNote?: string;
+            /**
+             * @description 确认允许创建同形异义词条（重复候选提示后）
+             * @default false
+             */
+            confirmDuplicate: boolean;
+        };
+        ProvenanceDto: {
+            /** @description 来源类型 */
+            sourceType: string;
+            /** @description 来源说明 */
+            sourceNote: string | null;
+            /** @description 来源内容哈希 */
+            contentHash: string;
+            /** @description 创建者用户名 */
+            createdByUsername: string | null;
+            /** @description 来源记录时间 */
+            createdAt: string;
+        };
+        AuditSummaryDto: {
+            /** @description 审计动作 */
+            action: string;
+            /** @description 发生时间 */
+            createdAt: string;
+        };
+        LexicalEntryDetailDto: {
+            id: string;
+            canonicalSpelling: string;
+            normalizedSpelling: string;
+            partOfSpeech: string | null;
+            pronunciation: string | null;
+            /** @description 结构化释义 */
+            senses: components["schemas"]["SenseDto"][];
+            /** @description 词条状态 */
+            status: string;
+            /** @description 来源状态（当前权威来源类型） */
+            sourceStatus: string;
+            /** @description 课程词项引用次数（课程词项落地前恒为 0） */
+            referenceCount: number;
+            createdAt: string;
+            updatedAt: string;
+            provenance: components["schemas"]["ProvenanceDto"][];
+            /** @description 最近 10 条针对该词条的审计操作 */
+            recentOperations: components["schemas"]["AuditSummaryDto"][];
+        };
+        DuplicateCandidateDto: {
+            id: string;
+            canonicalSpelling: string;
+            normalizedSpelling: string;
+        };
+        DuplicateWarningErrorDto: {
+            /** @description 错误码：DUPLICATE_WARNING 或 DUPLICATE_ENTRY */
+            code: string;
+            message: string;
+            requestId: string;
+            /** @description 重复候选词条 */
+            duplicateCandidates: components["schemas"]["DuplicateCandidateDto"][];
+            /** @description 是否可重试 */
+            retryable: boolean;
+        };
+        DuplicateErrorEnvelopeDto: {
+            error: components["schemas"]["DuplicateWarningErrorDto"];
+        };
+        CourseListItemDto: {
+            id: string;
+            /** @description 课程 slug（唯一） */
+            slug: string;
+            /** @description 当前标题（来自 active 草稿） */
+            title: string;
+            level: string;
+            /** @description 当前描述（来自 active 草稿） */
+            description: string | null;
+            /** @description 课程可见性 */
+            visibility: string;
+            /** @description 课程状态 */
+            status: string;
+            /** @description active 草稿 ID */
+            draftId: string | null;
+            /** @description active 草稿版本 */
+            draftVersion: number | null;
+            /** @description 最近编辑时间（来自 active 草稿） */
+            updatedAt: string;
+        };
+        CourseListResponseDto: {
+            items: components["schemas"]["CourseListItemDto"][];
+        };
+        CreateCourseDto: {
+            /** @description 课程 slug（唯一，小写字母/数字/连字符） */
+            slug: string;
+            /** @description 课程标题 */
+            title: string;
+            /**
+             * @description 级别
+             * @default a1
+             * @enum {string}
+             */
+            level: "a1" | "a2" | "b1" | "b2" | "c1" | "c2";
+            /** @description 课程描述 */
+            description?: string;
+        };
+        CreateCourseResultDto: {
+            courseId: string;
+            draftId: string;
+            /** @description 初始草稿版本 */
+            draftVersion: number;
+            slug: string;
+            title: string;
+            level: string;
+        };
+        DraftItemSummaryDto: {
+            /** @description 全局词条 ID */
+            id: string;
+            /** @description 英语拼写 */
+            canonicalSpelling: string;
+            /** @description 规范化拼写 */
+            normalizedSpelling: string;
+            /** @description 词条来源状态 */
+            sourceStatus: string;
+        };
+        ItemDto: {
+            /** @description 稳定 course_item_id */
+            id: string;
+            /** @description 单元内 1 起始的位置 */
+            position: number;
+            /** @description 课程专属中文释义 */
+            meaning: string;
+            /** @description 可选提示 */
+            hint: string | null;
+            /** @description 人工内容 provenance：关联的管理员审计事件 ID */
+            contentReviewReference: string;
+            /** @description 引用的全局词条摘要 */
+            lexicalEntry: components["schemas"]["DraftItemSummaryDto"];
+            createdAt: string;
+            updatedAt: string;
+        };
+        UnitDto: {
+            /** @description 稳定 unit_id */
+            id: string;
+            /** @description 1 起始的位置 */
+            position: number;
+            title: string;
+            description: string | null;
+            /** @description 按 position 升序的课程词项 */
+            items: components["schemas"]["ItemDto"][];
+            createdAt: string;
+            updatedAt: string;
+        };
+        CourseDraftDetailDto: {
+            courseId: string;
+            draftId: string;
+            /** @description 课程 slug（唯一） */
+            slug: string;
+            title: string;
+            level: string;
+            description: string | null;
+            /** @description 当前草稿版本 */
+            version: number;
+            status: string;
+            /** @description 按 position 升序的单元大纲 */
+            units: components["schemas"]["UnitDto"][];
+        };
+        ValidationIssueDto: {
+            /** @description 稳定错误码 */
+            code: string;
+            /** @description 定位路径：course、unit.<unitId>、item.<itemId>.<field> */
+            path: string;
+            message: string;
+            /**
+             * @description error 阻断发布，warning 仅提示
+             * @enum {string}
+             */
+            severity: "error" | "warning";
+        };
+        DiffSummaryDto: {
+            /**
+             * @description 首次发布或相对当前版本的差异
+             * @enum {string}
+             */
+            kind: "initial" | "changed";
+            addedUnits: number;
+            removedUnits: number;
+            addedItems: number;
+            removedItems: number;
+            changedItems: number;
+            totalUnits: number;
+            totalItems: number;
+        };
+        CourseValidationResultDto: {
+            /** @description 被校验草稿的版本 */
+            draftVersion: number;
+            /** @description 是否存在阻断错误 */
+            isPublishable: boolean;
+            /** @description 阻断发布的问题 */
+            blockingErrors: components["schemas"]["ValidationIssueDto"][];
+            /** @description 提示但可发布的问题 */
+            warnings: components["schemas"]["ValidationIssueDto"][];
+            diffSummary: components["schemas"]["DiffSummaryDto"];
+            /** @description 受影响学习者数量；第 4 阶段无报名数据时为 0 */
+            affectedLearnerCount: number;
+            /** @description 校验时刻（RFC 3339 UTC） */
+            validatedAt: string;
+            /** @description 草稿内容规范化序列化 SHA-256 */
+            contentHash: string;
+            /** @description 校验令牌：draftVersion.contentHash 前缀，发布须携带精确版本 */
+            validationToken: string;
+        };
+        PublishReleaseDto: {
+            /** @description 精确草稿版本（发布须重新确认） */
+            draftVersion: number;
+            /** @description 发布说明 */
+            releaseNote?: string;
+            /** @description 校验令牌（可选，须与草稿版本+内容哈希匹配） */
+            validationToken?: string;
+        };
+        PublishReleaseResultDto: {
+            releaseId: string;
+            /** @description 每门课程单调递增的版本号 */
+            releaseNumber: number;
+            /** @description 发布快照内容哈希 */
+            contentHash: string;
+            /** @description 发布后成为当前版本指针 */
+            currentReleaseId: string;
+            createdAt: string;
+        };
+        DraftVersionConflictErrorDto: {
+            /** @description 错误码：DRAFT_VERSION_CONFLICT */
+            code: string;
+            message: string;
+            requestId: string;
+            /** @description 服务端当前草稿版本 */
+            currentDraftVersion: number;
+            /** @description 是否可重试 */
+            retryable: boolean;
+        };
+        DraftVersionConflictEnvelopeDto: {
+            error: components["schemas"]["DraftVersionConflictErrorDto"];
+        };
+        ReleaseListItemDto: {
+            id: string;
+            releaseNumber: number;
+            title: string;
+            level: string;
+            description: string | null;
+            /** @description 快照内容哈希 */
+            contentHash: string;
+            /** @description 来源草稿版本 */
+            sourceDraftVersion: number;
+            /** @description 发布说明 */
+            releaseNote: string | null;
+            /** @description 创建者用户名 */
+            createdByUsername: string;
+            createdAt: string;
+            /** @description 是否为当前版本 */
+            isCurrent: boolean;
+        };
+        ReleaseListResponseDto: {
+            items: components["schemas"]["ReleaseListItemDto"][];
+        };
+        SetCurrentReleaseDto: {
+            /** @description 指向的已有 release ID（必须属于同一课程） */
+            releaseId: string;
+        };
+        UpdateCourseDraftDto: {
+            /** @description 课程 slug（唯一，小写字母/数字/连字符） */
+            slug?: string;
+            /** @description 课程标题 */
+            title?: string;
+            /**
+             * @description 级别
+             * @enum {string}
+             */
+            level?: "a1" | "a2" | "b1" | "b2" | "c1" | "c2";
+            /** @description 课程描述 */
+            description?: string;
+            /** @description 期望的草稿版本（If-Match 的替代） */
+            draftVersion?: number;
+        };
+        CreateUnitDto: {
+            /** @description 单元标题 */
+            title: string;
+            /** @description 单元描述 */
+            description?: string;
+            /** @description 期望的草稿版本（If-Match 的替代） */
+            draftVersion?: number;
+        };
+        UpdateUnitDto: {
+            /** @description 单元标题 */
+            title?: string;
+            /** @description 单元描述 */
+            description?: string;
+            /** @description 期望的草稿版本（If-Match 的替代） */
+            draftVersion?: number;
+        };
+        DeleteUnitDto: {
+            /** @description 期望的草稿版本（If-Match 的替代） */
+            draftVersion?: number;
+        };
+        ReorderUnitsDto: {
+            /** @description 完整单元 ID 顺序（无重复、无遗漏） */
+            unitIds: string[];
+            /** @description 期望的草稿版本（If-Match 的替代） */
+            draftVersion?: number;
+        };
+        ReorderItemsDto: {
+            /** @description 所属草稿单元 ID */
+            unitId: string;
+            /** @description 该单元内完整词项 ID 顺序（无重复、无遗漏、无陌生 ID） */
+            itemIds: string[];
+            /** @description 期望的草稿版本（If-Match 的替代） */
+            draftVersion?: number;
+        };
+        CreateItemDto: {
+            /** @description 所属草稿单元 ID */
+            unitId: string;
+            /** @description 引用的全局词条 ID */
+            lexicalEntryId: string;
+            /** @description 课程专属中文释义（必填） */
+            meaning: string;
+            /** @description 可选提示 */
+            hint?: string;
+            /** @description 期望的草稿版本（If-Match 的替代） */
+            draftVersion?: number;
+        };
+        UpdateItemDto: {
+            /** @description 课程专属中文释义（必填） */
+            meaning?: string;
+            /** @description 可选提示 */
+            hint?: string;
+            /** @description 移动到其他草稿单元（追加到该单元末尾） */
+            unitId?: string;
+            /** @description 期望的草稿版本（If-Match 的替代） */
+            draftVersion?: number;
+        };
+        DeleteItemDto: {
+            /** @description 期望的草稿版本（If-Match 的替代） */
+            draftVersion?: number;
+        };
+        CatalogCourseSummaryDto: {
+            courseId: string;
+            title: string;
+            level: string;
+            description: string | null;
+            /** @description 当前版本 release ID */
+            releaseId: string;
+            /** @description 当前版本号 */
+            releaseNumber: number;
+            /** @description 内容来源：published_release（只读发布快照） */
+            contentSource: string;
+            /** @description 学习进度：阶段 4 恒为 not_started */
+            progressStatus: string;
+            /** @description 当前用户是否已报名 */
+            isEnrolled: boolean;
+            /** @description 当前用户是否将此课程设为主课程 */
+            isPrimary: boolean;
+        };
+        CatalogCourseListResponseDto: {
+            items: components["schemas"]["CatalogCourseSummaryDto"][];
+            /** @description 下一页不透明游标；最后一页为 null */
+            nextCursor: string | null;
+            /** @description 是否还有后续页 */
+            hasMore: boolean;
+        };
+        CatalogUnitSummaryDto: {
+            /** @description 稳定 unit_id */
+            unitId: string;
+            /** @description 1 起始的位置 */
+            position: number;
+            title: string;
+            description: string | null;
+        };
+        CatalogCourseDetailDto: {
+            courseId: string;
+            title: string;
+            level: string;
+            description: string | null;
+            /** @description 当前版本 release ID */
+            releaseId: string;
+            /** @description 当前版本号 */
+            releaseNumber: number;
+            /** @description 内容来源：published_release（只读发布快照） */
+            contentSource: string;
+            /** @description 学习进度：阶段 4 恒为 not_started */
+            progressStatus: string;
+            /** @description 当前用户是否已报名 */
+            isEnrolled: boolean;
+            /** @description 当前用户是否将此课程设为主课程 */
+            isPrimary: boolean;
+            /** @description 按 position 升序的单元概要 */
+            units: components["schemas"]["CatalogUnitSummaryDto"][];
+        };
+        EnrollCourseDto: {
+            /**
+             * @description 加入后是否设为主课程
+             * @default false
+             */
+            makePrimary: boolean;
+        };
+        SetPrimaryCourseDto: {
+            /** @description 要设为主课程的已报名课程 ID */
+            courseId: string;
+        };
+        LearningCardSummaryCountsDto: {
+            /** @description 卡总数 */
+            total: number;
+            /** @description new 状态卡数（待首测） */
+            new: number;
+            /** @description learning 状态卡数 */
+            learning: number;
+            /** @description review 状态卡数 */
+            review: number;
+            /** @description 英文→中文方向卡数 */
+            enToZh: number;
+            /** @description 中文→英文方向卡数 */
+            zhToEn: number;
+        };
+        LearningCardSummaryDto: {
+            /** @description 主课程 ID */
+            courseId: string;
+            /** @description 主课程当前版本 release ID */
+            releaseId: string;
+            /** @description 主课程当前版本号 */
+            releaseNumber: number;
+            /** @description 当前版本课程词项数 */
+            itemCount: number;
+            /** @description 学习卡计数（按方向/状态） */
+            cards: components["schemas"]["LearningCardSummaryCountsDto"];
+            /** @description 已记录学习展示的词项数（每词项至多一次） */
+            exposedItemCount: number;
+        };
+        LearningCardListItemDto: {
+            /** @description 学习卡 ID */
+            cardId: string;
+            /** @description 课程 ID */
+            courseId: string;
+            /** @description 查询时刻课程的 current release ID */
+            releaseId: string;
+            /** @description 稳定课程词项 ID */
+            courseItemId: string;
+            /**
+             * @description 卡方向
+             * @enum {string}
+             */
+            direction: "en_to_zh" | "zh_to_en";
+            /**
+             * @description 记忆状态
+             * @enum {string}
+             */
+            state: "new" | "learning" | "review";
+            /** @description FSRS 稳定性 */
+            stability: number;
+            /** @description FSRS 难度 */
+            difficulty: number;
+            /** @description 预计间隔天数 */
+            scheduledDays: number;
+            /** @description 距上次复习经过天数 */
+            elapsedDays: number;
+            /** @description 复习次数 */
+            reps: number;
+            /** @description 遗忘次数 */
+            lapses: number;
+            /** @description 上次复习时间（new 卡为 null） */
+            lastReviewAt: string | null;
+            /** @description 到期时间（new 卡为创建时刻，待首测） */
+            dueAt: string;
+            /** @description 调度器版本（阶段 5 工单 01 恒为 fsrs-v6） */
+            schedulerVersion: string;
+            /** @description 词项英文拼写（来自 current release 快照） */
+            englishSpelling: string;
+            /** @description 词项中文释义（来自 current release 快照） */
+            meaning: string;
+            /** @description 该词项是否已记录学习展示 */
+            exposed: boolean;
+        };
+        LearningCardListDto: {
+            /** @description 按单元/词项位置排序的学习卡状态 */
+            items: components["schemas"]["LearningCardListItemDto"][];
+        };
+        CreateExposureDto: {
+            /** @description 已发布课程词项的稳定 course_item_id（必须是已报名课程 current release 中的词项） */
+            courseItemId: string;
+        };
+        LearningExposureDto: {
+            /** @description 学习展示记录 ID */
+            exposureId: string;
+            /** @description 稳定课程词项 ID */
+            courseItemId: string;
+            /** @description 引用的全局词条 ID */
+            lexicalEntryId: string;
+            /** @description 课程 ID */
+            courseId: string;
+            /** @description 首次展示时该课程的 current release ID（首次事实不可变） */
+            releaseId: string;
+            /** @description 首次展示时间（重复提交返回原值） */
+            firstExposedAt: string;
+            /** @description 本次是否为幂等重放（false=首次写入，true=已存在） */
+            alreadyExisted: boolean;
+        };
+        TodayCountsDto: {
+            /** @description 到期复习卡数（state=review 且 due_at <= now） */
+            dueCount: number;
+            /** @description 首次复习卡数（state=learning） */
+            initialCount: number;
+            /** @description 新卡数（state=new，仅 first unit 内） */
+            newCount: number;
+        };
+        TodayDto: {
+            /** @description 主课程 ID */
+            courseId: string;
+            /** @description 主课程当前版本 release ID */
+            releaseId: string;
+            /** @description 主课程当前版本号 */
+            releaseNumber: number;
+            /** @description 用户每日预算（分钟） */
+            dailyBudgetMinutes: number;
+            /** @description 计划候选数 */
+            counts: components["schemas"]["TodayCountsDto"];
+            /** @description 当前是否存在可恢复的 active 会话 */
+            hasActiveSession: boolean;
+            /** @description true 表示本次查询下无任何候选卡（预算和卡计数为 0） */
+            noWork: boolean;
+        };
+        StudySessionDto: {
+            /** @description 会话 ID */
+            sessionId: string;
+            /** @description 课程 ID */
+            courseId: string;
+            /** @description 会话创建时冻结的 current release ID */
+            releaseId: string;
+            /** @description 主课程当前版本号 */
+            releaseNumber: number;
+            /**
+             * @description 会话状态
+             * @enum {string}
+             */
+            status: "active" | "completed" | "abandoned";
+            /** @description 用户每日预算（分钟） */
+            dailyBudgetMinutes: number;
+            /** @description 计划规则版本 */
+            planRuleVersion: string;
+            /** @description 计划创建时间 */
+            plannedAt: string;
+            /** @description 会话开始时间 */
+            startedAt: string;
+            /** @description 计划项数（总预算截断后的实际项数） */
+            itemCount: number;
+            /** @description 当前 cursor（下一个待展示项的 position） */
+            cursor: number;
+        };
+        StudySessionItemDto: {
+            /** @description 计划项 ID */
+            itemId: string;
+            /** @description 会话内展示顺序位置 */
+            position: number;
+            /** @description 学习卡 ID */
+            cardId: string;
+            /** @description 稳定课程词项 ID */
+            courseItemId: string;
+            /** @description 课程 ID */
+            courseId: string;
+            /**
+             * @description 计划项分类
+             * @enum {string}
+             */
+            itemKind: "due_review" | "initial_review" | "new_learning";
+            /**
+             * @description 计划项状态
+             * @enum {string}
+             */
+            state: "pending" | "shown" | "completed" | "skipped_by_server";
+            /**
+             * @description 该计划项复习方向
+             * @enum {string}
+             */
+            direction: "en_to_zh" | "zh_to_en";
+            /** @description 英文拼写（来自会话冻结 release 快照，绝不来自 current release） */
+            englishSpelling: string;
+            /** @description 中文释义（来自会话冻结 release 快照，绝不来自 current release） */
+            meaning: string;
+            /** @description 提示（可空；来自冻结 release 快照） */
+            hint: string | null;
+        };
+        StudySessionDetailDto: {
+            /** @description 会话头 */
+            session: components["schemas"]["StudySessionDto"];
+            /** @description 按 position 排序的计划项 */
+            items: components["schemas"]["StudySessionItemDto"][];
+        };
+        RevealResultDto: {
+            /** @description 计划项 ID */
+            itemId: string;
+            /** @description 计划项在会话内的 position */
+            position: number;
+            /** @description 计划项绑定的稳定课程词项 ID */
+            courseItemId: string;
+            /**
+             * @description reveal 后的计划项状态（应为 shown；幂等重放仍返回 shown）
+             * @enum {string}
+             */
+            state: "pending" | "shown" | "completed" | "skipped_by_server";
+            /**
+             * @description 计划项分类
+             * @enum {string}
+             */
+            itemKind: "due_review" | "initial_review" | "new_learning";
+            /** @description 本次是否为幂等重放（true 表示该项已处于 shown） */
+            alreadyShown: boolean;
+            /** @description 是否为 new_learning（需确认学习面实际展示） */
+            isNewLearning: boolean;
+        };
+        SubmitReviewDto: {
+            /** @description 会话计划项 ID（必须是当前 cursor 所指的 pending 项，且已 reveal） */
+            sessionItemId: string;
+            /** @description 该计划项绑定的学习卡 ID（必须等于 item.card_id） */
+            cardId: string;
+            /**
+             * @description 四级评分
+             * @enum {string}
+             */
+            rating: "again" | "hard" | "good" | "easy";
+            /** @description 客户端为「同一评分意图」生成的唯一 ID；重试复用同一 ID 以保证幂等 */
+            clientEventId: string;
+        };
+        ReviewMemorySummaryDto: {
+            /** @description 评分后的记忆状态 */
+            state: string;
+            /** @description FSRS 稳定性 */
+            stability: number;
+            /** @description FSRS 难度 */
+            difficulty: number;
+            /** @description 预计间隔天数 */
+            scheduledDays: number;
+            /** @description 下一次到期时间（服务器权威） */
+            dueAt: string;
+            /** @description 状态版本（乐观并发计数） */
+            stateVersion: number;
+            /** @description 调度器版本 */
+            schedulerVersion: string;
+            /** @description 调度参数版本 */
+            schedulerParametersVersion: string;
+        };
+        ReviewSessionItemStateDto: {
+            /** @description 计划项 ID */
+            itemId: string;
+            /**
+             * @description 计划项状态（评分后将推进到 completed）
+             * @enum {string}
+             */
+            state: "pending" | "shown" | "completed" | "skipped_by_server";
+        };
+        ReviewUnlockUnitDto: {
+            /** @description 单元 position */
+            position: number;
+            /** @description 本单元是否已解锁 */
+            unlocked: boolean;
+            /** @description 本单元课程词项总数（current release 快照） */
+            requiredItemCount: number;
+            /** @description 本单元已完成双向首测的词项数（含本次提交首测的投影） */
+            initialCompletedItemCount: number;
+        };
+        ReviewUnlockStateDto: {
+            /** @description 当前可学习（最高已解锁）的单元 position */
+            highestUnlockedUnit: number;
+            /** @description current release 各单元派生解锁状态（按 position 升序） */
+            units: components["schemas"]["ReviewUnlockUnitDto"][];
+        };
+        ReviewNextItemDto: {
+            /** @description 下一计划项 ID；会话完成时为空 */
+            itemId: Record<string, never>;
+            /** @description 下一计划项 position */
+            position: Record<string, never>;
+            /** @description 下一计划项绑定的稳定课程词项 ID（安全摘要，无答案内容） */
+            courseItemId: Record<string, never>;
+            /**
+             * @description 下一计划项分类；会话完成时为 null
+             * @enum {string}
+             */
+            itemKind: "due_review" | "initial_review" | "new_learning";
+        };
+        SubmitReviewResultDto: {
+            /** @description 本次是否为幂等重放（true=已存在同幂等键事件的回放） */
+            idempotentReplay: boolean;
+            /** @description ReviewEvent ID */
+            reviewEventId: string;
+            /**
+             * @description 接受的评分
+             * @enum {string}
+             */
+            rating: "again" | "hard" | "good" | "easy";
+            /** @description 本事件是否被记录为首测（该方向首次有效评分） */
+            isInitialReview: boolean;
+            /** @description FSRS 更新后的记忆摘要 */
+            memorySummary: components["schemas"]["ReviewMemorySummaryDto"];
+            /** @description 当前会话计划项状态 */
+            sessionItem: components["schemas"]["ReviewSessionItemStateDto"];
+            /** @description 新 cursor（下一个待展示项的 position；会话完成时为 null） */
+            newCursor: Record<string, never>;
+            /** @description 会话是否已完成 */
+            sessionCompleted: boolean;
+            /** @description 由当前事实派生的单元解锁状态 */
+            unlock: components["schemas"]["ReviewUnlockStateDto"];
+            /** @description 若有下一项，返回下一项安全摘要；无则留空 */
+            next: components["schemas"]["ReviewNextItemDto"];
+            /**
+             * @description 本次评分奖励的 XP。合格首测/到期复习为 5；不符合 XP 条件为 0。幂等重放返回与首次一致的值，绝不因重放重复记 XP。
+             * @example 5
+             */
+            xpAwarded: number;
+        };
+        ProgressItemStateDto: {
+            /** @description 稳定课程词项 ID */
+            courseItemId: string;
+            /**
+             * @description 方向
+             * @enum {string}
+             */
+            direction: "en_to_zh" | "zh_to_en";
+            /** @description 该方向是否已完成首测 */
+            initialReviewed: boolean;
+            /** @description 最近一次有效评分后的间隔天数（new 卡为 0） */
+            scheduledDays: number;
+            /** @description 是否已稳定（两方向间隔都 >= 21） */
+            stable: boolean;
+            /** @description 卡状态 */
+            state: string;
+        };
+        ProgressUnitDto: {
+            /** @description 单元 position */
+            position: number;
+            /** @description 单元标题（current release 快照） */
+            title: string;
+            /** @description 本单元是否已解锁 */
+            unlocked: boolean;
+            /** @description 本单元课程词项总数 */
+            itemCount: number;
+            /** @description 本单元已完成双向首测的词项数 */
+            initialCompletedItemCount: number;
+            /** @description 本单元各方向卡的首测/稳定派生状态 */
+            cards: components["schemas"]["ProgressItemStateDto"][];
+        };
+        ProgressDto: {
+            /** @description 主课程 ID */
+            courseId: string;
+            /** @description 主课程当前版本 release ID */
+            releaseId: string;
+            /** @description 主课程当前版本号 */
+            releaseNumber: number;
+            /** @description 当前最高已解锁单元 position */
+            highestUnlockedUnit: number;
+            /** @description 按 position 升序的单元进度 */
+            units: components["schemas"]["ProgressUnitDto"][];
+        };
+        MetricScopeDto: {
+            /**
+             * @description 指标事实来源表
+             * @example learning_cards,review_events,study_sessions
+             */
+            source: string;
+            /** @description 计算截止时刻（ISO 8601，UTC） */
+            asOf: string;
+            /**
+             * @description 用户 timezone
+             * @example Asia/Shanghai
+             */
+            timezone: string;
+            /** @description 去重规则说明 */
+            dedup: string;
+        };
+        StableWordsDto: {
+            /** @description 全局（所有课程）已稳定词项数 */
+            globalCount: number;
+            /** @description 用户 timezone */
+            timezone: string;
+            /** @description 计算截止时刻 */
+            asOf: string;
+        };
+        CurrentCourseStableWordsDto: {
+            /** @description 主课程 ID */
+            courseId: string;
+            /** @description 主课程当前 release 中的词项数 */
+            courseItemCount: number;
+            /** @description 已稳定词项数（双向 scheduled_days >= 21） */
+            stableCount: number;
+            /** @description 用户 timezone */
+            timezone: string;
+            /** @description 计算截止时刻 */
+            asOf: string;
+        };
+        DueReviewCountDto: {
+            /** @description 当前待复习词项数（去重：每 item 至多计 1） */
+            count: number;
+            /** @description 计算截止时刻（ISO 8601，UTC） */
+            asOf: string;
+            /** @description 用户 timezone */
+            timezone: string;
+        };
+        DailyRhythmPointDto: {
+            /**
+             * @description 本地日键 YYYY-MM-DD
+             * @example 2026-08-14
+             */
+            day: string;
+            /** @description 当日有效 review 事件数（同一 client_event_id 去重） */
+            reviewCount: number;
+        };
+        SevenDayRhythmDto: {
+            /** @description 用户 timezone */
+            timezone: string;
+            /** @description 区间最早日（YYYY-MM-DD，用户本地日） */
+            startDay: string;
+            /** @description 区间最晚日（YYYY-MM-DD，用户本地日） */
+            endDay: string;
+            /** @description 各日的复习事件数 */
+            daily: components["schemas"]["DailyRhythmPointDto"][];
+            /** @description 区间总复习次数 */
+            total: number;
+        };
+        SessionsDto: {
+            /** @description 历史会话总次数（status IN active/completed/abandoned） */
+            sessionCount: number;
+            /** @description 已完成（status='completed'）会话数 */
+            completedCount: number;
+            /** @description 已完成会话累计时长（分钟），由 started_at→completed_at 计算 */
+            totalDurationMinutes: number;
+            /** @description 计算截止时刻 */
+            asOf: string;
+        };
+        CourseCompletionDto: {
+            /** @description 主课程 ID */
+            courseId: string;
+            /** @description 当前 release 中的词项总数 */
+            totalItemCount: number;
+            /** @description 双向首测完成数 */
+            initiallyCompletedItemCount: number;
+            /**
+             * @description 完成度 0..1
+             * @example 0.6
+             */
+            ratio: number;
+        };
+        LearningMetricsDto: {
+            /** @description 指标元信息 */
+            scope: components["schemas"]["MetricScopeDto"];
+            /** @description 全局已稳定词项 */
+            stableWords: components["schemas"]["StableWordsDto"];
+            /** @description 当前课程已稳定词项 */
+            currentCourseStableWords: components["schemas"]["CurrentCourseStableWordsDto"];
+            /** @description 待复习词项数 */
+            dueReviews: components["schemas"]["DueReviewCountDto"];
+            /** @description 过去 7 日学习节奏 */
+            sevenDayRhythm: components["schemas"]["SevenDayRhythmDto"];
+            /** @description 学习会话统计 */
+            sessions: components["schemas"]["SessionsDto"];
+            /** @description 当前课程完成度 */
+            currentCourseCompletion: components["schemas"]["CourseCompletionDto"];
+        };
+        XpSummaryEntryDto: {
+            /** @description XP 事实金额（correction/void 可为负） */
+            amount: number;
+            /** @description 原因：initial_review / due_review / correction / void */
+            reason: string;
+            /** @description 规则版本 */
+            ruleVersion: number;
+            /** @description 获得时间（ISO 8601 UTC） */
+            earnedAt: string;
+        };
+        MeXpDto: {
+            /** @description 个人学习 XP 总额（只属个人，不参与排行榜） */
+            totalXp: number;
+            /** @description XP 明细（按时间倒序） */
+            entries: components["schemas"]["XpSummaryEntryDto"][];
+            /** @description 当前规则版本 */
+            ruleVersion: number;
+            /** @description 计算截止时刻 */
+            asOf: string;
+        };
+        LearningSummaryDto: {
+            /** @description 已接触全局词条数（来自 learning_exposures，去重） */
+            exposedLexicalEntryCount: number;
+            /** @description 已完成双向首测的课程词项数 */
+            initiallyReviewedCourseItemCount: number;
+            /** @description 已稳定全局词条数（双向 scheduled_days ≥21） */
+            stableLexicalEntryCount: number;
+            /** @description 到期复习负荷（当前主课程 state=review 且 due ≤ now） */
+            dueReviewCount: number;
+            /** @description 计算截止时刻 */
+            asOf: string;
+        };
+        LeaderboardRowDto: {
+            /** @description 参与者显示名（安全别名；非 username / user_id） */
+            displayName: string;
+            /** @description 本周挑战积分（仅挑战积分，非日常 XP） */
+            challengePoints: number;
+            /** @description dense rank（并列者共享名次） */
+            rank: number;
+        };
+        WeeklyLeaderboardDto: {
+            /** @description 挑战周键，例如 cw-2026-08-11 */
+            challengeWeek: string;
+            /** @description 周期起点（Asia/Shanghai 周一 00:00 UTC ISO） */
+            weekStart: string;
+            /** @description 周期终点（下一周一 00:00 UTC ISO，开区间） */
+            weekEnd: string;
+            /** @description 固定挑战周时区 */
+            timezone: string;
+            /** @description 当前周公开行（分页） */
+            rows: components["schemas"]["LeaderboardRowDto"][];
+            /** @description 当周参与用户总数（含退出公开榜者） */
+            totalParticipants: number;
+            /** @description 是否有下一页（游标分页） */
+            hasMore: boolean;
+            /** @description 下一页游标 */
+            nextCursor?: string;
+            /** @description 当前登录用户的公开排名（未上榜/退出则为 null） */
+            viewerRank: Record<string, never>;
+            /** @description 当前登录用户的挑战积分 */
+            viewerChallengePoints: number;
+            /** @description 计算截止时刻 */
+            asOf: string;
+        };
+        LeaderboardVisibilityDto: {
+            /** @description true=公开参与（默认）；false=退出公开榜单 */
+            public: boolean;
+        };
+        OperationSummaryDto: {
+            /** @description operation ID */
+            id: string;
+            /** @description 操作类型 */
+            operationType: string;
+            /** @description 操作版本 */
+            operationVersion: number;
+            /** @description 目标类型 */
+            targetType: string;
+            /** @description 目标 ID（安全摘要：UUID 前 8 位 + …） */
+            targetId: string;
+            /** @description 输入版本 */
+            inputVersion: number;
+            /** @description 状态（queued/running/retry_wait/succeeded/failed/manual_action） */
+            status: string;
+            /** @description 尝试次数 */
+            attemptCount: number;
+            /** @description 最大尝试次数 */
+            maxAttempts: number;
+            /** @description 是否仍可自动重试 */
+            retryable: boolean;
+            /** @description 是否允许管理员重试（failed/manual_action 为 true） */
+            canRetry: boolean;
+            /** @description 脱敏最近错误码 */
+            lastErrorCode?: string;
+            /** @description 脱敏最近错误摘要 */
+            lastErrorSummary?: string;
+            /** @description 创建时间（RFC 3339 UTC） */
+            createdAt: string;
+            /** @description 最近更新时间（RFC 3339 UTC） */
+            updatedAt: string;
+            /** @description 开始时间（RFC 3339 UTC） */
+            startedAt?: string;
+            /** @description 完成时间（RFC 3339 UTC） */
+            completedAt?: string;
+        };
+        OperationListResponseDto: {
+            /** @description 游标分页结果 */
+            items: components["schemas"]["OperationSummaryDto"][];
+            /** @description 下一页游标；null 表示无更多 */
+            nextCursor?: string;
+        };
+        OperationAttemptSummaryDto: {
+            /** @description attempt ID */
+            id: string;
+            /** @description attempt 编号（从 1 递增） */
+            attemptNumber: number;
+            /** @description 开始时间（RFC 3339 UTC） */
+            startedAt: string;
+            /** @description 结束时间（RFC 3339 UTC） */
+            finishedAt?: string;
+            /** @description 结果（succeeded/failed；运行中为空） */
+            outcome?: string;
+            /** @description 脱敏错误码 */
+            errorCode?: string;
+            /** @description 脱敏错误摘要（受限长度，无堆栈/供应商 payload） */
+            errorSummary?: string;
+        };
+        OperationDetailDto: {
+            /** @description operation 概要 */
+            operation: components["schemas"]["OperationSummaryDto"];
+            /** @description attempt 时间线（新→旧） */
+            attempts: components["schemas"]["OperationAttemptSummaryDto"][];
+        };
+        OperationRetryResultDto: {
+            /** @description 重试后的 operation 概要 */
+            operation: components["schemas"]["OperationSummaryDto"];
+            /** @description 是否幂等重放（同 Idempotency-Key 已重试过） */
+            isIdempotentReplay: boolean;
+        };
+        ImportUploadBodyDto: {
+            /**
+             * Format: binary
+             * @description 原始文件（txt/csv/json）
+             */
+            file: string;
+            /** @description 来源声明（必填） */
+            sourceDeclaration: string;
+        };
+        StoredFileMetaDto: {
+            /** @description 不透明文件 ID */
+            fileId: string;
+            /** @description 原文件名（仅元数据，绝不参与路径构造） */
+            originalFilename: string;
+            /** @description 嗅探到的 MIME 类型 */
+            sniffedMime: string;
+            /** @description 字节大小 */
+            byteSize: number;
+            /** @description SHA-256（十六进制） */
+            sha256Hex: string;
+            /** @description 上传人用户 ID */
+            uploadedBy: string;
+            /** @description 保留用途（本票固定 original_import） */
+            purpose: string;
+            /** @description 文件状态 */
+            status: string;
+            /** @description 格式（txt/csv/json/xlsx） */
+            format: string;
+            /** @description 创建时间（RFC 3339 UTC） */
+            createdAt: string;
+        };
+        ImportBatchDto: {
+            /** @description 批次 ID */
+            id: string;
+            /** @description 批次关联的文件元数据（不含磁盘路径/存储键） */
+            file: components["schemas"]["StoredFileMetaDto"];
+            /** @description 批次格式 */
+            format: string;
+            /** @description 管理员来源声明 */
+            sourceDeclaration: string;
+            /** @description 批次状态（uploaded/validating/ready/committed/failed） */
+            status: string;
+            /** @description 乐观并发版本 */
+            version: number;
+            /** @description 上传人用户 ID */
+            uploadedBy: string;
+            /** @description 创建时间（RFC 3339 UTC） */
+            createdAt: string;
+            /** @description 更新时间（RFC 3339 UTC） */
+            updatedAt?: string;
+        };
+        ImportErrorFieldDto: {
+            /** @description 出错字段路径 */
+            path: string;
+            /** @description 错误码 */
+            code: string;
+        };
+        ImportErrorDto: {
+            /** @description 错误码 */
+            code: string;
+            /** @description 安全的用户文案 */
+            message: string;
+            /** @description 可关联的请求 ID（服务端日志） */
+            requestId: string;
+            /** @description 是否为可重试错误 */
+            retryable: boolean;
+            /** @description 字段级错误（可选） */
+            fieldErrors?: components["schemas"]["ImportErrorFieldDto"][];
+            /** @description 内容冲突时既有批次的 ID */
+            existingBatchId?: string;
+        };
+        ImportErrorEnvelopeDto: {
+            /** @description 错误信封 */
+            error: components["schemas"]["ImportErrorDto"];
+        };
+        ImportMappingDto: {
+            /** @description 英文拼写来源字段标识（TXT 不提供） */
+            spellingField?: string;
+            /** @description XLSX 选定的工作表标识 */
+            sheet?: string;
+        };
+        ImportDiscoveredOptionDto: {
+            /** @description 稳定、不歧义的字段/工作表标识（保存到映射） */
+            fieldId: string;
+            /** @description 展示名 */
+            label: string;
+        };
+        ImportValidationSummaryDto: {
+            /** @description 可用于提交的有效候选行数 */
+            candidates: number;
+            /** @description 文件内重复行数 */
+            duplicates: number;
+            /** @description 系统已有词条行数 */
+            existingEntries: number;
+            /** @description 无效（拼写/超限/空值）行数 */
+            invalid: number;
+            /** @description 忽略的空白行数 */
+            ignored: number;
+            /** @description 总行数 */
+            total: number;
+        };
+        ImportCommitResultDto: {
+            /** @description 批次 ID */
+            batchId: string;
+            /** @description 提交所依据的映射版本 */
+            mappingVersion: number;
+            /** @description 提交时间（RFC 3339 UTC） */
+            committedAt: string;
+            /** @description 本轮新建的全局词条数 */
+            createdEntryCount: number;
+            /** @description 本轮关联到既有系统词条的数量 */
+            associatedExistingEntryCount: number;
+            /** @description 按 disposition 分组的跳过行数（invalid / duplicate_in_file / existing_entry / stale 等） */
+            skippedCountByDisposition: {
+                [key: string]: number;
+            };
+            /** @description 本轮实际写入提交事实的行数 */
+            committedRowCount: number;
+            /** @description 是否为幂等重放（true 表示返回原始结果） */
+            isIdempotentReplay: boolean;
+        };
+        ImportCommitConfirmationDto: {
+            /** @description 当前映射版本 */
+            mappingVersion: number;
+            /** @description 校验输入冻结哈希（validation_input_sha256，安全：仅哈希无路径/密钥） */
+            validationInputSha256: string;
+        };
+        ImportBatchDetailDto: {
+            /** @description 批次 ID */
+            id: string;
+            /** @description 批次关联的文件元数据 */
+            file: components["schemas"]["StoredFileMetaDto"];
+            /** @description 批次格式（txt/csv/json/xlsx） */
+            format: string;
+            /** @description 管理员来源声明 */
+            sourceDeclaration: string;
+            /** @description 批次状态 */
+            status: string;
+            /** @description 乐观并发版本 */
+            version: number;
+            /** @description 校验状态（not_validated/validating/validated/failed） */
+            validationStatus: string;
+            /** @description 当前映射版本 */
+            mappingVersion: number;
+            /** @description 当前映射（spellingField/sheet）；TXT 为空 */
+            mapping?: components["schemas"]["ImportMappingDto"];
+            /** @description 可选工作表（XLSX） */
+            sheets?: components["schemas"]["ImportDiscoveredOptionDto"][];
+            /** @description 可选字段（CSV/XLSX/JSON） */
+            fields?: components["schemas"]["ImportDiscoveredOptionDto"][];
+            /** @description XLSX 各工作表各自的字段集（供按当前选定工作表选择字段；键为工作表标识） */
+            sheetFields?: {
+                [key: string]: {
+                    fieldIds?: string[];
+                    labels?: string[];
+                };
+            };
+            /** @description 校验摘要 */
+            validationSummary?: components["schemas"]["ImportValidationSummaryDto"];
+            /** @description 可执行的唯一主操作状态 */
+            nextStep: string;
+            /** @description 上传人用户 ID */
+            uploadedBy: string;
+            /** @description 创建时间（RFC 3339 UTC） */
+            createdAt: string;
+            /** @description 更新时间（RFC 3339 UTC） */
+            updatedAt?: string;
+            /** @description 当前映射/校验结果是否仍有效 */
+            isStale: boolean;
+            /** @description 最近一次提交事实摘要（已提交批次提供，供重载后展示事实性计数） */
+            commitSummary?: components["schemas"]["ImportCommitResultDto"];
+            /** @description 提交确认身份（仅当前已校验且非 stale 时提供）：客户端提交时必须原样回传，服务器锁定后无条件比对 */
+            commitConfirmation?: components["schemas"]["ImportCommitConfirmationDto"];
+        };
+        ImportBatchListDto: {
+            /** @description 批次列表（按创建时间倒序） */
+            items: components["schemas"]["ImportBatchDetailDto"][];
+        };
+        UpdateImportBatchDto: {
+            /** @description 映射（spellingField/sheet） */
+            mapping?: components["schemas"]["ImportMappingDto"];
+            /** @description 当前批次版本（乐观并发；提供则用于 If-Match 语义） */
+            version?: number;
+            /** @description 来源声明（可选更新；非空且 ≤500 字符） */
+            sourceDeclaration?: string;
+        };
+        ImportRowDto: {
+            /** @description 行 ID */
+            id: string;
+            /** @description 批次内序号（从 1 起） */
+            ordinal: number;
+            /** @description 原始拼写安全摘要 */
+            rawSummary: string;
+            /** @description 规范化拼写 */
+            normalizedSpelling?: string;
+            /** @description 校验分类（candidate/invalid/duplicate_in_file/existing_entry/stale）；不可变校验事实 */
+            status: string;
+            /** @description 结构化错误码列表 */
+            errors: string[];
+            /** @description 文件内重复：指向的行序号 */
+            duplicateOfOrdinal?: number;
+            /** @description 关联的系统词条 ID（existing_entry 校验分类或已提交后为最终关联词条） */
+            lexicalEntryId?: string;
+            /** @description 映射版本 */
+            mappingVersion: number;
+            /** @description 提交状态：not_committed 或 committed（由不可变提交事实推导，非覆盖校验分类） */
+            commitStatus: string;
+            /** @description 提交时间（RFC 3339 UTC；committed 时提供） */
+            committedAt?: string;
+            /** @description 提交人用户 ID（committed 时提供） */
+            committedBy?: string;
+        };
+        ImportRowListDto: {
+            /** @description 行列表（按 ordinal 升序） */
+            items: components["schemas"]["ImportRowDto"][];
+            /** @description 下一页游标（null 表示无更多） */
+            nextCursor?: string;
+            /** @description 是否还有更多页 */
+            hasMore: boolean;
+        };
+        CommitImportBatchDto: {
+            /** @description 当前映射版本（要求与服务器权威值一致，防 stale/未绑定提交） */
+            mappingVersion: number;
+            /** @description 校验输入的身份标识（来自批次详情的 commitConfirmation.validationInputSha256）；必须精确匹配 */
+            validationInputSha256: string;
+        };
+        ReviewSourceProjectionDto: {
+            sourceName: string;
+            pageId: string;
+            revisionId: string;
+            revisionTimestamp: string;
+            sourceUrl: string;
+            licenseName: string;
+            licenseVersion?: string;
+            licenseUrl: string;
+            attribution: string;
+        };
+        ReviewDraftListItemDto: {
+            draftId: string;
+            spelling: string;
+            status: string;
+            createdAt: string;
+            decisionType?: string;
+            reviewVersion?: string;
+            source: components["schemas"]["ReviewSourceProjectionDto"];
+        };
+        ReviewDraftListDto: {
+            items: components["schemas"]["ReviewDraftListItemDto"][];
+        };
+        ReviewDecisionDto: {
+            id: string;
+            draftId: string;
+            decisionType: string;
+            reason: string;
+            reviewerId: string;
+            createdAt: string;
+            source: components["schemas"]["ReviewSourceProjectionDto"];
+            englishSpelling: string;
+            simplifiedChineseMeaning?: string;
+            learningHint?: string;
+        };
+        ReviewDraftDetailDto: {
+            draftId: string;
+            spelling: string;
+            status: string;
+            simplifiedChineseMeaning: string;
+            learningHint?: string;
+            createdAt: string;
+            reviewVersion: string;
+            source: components["schemas"]["ReviewSourceProjectionDto"];
+            decision?: components["schemas"]["ReviewDecisionDto"];
+        };
+        ReviewDecisionRequestDto: {
+            /** @enum {string} */
+            decision: "accept" | "accept_with_edits" | "reject";
+            /** @description 审核理由；reject 必填 */
+            reason?: string;
+            /** @description accept_with_edits 时的受控编辑内容 */
+            editedContent?: Record<string, never>;
+            /** @description 乐观并发版本文本：由 detail/list 返回的 reviewVersion 回填；过期则返回 409（stale-review 防护） */
+            expectedVersion?: string;
+        };
+        ReviewDecisionResponseDto: {
+            decision: components["schemas"]["ReviewDecisionDto"];
+            isIdempotentReplay: boolean;
+        };
     };
-    ImportBatchListDto: {
-      /** @description 批次列表（按创建时间倒序） */
-      items: components["schemas"]["ImportBatchDetailDto"][];
-    };
-    UpdateImportBatchDto: {
-      /** @description 映射（spellingField/sheet） */
-      mapping?: components["schemas"]["ImportMappingDto"];
-      /** @description 当前批次版本（乐观并发；提供则用于 If-Match 语义） */
-      version?: number;
-      /** @description 来源声明（可选更新；非空且 ≤500 字符） */
-      sourceDeclaration?: string;
-    };
-    ImportRowDto: {
-      /** @description 行 ID */
-      id: string;
-      /** @description 批次内序号（从 1 起） */
-      ordinal: number;
-      /** @description 原始拼写安全摘要 */
-      rawSummary: string;
-      /** @description 规范化拼写 */
-      normalizedSpelling?: string;
-      /** @description 校验分类（candidate/invalid/duplicate_in_file/existing_entry/stale）；不可变校验事实 */
-      status: string;
-      /** @description 结构化错误码列表 */
-      errors: string[];
-      /** @description 文件内重复：指向的行序号 */
-      duplicateOfOrdinal?: number;
-      /** @description 关联的系统词条 ID（existing_entry 校验分类或已提交后为最终关联词条） */
-      lexicalEntryId?: string;
-      /** @description 映射版本 */
-      mappingVersion: number;
-      /** @description 提交状态：not_committed 或 committed（由不可变提交事实推导，非覆盖校验分类） */
-      commitStatus: string;
-      /** @description 提交时间（RFC 3339 UTC；committed 时提供） */
-      committedAt?: string;
-      /** @description 提交人用户 ID（committed 时提供） */
-      committedBy?: string;
-    };
-    ImportRowListDto: {
-      /** @description 行列表（按 ordinal 升序） */
-      items: components["schemas"]["ImportRowDto"][];
-      /** @description 下一页游标（null 表示无更多） */
-      nextCursor?: string;
-      /** @description 是否还有更多页 */
-      hasMore: boolean;
-    };
-    CommitImportBatchDto: {
-      /** @description 当前映射版本（要求与服务器权威值一致，防 stale/未绑定提交） */
-      mappingVersion: number;
-      /** @description 校验输入的身份标识（来自批次详情的 commitConfirmation.validationInputSha256）；必须精确匹配 */
-      validationInputSha256: string;
-    };
-  };
-  responses: never;
-  parameters: never;
-  requestBodies: never;
-  headers: never;
-  pathItems: never;
+    responses: never;
+    parameters: never;
+    requestBodies: never;
+    headers: never;
+    pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-  HealthController_live: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  HealthController_ready: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  AuthController_login: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["LoginDto"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  AuthController_me: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  AuthController_logout: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  AuthController_changePassword: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ChangePasswordDto"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  AuthController_sessions: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  AuthController_revokeSession: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  AdminUsersController_list: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["AdminUserListDto"];
-        };
-      };
-    };
-  };
-  AdminUsersController_create: {
-    parameters: {
-      query?: never;
-      header: {
-        "idempotency-key": string;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["CreateUserDto"];
-      };
-    };
-    responses: {
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["AdminCreateUserResultDto"];
-        };
-      };
-    };
-  };
-  AdminUsersController_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["AdminUserDto"];
-        };
-      };
-    };
-  };
-  AdminUsersController_disable: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description 停用成功（OK） */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["AdminOkDto"];
-        };
-      };
-    };
-  };
-  AdminUsersController_reset: {
-    parameters: {
-      query?: never;
-      header: {
-        "idempotency-key": string;
-      };
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["AdminCreateUserResultDto"];
-        };
-      };
-    };
-  };
-  LexicalEntryController_list: {
-    parameters: {
-      query?: {
-        /** @description 按规范化/展示拼写搜索 */
-        q?: string;
-        /** @description 键集分页游标（上次响应返回） */
-        cursor?: string;
-        /** @description 每页数量 */
-        limit?: number;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["LexicalEntryListResponseDto"];
-        };
-      };
-    };
-  };
-  LexicalEntryController_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["CreateLexicalEntryDto"];
-      };
-    };
-    responses: {
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["LexicalEntryDetailDto"];
-        };
-      };
-      /** @description 重复警告/完全相同冲突 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["DuplicateErrorEnvelopeDto"];
-        };
-      };
-    };
-  };
-  LexicalEntryController_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["LexicalEntryDetailDto"];
-        };
-      };
-    };
-  };
-  CourseController_list: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["CourseListResponseDto"];
-        };
-      };
-    };
-  };
-  CourseController_create: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["CreateCourseDto"];
-      };
-    };
-    responses: {
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["CreateCourseResultDto"];
-        };
-      };
-      /** @description slug 已存在 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  CourseController_getDraft: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["CourseDraftDetailDto"];
-        };
-      };
-    };
-  };
-  CourseController_updateDraft: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["UpdateCourseDraftDto"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["CourseDraftDetailDto"];
-        };
-      };
-      /** @description 草稿版本冲突 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["DraftVersionConflictEnvelopeDto"];
-        };
-      };
-    };
-  };
-  CourseController_validate: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["CourseValidationResultDto"];
-        };
-      };
-    };
-  };
-  CourseController_releases: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ReleaseListResponseDto"];
-        };
-      };
-    };
-  };
-  CourseController_publish: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["PublishReleaseDto"];
-      };
-    };
-    responses: {
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["PublishReleaseResultDto"];
-        };
-      };
-      /** @description 草稿版本过期/幂等冲突 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["DraftVersionConflictEnvelopeDto"];
-        };
-      };
-    };
-  };
-  CourseController_setCurrentRelease: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["SetCurrentReleaseDto"];
-      };
-    };
-    responses: {
-      /** @description 更新后的 currentReleaseId */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description 跨课程 release 拒绝 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  CourseController_createUnit: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-        unitId: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["CreateUnitDto"];
-      };
-    };
-    responses: {
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["CourseDraftDetailDto"];
-        };
-      };
-      /** @description 草稿版本冲突 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["DraftVersionConflictEnvelopeDto"];
-        };
-      };
-    };
-  };
-  CourseController_deleteUnit: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-        unitId: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["DeleteUnitDto"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["CourseDraftDetailDto"];
-        };
-      };
-      /** @description 草稿版本冲突 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["DraftVersionConflictEnvelopeDto"];
-        };
-      };
-    };
-  };
-  CourseController_updateUnit: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-        unitId: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["UpdateUnitDto"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["CourseDraftDetailDto"];
-        };
-      };
-      /** @description 草稿版本冲突 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["DraftVersionConflictEnvelopeDto"];
-        };
-      };
-    };
-  };
-  CourseController_reorder: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ReorderUnitsDto"];
-      };
-    };
-    responses: {
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["CourseDraftDetailDto"];
-        };
-      };
-      /** @description 草稿版本冲突 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["DraftVersionConflictEnvelopeDto"];
-        };
-      };
-    };
-  };
-  CourseController_reorderItems: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ReorderItemsDto"];
-      };
-    };
-    responses: {
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["CourseDraftDetailDto"];
-        };
-      };
-      /** @description 草稿版本冲突 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["DraftVersionConflictEnvelopeDto"];
-        };
-      };
-    };
-  };
-  CourseController_createItem: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-        itemId: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["CreateItemDto"];
-      };
-    };
-    responses: {
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["CourseDraftDetailDto"];
-        };
-      };
-      /** @description 草稿版本冲突 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["DraftVersionConflictEnvelopeDto"];
-        };
-      };
-    };
-  };
-  CourseController_deleteItem: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-        itemId: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["DeleteItemDto"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["CourseDraftDetailDto"];
-        };
-      };
-      /** @description 草稿版本冲突 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["DraftVersionConflictEnvelopeDto"];
-        };
-      };
-    };
-  };
-  CourseController_updateItem: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-        itemId: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["UpdateItemDto"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["CourseDraftDetailDto"];
-        };
-      };
-      /** @description 草稿版本冲突 */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["DraftVersionConflictEnvelopeDto"];
-        };
-      };
-    };
-  };
-  CatalogController_list: {
-    parameters: {
-      query?: {
-        /** @description 每页条目数，默认 24，最大 50 */
-        limit?: number;
-        /** @description 不透明分页游标（由上一页返回），首页不传 */
-        cursor?: string;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["CatalogCourseListResponseDto"];
-        };
-      };
-    };
-  };
-  CatalogController_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["CatalogCourseDetailDto"];
-        };
-      };
-    };
-  };
-  CatalogController_enroll: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["EnrollCourseDto"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["CatalogCourseDetailDto"];
-        };
-      };
-    };
-  };
-  CatalogController_setPrimary: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["SetPrimaryCourseDto"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["CatalogCourseDetailDto"];
-        };
-      };
-    };
-  };
-  StudyController_summary: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["LearningCardSummaryDto"];
-        };
-      };
-    };
-  };
-  StudyController_cards: {
-    parameters: {
-      query?: {
-        /** @description 按已报名课程过滤；省略时默认主课程。必须属于当前用户，否则 404 */
-        courseId?: string;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["LearningCardListDto"];
-        };
-      };
-    };
-  };
-  StudyController_expose: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["CreateExposureDto"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["LearningExposureDto"];
-        };
-      };
-    };
-  };
-  StudyController_today: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["TodayDto"];
-        };
-      };
-    };
-  };
-  StudyController_createOrResume: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["StudySessionDto"];
-        };
-      };
-    };
-  };
-  StudyController_activeDetail: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["StudySessionDetailDto"];
-        };
-      };
-    };
-  };
-  StudyController_reveal: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        sessionId: string;
-        itemId: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["RevealResultDto"];
-        };
-      };
-    };
-  };
-  StudyController_submitReview: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        sessionId: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["SubmitReviewDto"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["SubmitReviewResultDto"];
-        };
-      };
-    };
-  };
-  StudyController_progress: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ProgressDto"];
-        };
-      };
-    };
-  };
-  MetricsController_getMetrics: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["LearningMetricsDto"];
-        };
-      };
-    };
-  };
-  OperationsController_list: {
-    parameters: {
-      query?: {
-        /** @description 状态过滤（queued/running/…） */
-        status?: string;
-        /** @description 操作类型过滤 */
-        operationType?: string;
-        /** @description 分页游标 */
-        cursor?: string;
-        /** @description 每页数量（1–50，默认 20） */
-        limit?: string;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["OperationListResponseDto"];
-        };
-      };
-    };
-  };
-  OperationsController_detail: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        /** @description operation UUID */
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["OperationDetailDto"];
-        };
-      };
-    };
-  };
-  OperationsController_retry: {
-    parameters: {
-      query?: never;
-      header: {
-        "x-csrf-token": string;
-        "Idempotency-Key": string;
-      };
-      path: {
-        /** @description operation UUID */
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["OperationRetryResultDto"];
-        };
-      };
-      /** @description IDEMPOTENCY_CONFLICT / IDEMPOTENCY_IN_PROGRESS */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description 缺少 Idempotency-Key / 非法状态或未确认 / 未知字段 */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  ImportController_list: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ImportBatchListDto"];
-        };
-      };
-    };
-  };
-  ImportController_create: {
-    parameters: {
-      query?: never;
-      header: {
-        /** @description 本次上传意图的幂等键；重试必须复用同一键 */
-        "Idempotency-Key": string;
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "multipart/form-data": components["schemas"]["ImportUploadBodyDto"];
-      };
-    };
-    responses: {
-      /** @description 幂等重放或内容去重返回既有批次 */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ImportBatchDto"];
-        };
-      };
-      /** @description 新批次创建成功 */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ImportBatchDto"];
-        };
-      };
-      /** @description malformed 或安全文件拒绝 */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
-        };
-      };
-      /** @description IDEMPOTENCY_CONFLICT / IDEMPOTENCY_IN_PROGRESS / IMPORT_CONTENT_CONFLICT */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
-        };
-      };
-      /** @description 字段或领域校验失败 */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
-        };
-      };
-      /** @description 统一内部错误信封 */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
-        };
-      };
-    };
-  };
-  ImportController_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ImportBatchDetailDto"];
-        };
-      };
-      /** @description 非法 UUID */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
-        };
-      };
-      /** @description 批次不存在 */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
-        };
-      };
-    };
-  };
-  ImportController_updateMapping: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["UpdateImportBatchDto"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ImportBatchDetailDto"];
-        };
-      };
-      /** @description 批次不存在或版本已过期 */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
-        };
-      };
-      /** @description 非法映射/来源声明 */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
-        };
-      };
-    };
-  };
-  ImportController_validate: {
-    parameters: {
-      query?: never;
-      header: {
-        /** @description 本次校验意图的幂等键；重试必须复用同一键 */
-        "Idempotency-Key": string;
-      };
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ImportBatchDetailDto"];
-        };
-      };
-      /** @description IDEMPOTENCY_CONFLICT / IN_PROGRESS */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
-        };
-      };
-      /** @description 映射未确认 */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
-        };
-      };
-    };
-  };
-  ImportController_rows: {
-    parameters: {
-      query: {
-        cursor: string;
-        limit: string;
-        mappingVersion: string;
-      };
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ImportRowListDto"];
-        };
-      };
-      /** @description 批次不存在 */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
-        };
-      };
-      /** @description 非法游标/limit/mappingVersion */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
-        };
-      };
-    };
-  };
-  ImportController_commit: {
-    parameters: {
-      query?: never;
-      header: {
-        /** @description 本次提交意图的幂等键；重试必须复用同一键，重放返回原始结果 */
-        "Idempotency-Key": string;
-      };
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["CommitImportBatchDto"];
-      };
-    };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ImportCommitResultDto"];
-        };
-      };
-      /** @description IDEMPOTENCY_CONFLICT / IDEMPOTENCY_IN_PROGRESS / COMMIT_STALE_MAPPING */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
-        };
-      };
-      /** @description COMMIT_NOT_VALIDATED / COMMIT_VALIDATION_MISMATCH / COMMIT_NO_ELIGIBLE_ROWS / COMMIT_REVALIDATION_REQUIRED / 缺少幂等键 */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
-        };
-      };
-    };
-  };
-  ImportController_errorReport: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description CSV 下载；无错误行时返回仅表头 CSV */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description 批次不存在 */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
-        };
-      };
-    };
-  };
+    HealthController_live: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    HealthController_ready: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AuthController_login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AuthController_me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AuthController_logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AuthController_changePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AuthController_sessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AuthController_revokeSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminUsersController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserListDto"];
+                };
+            };
+        };
+    };
+    AdminUsersController_create: {
+        parameters: {
+            query?: never;
+            header: {
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateUserDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCreateUserResultDto"];
+                };
+            };
+        };
+    };
+    AdminUsersController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserDto"];
+                };
+            };
+        };
+    };
+    AdminUsersController_disable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 停用成功（OK） */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOkDto"];
+                };
+            };
+        };
+    };
+    AdminUsersController_reset: {
+        parameters: {
+            query?: never;
+            header: {
+                "idempotency-key": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCreateUserResultDto"];
+                };
+            };
+        };
+    };
+    LexicalEntryController_list: {
+        parameters: {
+            query?: {
+                /** @description 按规范化/展示拼写搜索 */
+                q?: string;
+                /** @description 键集分页游标（上次响应返回） */
+                cursor?: string;
+                /** @description 每页数量 */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LexicalEntryListResponseDto"];
+                };
+            };
+        };
+    };
+    LexicalEntryController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLexicalEntryDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LexicalEntryDetailDto"];
+                };
+            };
+            /** @description 重复警告/完全相同冲突 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DuplicateErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    LexicalEntryController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LexicalEntryDetailDto"];
+                };
+            };
+        };
+    };
+    CourseController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseListResponseDto"];
+                };
+            };
+        };
+    };
+    CourseController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCourseDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateCourseResultDto"];
+                };
+            };
+            /** @description slug 已存在 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CourseController_getDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseDraftDetailDto"];
+                };
+            };
+        };
+    };
+    CourseController_updateDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCourseDraftDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseDraftDetailDto"];
+                };
+            };
+            /** @description 草稿版本冲突 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftVersionConflictEnvelopeDto"];
+                };
+            };
+        };
+    };
+    CourseController_validate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseValidationResultDto"];
+                };
+            };
+        };
+    };
+    CourseController_releases: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseListResponseDto"];
+                };
+            };
+        };
+    };
+    CourseController_publish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishReleaseDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishReleaseResultDto"];
+                };
+            };
+            /** @description 草稿版本过期/幂等冲突 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftVersionConflictEnvelopeDto"];
+                };
+            };
+        };
+    };
+    CourseController_setCurrentRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetCurrentReleaseDto"];
+            };
+        };
+        responses: {
+            /** @description 更新后的 currentReleaseId */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 跨课程 release 拒绝 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CourseController_createUnit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                unitId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateUnitDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseDraftDetailDto"];
+                };
+            };
+            /** @description 草稿版本冲突 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftVersionConflictEnvelopeDto"];
+                };
+            };
+        };
+    };
+    CourseController_deleteUnit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                unitId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteUnitDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseDraftDetailDto"];
+                };
+            };
+            /** @description 草稿版本冲突 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftVersionConflictEnvelopeDto"];
+                };
+            };
+        };
+    };
+    CourseController_updateUnit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                unitId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateUnitDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseDraftDetailDto"];
+                };
+            };
+            /** @description 草稿版本冲突 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftVersionConflictEnvelopeDto"];
+                };
+            };
+        };
+    };
+    CourseController_reorder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderUnitsDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseDraftDetailDto"];
+                };
+            };
+            /** @description 草稿版本冲突 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftVersionConflictEnvelopeDto"];
+                };
+            };
+        };
+    };
+    CourseController_reorderItems: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderItemsDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseDraftDetailDto"];
+                };
+            };
+            /** @description 草稿版本冲突 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftVersionConflictEnvelopeDto"];
+                };
+            };
+        };
+    };
+    CourseController_createItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                itemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateItemDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseDraftDetailDto"];
+                };
+            };
+            /** @description 草稿版本冲突 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftVersionConflictEnvelopeDto"];
+                };
+            };
+        };
+    };
+    CourseController_deleteItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                itemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteItemDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseDraftDetailDto"];
+                };
+            };
+            /** @description 草稿版本冲突 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftVersionConflictEnvelopeDto"];
+                };
+            };
+        };
+    };
+    CourseController_updateItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                itemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateItemDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseDraftDetailDto"];
+                };
+            };
+            /** @description 草稿版本冲突 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftVersionConflictEnvelopeDto"];
+                };
+            };
+        };
+    };
+    CatalogController_list: {
+        parameters: {
+            query?: {
+                /** @description 每页条目数，默认 24，最大 50 */
+                limit?: number;
+                /** @description 不透明分页游标（由上一页返回），首页不传 */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogCourseListResponseDto"];
+                };
+            };
+        };
+    };
+    CatalogController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogCourseDetailDto"];
+                };
+            };
+        };
+    };
+    CatalogController_enroll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnrollCourseDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogCourseDetailDto"];
+                };
+            };
+        };
+    };
+    CatalogController_setPrimary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetPrimaryCourseDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogCourseDetailDto"];
+                };
+            };
+        };
+    };
+    StudyController_summary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearningCardSummaryDto"];
+                };
+            };
+        };
+    };
+    StudyController_cards: {
+        parameters: {
+            query?: {
+                /** @description 按已报名课程过滤；省略时默认主课程。必须属于当前用户，否则 404 */
+                courseId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearningCardListDto"];
+                };
+            };
+        };
+    };
+    StudyController_expose: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateExposureDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearningExposureDto"];
+                };
+            };
+        };
+    };
+    StudyController_today: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodayDto"];
+                };
+            };
+        };
+    };
+    StudyController_createOrResume: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudySessionDto"];
+                };
+            };
+        };
+    };
+    StudyController_activeDetail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudySessionDetailDto"];
+                };
+            };
+        };
+    };
+    StudyController_reveal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: string;
+                itemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevealResultDto"];
+                };
+            };
+        };
+    };
+    StudyController_submitReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitReviewDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubmitReviewResultDto"];
+                };
+            };
+        };
+    };
+    StudyController_progress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgressDto"];
+                };
+            };
+        };
+    };
+    MetricsController_getMetrics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearningMetricsDto"];
+                };
+            };
+        };
+    };
+    GameController_meXp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeXpDto"];
+                };
+            };
+        };
+    };
+    GameController_learningSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearningSummaryDto"];
+                };
+            };
+        };
+    };
+    GameController_weeklyLeaderboard: {
+        parameters: {
+            query?: {
+                /** @description 挑战周键（默认当前周）；非法时返回 422 */
+                challengeWeek?: string;
+                /** @description 游标分页键（上一次响应返回） */
+                cursor?: string;
+                /** @description 每页行数，默认 20，最大 100 */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WeeklyLeaderboardDto"];
+                };
+            };
+        };
+    };
+    GameController_setVisibility: {
+        parameters: {
+            query?: never;
+            header: {
+                "idempotency-key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LeaderboardVisibilityDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeaderboardVisibilityDto"];
+                };
+            };
+        };
+    };
+    OperationsController_list: {
+        parameters: {
+            query?: {
+                /** @description 状态过滤（queued/running/…） */
+                status?: string;
+                /** @description 操作类型过滤 */
+                operationType?: string;
+                /** @description 分页游标 */
+                cursor?: string;
+                /** @description 每页数量（1–50，默认 20） */
+                limit?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationListResponseDto"];
+                };
+            };
+        };
+    };
+    OperationsController_detail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description operation UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationDetailDto"];
+                };
+            };
+        };
+    };
+    OperationsController_retry: {
+        parameters: {
+            query?: never;
+            header: {
+                "x-csrf-token": string;
+                "Idempotency-Key": string;
+            };
+            path: {
+                /** @description operation UUID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationRetryResultDto"];
+                };
+            };
+            /** @description IDEMPOTENCY_CONFLICT / IDEMPOTENCY_IN_PROGRESS */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 缺少 Idempotency-Key / 非法状态或未确认 / 未知字段 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ImportController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatchListDto"];
+                };
+            };
+        };
+    };
+    ImportController_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 本次上传意图的幂等键；重试必须复用同一键 */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ImportUploadBodyDto"];
+            };
+        };
+        responses: {
+            /** @description 幂等重放或内容去重返回既有批次 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatchDto"];
+                };
+            };
+            /** @description 新批次创建成功 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatchDto"];
+                };
+            };
+            /** @description malformed 或安全文件拒绝 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
+                };
+            };
+            /** @description IDEMPOTENCY_CONFLICT / IDEMPOTENCY_IN_PROGRESS / IMPORT_CONTENT_CONFLICT */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
+                };
+            };
+            /** @description 字段或领域校验失败 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
+                };
+            };
+            /** @description 统一内部错误信封 */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    ImportController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatchDetailDto"];
+                };
+            };
+            /** @description 非法 UUID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
+                };
+            };
+            /** @description 批次不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    ImportController_updateMapping: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateImportBatchDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatchDetailDto"];
+                };
+            };
+            /** @description 批次不存在或版本已过期 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
+                };
+            };
+            /** @description 非法映射/来源声明 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    ImportController_validate: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 本次校验意图的幂等键；重试必须复用同一键 */
+                "Idempotency-Key": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatchDetailDto"];
+                };
+            };
+            /** @description IDEMPOTENCY_CONFLICT / IN_PROGRESS */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
+                };
+            };
+            /** @description 映射未确认 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    ImportController_rows: {
+        parameters: {
+            query: {
+                cursor: string;
+                limit: string;
+                mappingVersion: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportRowListDto"];
+                };
+            };
+            /** @description 批次不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
+                };
+            };
+            /** @description 非法游标/limit/mappingVersion */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    ImportController_commit: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 本次提交意图的幂等键；重试必须复用同一键，重放返回原始结果 */
+                "Idempotency-Key": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommitImportBatchDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportCommitResultDto"];
+                };
+            };
+            /** @description IDEMPOTENCY_CONFLICT / IDEMPOTENCY_IN_PROGRESS / COMMIT_STALE_MAPPING */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
+                };
+            };
+            /** @description COMMIT_NOT_VALIDATED / COMMIT_VALIDATION_MISMATCH / COMMIT_NO_ELIGIBLE_ROWS / COMMIT_REVALIDATION_REQUIRED / 缺少幂等键 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    ImportController_errorReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CSV 下载；无错误行时返回仅表头 CSV */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 批次不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
+                };
+            };
+        };
+    };
+    ReviewsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewDraftListDto"];
+                };
+            };
+        };
+    };
+    ReviewsController_detail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewDraftDetailDto"];
+                };
+            };
+        };
+    };
+    ReviewsController_history: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewDraftListDto"];
+                };
+            };
+        };
+    };
+    ReviewsController_decide: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewDecisionRequestDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewDecisionResponseDto"];
+                };
+            };
+        };
+    };
+    ReviewsController_resolve: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
 }

@@ -454,8 +454,14 @@ describe("review submission, reveal, and progress", () => {
     const ev = uniq("idem");
     const r1 = await revealThenReview(client, session.sessionId, item, "good", ev);
     expect(r1.statusCode).toBe(200);
-    const b1 = r1.json() as { idempotentReplay: boolean; reviewEventId: string };
+    const b1 = r1.json() as {
+      idempotentReplay: boolean;
+      reviewEventId: string;
+      xpAwarded: number;
+    };
     expect(b1.idempotentReplay).toBe(false);
+    // 首次有效评分（is_initial_review=true）→ 5 XP。
+    expect(b1.xpAwarded).toBe(5);
     expect(await countReviewEvents(userId)).toBe(1);
 
     // 重放：不产生新事件、cursor 不前进。
@@ -468,9 +474,10 @@ describe("review submission, reveal, and progress", () => {
       },
     });
     expect(r2.statusCode).toBe(200);
-    const b2 = r2.json() as { idempotentReplay: boolean; reviewEventId: string };
+    const b2 = r2.json() as { idempotentReplay: boolean; reviewEventId: string; xpAwarded: number };
     expect(b2.idempotentReplay).toBe(true);
     expect(b2.reviewEventId).toBe(b1.reviewEventId); // 返回首次事件
+    expect(b2.xpAwarded).toBe(b1.xpAwarded); // 重放返回完全一致的 xpAwarded（不重复记 XP）
     expect(await countReviewEvents(userId)).toBe(1); // 不产生新事件
   });
 

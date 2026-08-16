@@ -14,10 +14,13 @@ import {
   deriveHighestUnlockedUnitPosition,
   deriveUnitUnlocked,
   directionStable,
+  isEligibleForXp,
   itemInitialCompleted,
   PLAN_RULE_VERSION,
   scheduleNextLearningCard,
   validateCardDirection,
+  XP_PER_ELIGIBLE_REVIEW_EVENT,
+  xpAmountForEligible,
   type CardDirection,
   type NextScheduleCard,
   type PlanCardCandidate,
@@ -268,6 +271,8 @@ interface ReviewResponsePayload {
     }[];
   };
   next: ReviewNextPayload;
+  /** 本次评分奖励的 XP（0 或 5）；随 response_json 持久化，重放返回一致值。 */
+  xpAwarded: number;
 }
 
 @Injectable()
@@ -993,6 +998,24 @@ export class StudyService {
         },
       );
 
+      // 7c) 计算并写入 xpAwarded 到 response_json：合格首测/到期复习 = 5，否则 0。
+      //     重放从已存 response_json 返回完全相同的 xpAwarded，绝不因重放重复记 XP。
+      const xpAwarded = xpAmountForEligible({
+        id: "",
+        userId,
+        cardId: card.card_id,
+        rating: input.rating as "again" | "hard" | "good" | "easy",
+        isInitialReview,
+        stateBefore: state_before as {
+          state?: "new" | "learning" | "review";
+          dueAt?: string | null;
+        },
+        reviewedAt: now.toISOString(),
+        clientEventId: input.clientEventId,
+        now: now.toISOString(),
+      });
+      response_json.xpAwarded = xpAwarded;
+
       // 12) 写不可变 ReviewEvent（幂等键唯一；并发冲突则回滚返回既有结果）。
       const eventInsert = await client.query<{ id: string }>(
         `INSERT INTO review_events
@@ -1035,6 +1058,21 @@ export class StudyService {
       }
       const eventId = eventInsert.rows[0]!.id;
 
+      // 13) XP ledger：同一事务内为合格 ReviewEvent 追加 XP（幂等，UNIQUE(review_event_id, rule_version)）。
+      // 个人 XP 永不进入排行榜；只记录已接受、真实存在的学习事实。
+      await this.awardXpForReviewEvent(client, {
+        userId,
+        reviewEventId: eventId,
+        clientEventId: input.clientEventId,
+        rating: input.rating as "again" | "hard" | "good" | "easy",
+        isInitialReview,
+        stateBefore: state_before as {
+          state?: "new" | "learning" | "review";
+          dueAt?: string | null;
+        },
+        reviewedAt: now.toISOString(),
+      });
+
       await client.query("COMMIT");
 
       return {
@@ -1050,6 +1088,55 @@ export class StudyService {
     } finally {
       client.release();
     }
+  }
+
+  /**
+   * 为已接受的 ReviewEvent 追加 XP（与事件同一事务，幂等）。
+   * 只对合格事件（首测或到期复习）记 5 XP；重放/失败请求不重复奖励。
+   * UNIQUE(review_event_id, rule_version) 作为数据库层最终防线。
+   */
+  private async awardXpForReviewEvent(
+    client: import("pg").PoolClient,
+    input: {
+      userId: string;
+      reviewEventId: string;
+      clientEventId: string;
+      rating: "again" | "hard" | "good" | "easy";
+      isInitialReview: boolean;
+      stateBefore: {
+        state?: "new" | "learning" | "review";
+        dueAt?: string | null;
+      };
+      reviewedAt: string;
+    },
+  ): Promise<void> {
+    const eligible = isEligibleForXp({
+      id: input.reviewEventId,
+      userId: input.userId,
+      cardId: "", // identity only; eligibility uses isInitialReview + stateBefore
+      rating: input.rating,
+      isInitialReview: input.isInitialReview,
+      stateBefore: input.stateBefore,
+      reviewedAt: input.reviewedAt,
+      clientEventId: input.clientEventId,
+      now: input.reviewedAt,
+    });
+    if (!eligible) return;
+    await client.query(
+      `INSERT INTO xp_entries
+         (user_id, review_event_id, rule_version, amount, reason, source_event_id, earned_at)
+       VALUES ($1, $2, 1, $3, $4, $5, $6)
+       ON CONFLICT (review_event_id, rule_version) WHERE references_xp_entry IS NULL
+       DO NOTHING`,
+      [
+        input.userId,
+        input.reviewEventId,
+        XP_PER_ELIGIBLE_REVIEW_EVENT,
+        input.isInitialReview ? "initial_review" : "due_review",
+        input.clientEventId,
+        input.reviewedAt,
+      ],
+    );
   }
 
   // ---- 内部 ----
@@ -1236,6 +1323,8 @@ export class StudyService {
       sessionCompleted: sessionItem.sessionCompleted,
       unlock,
       next,
+      // 占位：submitReview 在派生后按实际情况覆盖为 0 或 5。
+      xpAwarded: 0,
     };
   }
 
