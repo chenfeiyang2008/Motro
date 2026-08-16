@@ -8,6 +8,7 @@ import { GameModule } from "./modules/game/game.module.js";
 import { OperationsModule } from "./modules/operations/operations.module.js";
 import { StudyModule } from "./modules/study/study.module.js";
 import { ImportModule } from "./modules/admin/imports/import.module.js";
+import { ReviewsModule } from "./modules/reviews/reviews.module.js";
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { ImportModule } from "./modules/admin/imports/import.module.js";
     GameModule,
     OperationsModule,
     ImportModule,
+    ReviewsModule,
   ],
 })
 export class AppModule {}

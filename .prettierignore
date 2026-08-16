@@ -21,3 +21,6 @@ backups/
 secrets/
 skills-lock.json
 pnpm-lock.yaml
+# 自动生成的 OpenAPI client 产物：由 openapi:types 确定性生成，不计入 prettier 检查
+packages/api-client/src/generated.ts
+docs/generated/openapi.json
