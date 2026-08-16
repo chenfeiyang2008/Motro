@@ -7,12 +7,14 @@ import { useEffect, useRef, useState } from "react";
 type DockItem = {
   href: string;
   label: string;
-  icon: "home" | "courses";
+  icon: "home" | "courses" | "xp" | "leaderboard";
 };
 
 const DOCK_ITEMS: DockItem[] = [
   { href: "/", label: "首页", icon: "home" },
   { href: "/courses", label: "课程", icon: "courses" },
+  { href: "/xp", label: "经验", icon: "xp" },
+  { href: "/leaderboard", label: "排行榜", icon: "leaderboard" },
 ];
 
 function DockIcon({ name }: { name: DockItem["icon"] }) {
@@ -23,11 +25,27 @@ function DockIcon({ name }: { name: DockItem["icon"] }) {
       </svg>
     );
   }
-
+  if (name === "courses") {
+    return (
+      <svg aria-hidden="true" className="liquid-dock__icon" viewBox="0 0 24 24" fill="none">
+        <rect x="4" y="3.5" width="16" height="17" rx="1.5" />
+        <path d="M8 3.5v17M4 8h16M4 13h16M4 17h16" />
+      </svg>
+    );
+  }
+  if (name === "xp") {
+    return (
+      <svg aria-hidden="true" className="liquid-dock__icon" viewBox="0 0 24 24" fill="none">
+        <path d="M4 19V5h13v14" />
+        <path d="M4 12h5M9 12l2-3 3 4 2-2 2 1" />
+      </svg>
+    );
+  }
   return (
     <svg aria-hidden="true" className="liquid-dock__icon" viewBox="0 0 24 24" fill="none">
-      <rect x="4" y="3.5" width="16" height="17" rx="1.5" />
-      <path d="M8 3.5v17M4 8h16M4 13h16M4 17h16" />
+      <rect x="9" y="3" width="6" height="6" />
+      <rect x="3.5" y="11" width="6" height="9" />
+      <rect x="14.5" y="11" width="6" height="9" />
     </svg>
   );
 }
