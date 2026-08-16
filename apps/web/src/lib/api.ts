@@ -668,3 +668,70 @@ export function submitStudyReview(
 export function getStudyProgress(): Promise<ApiResult<StudyProgress>> {
   return apiFetch<StudyProgress>("/api/v1/study/progress", { method: "GET" });
 }
+
+// ---- 学习者：个人 XP 与排行榜（Ticket 09）----
+// 契约来自 @motro/api-client 的 MeXpDto / WeeklyLeaderboardDto / LeaderboardVisibilityDto。
+// 隐私：排行榜公开行只包含后端提供的 displayName + challengePoints + rank；
+// 绝不读取/显示 password、session、provider payload、audit internal 或他人隐私字段。
+
+export type MeXp = components["schemas"]["MeXpDto"];
+export type WeeklyLeaderboard = components["schemas"]["WeeklyLeaderboardDto"];
+export type LeaderboardRow = components["schemas"]["LeaderboardRowDto"];
+export type LeaderboardVisibilityPayload = components["schemas"]["LeaderboardVisibilityDto"];
+// generated 把 viewerRank 生成成 Record<string, never>（源为 number | null），此处修正。
+export type WeeklyLeaderboardFixed = Omit<WeeklyLeaderboard, "viewerRank"> & {
+  viewerRank: number | null;
+};
+
+/** GET /me/xp：当前登录用户个人学习 XP（只属个人，永不参与排行榜）。 */
+export function getMeXp(): Promise<ApiResult<MeXp>> {
+  return apiFetch<MeXp>("/api/v1/me/xp", { method: "GET" });
+}
+
+/** GET /me/learning-summary：当前用户可重建学习概览（不含 XP/排行榜/CEFR）。 */
+export function getLearningSummary(): Promise<
+  ApiResult<components["schemas"]["LearningSummaryDto"]>
+> {
+  return apiFetch<components["schemas"]["LearningSummaryDto"]>("/api/v1/me/learning-summary", {
+    method: "GET",
+  });
+}
+
+export interface WeeklyLeaderboardOptions {
+  challengeWeek?: string;
+  cursor?: string;
+  limit?: number;
+}
+
+/** GET /leaderboard/weekly：本周挑战积分排行榜（仅 Challenge Points；daily XP 不参与）。 */
+export function getWeeklyLeaderboard(
+  opts: WeeklyLeaderboardOptions = {},
+): Promise<ApiResult<WeeklyLeaderboardFixed>> {
+  const search = new URLSearchParams();
+  if (opts.challengeWeek) search.set("challengeWeek", opts.challengeWeek);
+  if (opts.cursor) search.set("cursor", opts.cursor);
+  // 服务端默认 limit=20；不传 limit 以避免类校验器对字符串 query 的 422（@IsInt 不接受字符串）。
+  if (opts.limit !== undefined) search.set("limit", String(opts.limit));
+  const qs = search.toString();
+  const path = qs ? `/api/v1/leaderboard/weekly?${qs}` : "/api/v1/leaderboard/weekly";
+  return apiFetch<WeeklyLeaderboardFixed>(path, { method: "GET" });
+}
+
+// generated 把 visibility 响应类型标成 { public: boolean }，但 controller+service 实际返回 { isPublic: boolean }。
+export type LeaderboardVisibilityResult = { isPublic: boolean };
+
+/**
+ * POST /leaderboard/visibility：设置公开参与状态。
+ * 幂等：同一 Idempotency-Key + 同 payload → 冻结重放；同 key + 不同 payload → 409。
+ * CSRF 由 apiFetch 自动附加 x-csrf-token。
+ */
+export function setLeaderboardVisibility(
+  isPublic: boolean,
+  idempotencyKey: string,
+): Promise<ApiResult<LeaderboardVisibilityResult>> {
+  return apiFetch<LeaderboardVisibilityResult>("/api/v1/leaderboard/visibility", {
+    method: "POST",
+    body: JSON.stringify({ public: isPublic }),
+    headers: { "idempotency-key": idempotencyKey },
+  });
+}

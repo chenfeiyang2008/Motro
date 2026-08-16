@@ -158,6 +158,24 @@ export default function ResultPage() {
             <span className="result-next-label">下一步</span>
             <p>下一次复习由系统按记忆状态安排。</p>
           </div>
+
+          {/* 本次会话已接受事件累计获得的个人 XP（只来自服务端 xpAwarded，重放不计）。
+              daily-learning XP 属于个人成长，绝不进入任何排行榜。 */}
+          {typeof snapshot.xpAwarded === "number" && snapshot.xpAwarded > 0 ? (
+            <div className="result-xp">
+              <span className="result-xp-label">本次获得个人经验</span>
+              <strong className="result-xp-amount">{snapshot.xpAwarded}</strong>
+              <span className="result-xp-unit">XP</span>
+              <p className="result-xp-note">合格首测/到期复习 5 XP；个人经验不参与排行榜排名。</p>
+            </div>
+          ) : (
+            <div className="result-xp result-xp--zero">
+              <span className="result-xp-label">本次个人经验</span>
+              <strong className="result-xp-amount">{snapshot?.xpAwarded ?? 0}</strong>
+              <span className="result-xp-unit">XP</span>
+              <p className="result-xp-note">本次没有计入个人经验的合格评价。</p>
+            </div>
+          )}
         </div>
       ) : (
         <div className="result-summary result-summary--empty">

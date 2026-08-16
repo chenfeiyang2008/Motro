@@ -1376,7 +1376,7 @@ button.secondary.danger {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: repeat(2, 84px);
+  grid-template-columns: repeat(4, 84px);
   align-items: stretch;
   gap: 3px;
 }
@@ -1410,6 +1410,14 @@ button.secondary.danger {
 
 .liquid-dock[data-active-index="1"] .liquid-dock__active-indicator {
   transform: translateX(calc(100% + 3px));
+}
+
+.liquid-dock[data-active-index="2"] .liquid-dock__active-indicator {
+  transform: translateX(calc(200% + 6px));
+}
+
+.liquid-dock[data-active-index="3"] .liquid-dock__active-indicator {
+  transform: translateX(calc(300% + 9px));
 }
 
 .liquid-dock a {
@@ -3781,6 +3789,195 @@ html[data-theme="dark"] .operations-status--failed,
 html[data-theme="dark"] .operations-status--retry_wait,
 html[data-theme="dark"] .operations-status--manual_action {
   background: var(--color-bg-page);
+}
+
+/* ============================================================
+   学习者 XP / 排行榜页面（Ticket 09 UI）
+   明亮清晰、token 驱动；使用现有 surface/text/border token。
+   ============================================================ */
+.xp-page,
+.lb-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.xp-page h1,
+.lb-page h1 {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: -0.02em;
+}
+
+.xp-page .xp-total {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  padding: 20px;
+}
+
+.xp-total-label,
+.xp-latest h2 {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.xp-total-amount {
+  font-size: 40px;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.xp-total-unit,
+.result-xp-unit {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.xp-page .xp-note,
+.lb-lede,
+.lb-week,
+.lb-privacy-hint,
+.lb-empty-hint,
+.lb-total,
+.result-xp-note {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.xp-entries {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.xp-entries li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border);
+  min-height: 44px;
+}
+
+.xp-entry-amount {
+  font-weight: 700;
+  width: 52px;
+  color: var(--color-success);
+}
+
+.xp-entry-reason {
+  font-size: 15px;
+}
+
+.xp-entry-time {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.xp-asOf {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.lb-viewer {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  padding: 14px 16px;
+}
+
+.lb-viewer-rank {
+  font-size: 22px;
+}
+
+.lb-viewer-rank--none {
+  color: var(--color-text-secondary);
+}
+
+.lb-viewer-points {
+  color: var(--color-text-secondary);
+}
+
+.lb-privacy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.lb-table-wrap {
+  overflow-x: auto;
+  width: 100%;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+}
+
+.lb-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15px;
+}
+
+.lb-table th,
+.lb-table td {
+  text-align: left;
+  padding: 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.lb-table th {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.lb-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+/* 结果页 XP 反馈（安静、诚实；无强制动画） */
+.result-xp {
+  border-top: 1px solid var(--color-border);
+  padding-top: 12px;
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.result-xp-label {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.result-xp-amount {
+  font-size: 28px;
+  letter-spacing: -0.02em;
+}
+
+.result-xp--zero .result-xp-amount {
+  color: var(--color-text-secondary);
 }
 
 /* 暗色下 input / select / textarea 底色 */

@@ -40,6 +40,8 @@ export interface SessionResultSnapshot {
   completedCount: number;
   /** 计划项分类计数（来自会话计划快照）。 */
   byKind: { newLearning: number; initial: number; review: number };
+  /** 本次会话已接受事件累计奖励的 XP（只来自服务端 xpAwarded；重放不重复累计）。 */
+  xpAwarded: number;
 }
 
 const RESULT_SNAPSHOT_KEY = "motro.result-snapshot";
@@ -104,6 +106,8 @@ export default function StudyPage() {
   // 待重试的评分意图：同一意图网络失败后保留，直到成功或不可重试才清理。
   const pendingRating = useRef<PendingRating | null>(null);
   const submittedRef = useRef(false);
+  // 本会话已接受事件累计 XP（只来自服务端 xpAwarded；重放不重复累计）。
+  const accumulatedXpRef = useRef(0);
   // 最近一次读取到的会话详情，供完成时构造展示快照。
   const detailRef = useRef<StudySessionDetail | null>(null);
 
@@ -116,6 +120,7 @@ export default function StudyPage() {
   function recordCompletedSnapshot(
     detail: StudySessionDetail,
     justCompleted?: StudySessionItem,
+    xpAwarded = 0,
   ): void {
     let newLearning = 0;
     let initial = 0;
@@ -137,12 +142,13 @@ export default function StudyPage() {
       totalItems: detail.items.length,
       completedCount,
       byKind: { newLearning, initial, review },
+      xpAwarded,
     });
   }
 
   /** 会话完成时跳转结果页（先保存展示快照）。 */
   function goToResult(detail: StudySessionDetail, justCompleted?: StudySessionItem): void {
-    recordCompletedSnapshot(detail, justCompleted);
+    recordCompletedSnapshot(detail, justCompleted, accumulatedXpRef.current);
     router.replace(`/study/${detail.session.sessionId}/result`);
   }
 
@@ -334,6 +340,11 @@ export default function StudyPage() {
       // 成功：意图服务端已接受，清理该评分意图（幂等键本次不再复用）。
       submittedRef.current = true;
       pendingRating.current = null;
+
+      // 只累计「首次接受事件」的 XP；幂等重放返回相同 xpAwarded，绝不重复累计。
+      if (!data.idempotentReplay && Number.isFinite(data.xpAwarded)) {
+        accumulatedXpRef.current += data.xpAwarded;
+      }
 
       if (data.sessionCompleted) {
         // 会话完成：用本次已接受事件的最小快照进入结果页。
