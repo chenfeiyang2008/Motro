@@ -261,6 +261,9 @@ interface ItemRow {
   canonical_spelling: string;
   normalized_spelling: string;
   source_status: string | null;
+  // ---- Ticket 08 provenance bridge ----
+  provenance_kind: string | null;
+  review_decision_id: string | null;
 }
 
 interface CatalogCourseRow {
@@ -1787,6 +1790,24 @@ export class CourseService {
       );
       const item = itemRes.rows[0];
       if (!item) throw new NotFoundException("词项不存在");
+
+      // review-bound edit integrity (fail-closed):
+      // a Path-B item (provenance_kind='review' + review_decision_id) derives its meaning/hint
+      // from an accepted review decision.  Editing meaning/hint here would silently overwrite
+      // the accepted content while retaining the review provenance => semantic break.
+      // Block such edits with a stable 422; Path-A (manual) items keep existing behavior.
+      const isReviewBound = item.provenance_kind === "review" && item.review_decision_id !== null;
+      if (isReviewBound) {
+        const meaningChanged = input.meaning !== undefined && input.meaning.trim() !== item.meaning;
+        const hintChanged = input.hint !== undefined && (input.hint.trim() || null) !== item.hint;
+        if (meaningChanged || hintChanged) {
+          throw new UnprocessableEntityException({
+            path: "item",
+            code: "ITEM_REVIEW_BOUND_EDIT_BLOCKED",
+            message: "该词项绑定 accepted 审核决定，不能通过普通编辑覆盖其 meaning/hint",
+          });
+        }
+      }
 
       const newMeaning = input.meaning?.trim() ?? item.meaning;
       const newHint = input.hint !== undefined ? input.hint.trim() || null : item.hint;
