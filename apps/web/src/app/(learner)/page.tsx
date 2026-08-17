@@ -259,6 +259,8 @@ function CourseProgressList(props: { progress: StudyProgress | null; courseTitle
   const unlockedUnits = units.filter((u) => u.unlocked);
   const completedUnits = units.filter((u) => u.unlocked && u.initialCompletedItemCount > 0).length;
   return (
+    // 单层、无嵌套的课程进度观测面：标题行与各单元作为兄弟行，共用一个边框源，
+    // 避免“卡片包列表”产生重叠的 2px 分隔线（见 DESIGN「减少廉价横线」）。
     <div className="dash-course-list">
       <div className="dash-course-card">
         <Link href={`/courses/${progress.courseId}`} className="dash-course-link">
@@ -269,21 +271,19 @@ function CourseProgressList(props: { progress: StudyProgress | null; courseTitle
           <CourseProgressBar completedUnits={completedUnits} totalUnits={units.length} />
         </Link>
       </div>
-      <ul className="dash-course-list" aria-label="各单元进度">
-        {units.map((unit) => (
-          <li key={unit.position} className="dash-course-card">
-            <div className="dash-course-link">
-              <h3>
-                {unit.position}. {unit.title}
-              </h3>
-              <p className="dash-course-meta">
-                词项 {unit.itemCount} · 已完成首测 {unit.initialCompletedItemCount}
-              </p>
-              <p className="dash-course-progress">{unit.unlocked ? "已解锁" : "未解锁"}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
+      {units.map((unit) => (
+        <div key={unit.position} className="dash-course-card">
+          <div className="dash-course-link">
+            <h3>
+              {unit.position}. {unit.title}
+            </h3>
+            <p className="dash-course-meta">
+              词项 {unit.itemCount} · 已完成首测 {unit.initialCompletedItemCount}
+            </p>
+            <p className="dash-course-progress">{unit.unlocked ? "已解锁" : "未解锁"}</p>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
