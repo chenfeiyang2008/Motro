@@ -1,10 +1,7 @@
 // Ticket 08 发布资格展示纯逻辑单测（无 DB、无 React、无网络）。
+// 与生产源码 apps/web/src/lib/publication-state.ts 同目录放置，保持单一生产来源。
 import { describe, expect, it } from "vitest";
-import {
-  categorizeBlockers,
-  groupItemBlockers,
-  isItemBlockPath,
-} from "../../../apps/web/src/lib/publication-state.js";
+import { categorizeBlockers, groupItemBlockers, isItemBlockPath } from "../publication-state.js";
 
 describe("groupItemBlockers", () => {
   it("只把 item.<id>.<field> 路径聚合到词项，忽略 course/unit 路径", () => {
