@@ -708,6 +708,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/challenge/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 获取当前周的挑战测验（10 题冻结快照）。仅返回服务端已确认的题面，不含 provider payload / 内部路径 / 密钥。 */
+        get: operations["ChallengeController_current"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/challenge/attempts/{attemptId}/answers/{position}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 提交一道挑战答案，服务端判分。幂等：client_event_id。本题对且词方向本周首答得 5 分；否则 0 分。 */
+        post: operations["ChallengeController_submit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/operations": {
         parameters: {
             query?: never;
@@ -1983,6 +2017,44 @@ export interface components {
         LeaderboardVisibilityDto: {
             /** @description true=公开参与（默认）；false=退出公开榜单 */
             public: boolean;
+        };
+        ChallengeItemDto: {
+            /** @description 题号（1–10） */
+            position: number;
+            /** @description 方向：en_to_zh / zh_to_en */
+            direction: string;
+            /** @description 题型：choice（四选一）/ spelling（拼写） */
+            questionType: string;
+            /** @description 英文拼写（学习面） */
+            englishSpelling: string;
+            /** @description 冻结的中文释义（学习面） */
+            meaning: string;
+        };
+        ChallengeCurrentDto: {
+            /** @description 挑战周键，例如 cw-2026-08-11 */
+            challengeWeek: string;
+            /** @description 周期起点（Asia/Shanghai 周一 00:00 UTC ISO） */
+            weekStart: string;
+            /** @description 周期终点（下一周一 00:00 UTC ISO，开区间） */
+            weekEnd: string;
+            /** @description 固定挑战周时区 */
+            timezone: string;
+            /** @description 当前测验 id（无已接触词条时为 null） */
+            attemptId?: Record<string, never>;
+            /** @description 测验状态：in_progress / completed / cutoff */
+            status?: string;
+            /** @description 测验过期时刻（ISO） */
+            expiresAt?: Record<string, never>;
+            /** @description 本题测验的 10 题冻结快照 */
+            items: components["schemas"]["ChallengeItemDto"][];
+            /** @description 本题测验可获得的最高积分（可判分题数 × 5） */
+            maxPoints: number;
+        };
+        ChallengeAnswerDto: {
+            /** @description 客户端幂等键（每次提交唯一）；同键重放返回冻结首次判分 */
+            clientEventId: string;
+            /** @description 作答内容（选择=选项文字；拼写=英文拼写） */
+            answer: string;
         };
         OperationSummaryDto: {
             /** @description operation ID */
@@ -3557,6 +3629,51 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LeaderboardVisibilityDto"];
+                };
+            };
+        };
+    };
+    ChallengeController_current: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChallengeCurrentDto"];
+                };
+            };
+        };
+    };
+    ChallengeController_submit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attemptId: string;
+                position: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChallengeAnswerDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChallengeAnswerDto"];
                 };
             };
         };

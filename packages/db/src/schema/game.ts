@@ -74,6 +74,7 @@ export const challengePointEntries = pgTable(
       .references(() => users.id, { onDelete: "restrict" }),
     challengeWeek: text("challenge_week").notNull(),
     sourceAttemptId: uuid("source_attempt_id").notNull(),
+    // FK to challenge_attempts added by migration 0037 (Drizzle cannot express ADD CONSTRAINT).
     ruleVersion: integer("rule_version")
       .notNull()
       .references(() => gameRuleSets.ruleVersion, { onDelete: "restrict" }),
@@ -83,15 +84,25 @@ export const challengePointEntries = pgTable(
       (): AnyPgColumn => challengePointEntries.id,
       { onDelete: "restrict" },
     ),
+    // Ticket 14: word-direction dedup columns (migration 0037).
+    lexicalEntryId: uuid("lexical_entry_id"),
+    direction: text("direction"),
     awardedAt: timestamp("awarded_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    // Challenge points are a SEAM with no writer; correction/void UI lands in a
-    // future Challenge ticket.  SQL keeps a plain unique for now (see migration).
+    // Ticket 09: per-attempt dedup (SQL 0035).
     uniqueIndex("challenge_point_entries_unique").on(t.sourceAttemptId, t.ruleVersion),
+    // Ticket 14: ADR-0007 cross-course word-direction dedup (partial; see SQL 0037).
+    // Drizzle cannot express WHERE predicates, so this is declared in SQL only.
     index("challenge_point_entries_user_week_idx").on(t.userId, t.challengeWeek),
     index("challenge_point_entries_week_idx").on(t.challengeWeek, t.awardedAt),
+    index("challenge_point_entries_user_week_word_idx").on(
+      t.userId,
+      t.challengeWeek,
+      t.lexicalEntryId,
+      t.direction,
+    ),
   ],
 );
 
@@ -125,5 +136,76 @@ export const weeklyLeaderboardProjection = pgTable(
       t.challengeWeek,
       t.totalChallengePoints,
     ),
+  ],
+);
+
+// ===========================================================================
+// Ticket 14: server-graded Challenge Quiz scoring tables.
+// All INSERT-only (append-only triggers in migration 0037).
+// ===========================================================================
+
+export const challengeAttempts = pgTable(
+  "challenge_attempts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    challengeWeek: text("challenge_week").notNull(),
+    totalItems: integer("total_items").notNull(),
+    status: text("status").notNull().default("in_progress"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    pointsEarned: integer("points_earned").notNull().default(0),
+    maxPoints: integer("max_points").notNull().default(0),
+  },
+  (t) => [
+    index("challenge_attempts_user_week_idx").on(t.userId, t.challengeWeek),
+    index("challenge_attempts_week_status_idx").on(t.challengeWeek, t.status),
+  ],
+);
+
+export const challengeAttemptItems = pgTable(
+  "challenge_attempt_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    attemptId: uuid("attempt_id")
+      .notNull()
+      .references(() => challengeAttempts.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    direction: text("direction").notNull(),
+    questionType: text("question_type").notNull(),
+    lexicalEntryId: uuid("lexical_entry_id").notNull(),
+    englishSpelling: text("english_spelling").notNull(),
+    meaning: text("meaning").notNull(),
+    serverAnswer: text("server_answer").notNull(),
+    scoreEligible: boolean("score_eligible").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("challenge_attempt_items_attempt_position_unique").on(t.attemptId, t.position),
+    index("challenge_attempt_items_attempt_idx").on(t.attemptId),
+  ],
+);
+
+export const challengeAnswers = pgTable(
+  "challenge_answers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    attemptId: uuid("attempt_id")
+      .notNull()
+      .references(() => challengeAttempts.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    clientEventId: text("client_event_id").notNull(),
+    clientAnswer: text("client_answer").notNull(),
+    isCorrect: boolean("is_correct").notNull(),
+    pointsAwarded: integer("points_awarded").notNull().default(0),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("challenge_answers_attempt_position_unique").on(t.attemptId, t.position),
+    index("challenge_answers_attempt_idx").on(t.attemptId),
   ],
 );

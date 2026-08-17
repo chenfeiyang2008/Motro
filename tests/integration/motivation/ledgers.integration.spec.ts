@@ -277,10 +277,12 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
       // A future challenge ticket populates; here we assert the table is open
       // but UPDATE/DELETE are still rejected by the same trigger.
       const uid = await seedUser("cp-imut");
+      // Ticket 14: first_correct_answer rows now require lexical_entry_id + direction.
+      const lexId = randomUUID();
       await pool.query(
-        `INSERT INTO challenge_point_entries (user_id, challenge_week, source_attempt_id, rule_version, amount, reason, awarded_at)
-         VALUES ($1, 'cw-2026-08-10', $2, 1, 5, 'first_correct_answer', now())`,
-        [uid, randomUUID()],
+        `INSERT INTO challenge_point_entries (user_id, challenge_week, source_attempt_id, rule_version, amount, reason, lexical_entry_id, direction, awarded_at)
+         VALUES ($1, 'cw-2026-08-10', $2, 1, 5, 'first_correct_answer', $3, 'en_to_zh', now())`,
+        [uid, randomUUID(), lexId],
       );
       await expect(
         pool.query(`UPDATE challenge_point_entries SET amount=9 WHERE user_id=$1`, [uid]),
@@ -293,11 +295,12 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
     it("challenge_point dedup: replay rejected once; correction/void is deferred seam limitation", async () => {
       const uid = await seedUser("cp-corr");
       const attempt = randomUUID();
-      // Base ordinary award.
+      const lexId = randomUUID();
+      // Base ordinary award (Ticket 14: includes lexical_entry_id + direction).
       await pool.query(
-        `INSERT INTO challenge_point_entries (user_id, challenge_week, source_attempt_id, rule_version, amount, reason, awarded_at)
-         VALUES ($1, 'cw-2026-08-10', $2, 1, 5, 'first_correct_answer', now())`,
-        [uid, attempt],
+        `INSERT INTO challenge_point_entries (user_id, challenge_week, source_attempt_id, rule_version, amount, reason, lexical_entry_id, direction, awarded_at)
+         VALUES ($1, 'cw-2026-08-10', $2, 1, 5, 'first_correct_answer', $3, 'en_to_zh', now())`,
+        [uid, attempt, lexId],
       );
       const size = await pool.query<{ n: string }>(
         `SELECT count(*)::text AS n FROM challenge_point_entries WHERE source_attempt_id=$1`,
@@ -308,9 +311,9 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
       // Replay of same attempt+rule (ordinary) → rejected (unique, no double award).
       await expect(
         pool.query(
-          `INSERT INTO challenge_point_entries (user_id, challenge_week, source_attempt_id, rule_version, amount, reason, awarded_at)
-           VALUES ($1, 'cw-2026-08-10', $2, 1, 5, 'first_correct_answer', now())`,
-          [uid, attempt],
+          `INSERT INTO challenge_point_entries (user_id, challenge_week, source_attempt_id, rule_version, amount, reason, lexical_entry_id, direction, awarded_at)
+           VALUES ($1, 'cw-2026-08-10', $2, 1, 5, 'first_correct_answer', $3, 'en_to_zh', now())`,
+          [uid, attempt, lexId],
         ),
       ).rejects.toThrow(/duplicate|unique/i);
 
@@ -359,10 +362,10 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
       const active = await seedUser("lb-active");
       const disabled = await seedUser("lb-disabled", "disabled");
       await pool.query(
-        `INSERT INTO challenge_point_entries (user_id, challenge_week, source_attempt_id, rule_version, amount, reason, awarded_at) VALUES
-          ($1, 'cw-2026-08-10', gen_random_uuid(), 1, 15, 'first_correct_answer', now()),
-          ($2, 'cw-2026-08-10', gen_random_uuid(), 1, 50, 'first_correct_answer', now())`,
-        [active, disabled],
+        `INSERT INTO challenge_point_entries (user_id, challenge_week, source_attempt_id, rule_version, amount, reason, lexical_entry_id, direction, awarded_at) VALUES
+          ($1, 'cw-2026-08-10', gen_random_uuid(), 1, 15, 'first_correct_answer', $3, 'en_to_zh', now()),
+          ($2, 'cw-2026-08-10', gen_random_uuid(), 1, 50, 'first_correct_answer', $4, 'zh_to_en', now())`,
+        [active, disabled, randomUUID(), randomUUID()],
       );
       // The query in GameService excludes disabled; here we verify the data is
       // present but the projection generator (SQL, not this file) filters.

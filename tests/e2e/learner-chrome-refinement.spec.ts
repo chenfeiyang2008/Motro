@@ -15,7 +15,7 @@
 import { expect, test } from "@playwright/test";
 
 // API 可用时（未登录）这些接口会 401 → /login，不渲染 Dock；故把仪表盘四路接口全部
-// 拦截为“可恢复的失败（status 0）”，首页停留在可重试错误态但 learner chrome 与 Dock 仍渲染。
+// 拦截为”可恢复的失败（status 0）”，首页停留在可重试错误态但 learner chrome 与 Dock 仍渲染。
 async function openLearnerChrome(page: import("@playwright/test").Page): Promise<void> {
   for (const path of [
     "**/api/v1/study/today",
