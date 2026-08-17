@@ -206,6 +206,9 @@ export default function AdminUsersPage() {
   // 重置意图幂等键：同一目标重试复用同一 key。
   const resetIntentRef = useRef<{ userId: string; key: string } | null>(null);
 
+  // ---- 客户端过滤（能力边界：后端当前不提供服务端搜索/分页，仅本地便捷过滤）----
+  const [query, setQuery] = useState("");
+
   const loadList = useCallback(async () => {
     setLoading(true);
     setListError("");
@@ -389,6 +392,22 @@ export default function AdminUsersPage() {
         </button>
       </div>
 
+      <p className="users-capability-note">
+        当前后端不支持服务端搜索与分页；下方搜索框为前端过滤。
+      </p>
+
+      {!loading && users.length > 0 && (
+        <div className="users-filter">
+          <label htmlFor="users-query">搜索用户名/显示名</label>
+          <input
+            id="users-query"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="输入关键词…"
+          />
+        </div>
+      )}
+
       {listError !== "" && (
         <p className="form-error users-list-error" role="alert">
           {listError}
@@ -428,63 +447,79 @@ export default function AdminUsersPage() {
               </tr>
             </thead>
             <tbody>
-              {users.map((u) => {
-                const isSelf = meId === u.id;
-                const isDisabled = u.status === "disabled";
-                return (
-                  <tr key={u.id} data-testid="user-row">
-                    <td data-label="显示名">
-                      <span className="user-display-name">{u.displayName}</span>
-                    </td>
-                    <td data-label="用户名">{u.username}</td>
-                    <td data-label="角色">
-                      <span className={`users-role users-role--${u.role}`}>
-                        {ROLE_LABEL[u.role]}
-                      </span>
-                    </td>
-                    <td data-label="状态">
-                      <span className={`users-status users-status--${u.status}`}>
-                        {STATUS_LABEL[u.status]}
-                      </span>
-                    </td>
-                    <td data-label="时区">{u.timezone}</td>
-                    <td data-label="每日预算">{u.dailyBudgetMinutes} 分钟</td>
-                    <td data-label="创建时间">{formatTime(u.createdAt)}</td>
-                    <td data-label="操作" className="users-actions">
-                      {isSelf ? (
-                        <span className="users-self-hint" title="不能停用自己的账号">
-                          当前账号
+              {users
+                .filter((u) => {
+                  const q = query.trim().toLowerCase();
+                  if (q === "") return true;
+                  return (
+                    u.username.toLowerCase().includes(q) || u.displayName.toLowerCase().includes(q)
+                  );
+                })
+                .map((u) => {
+                  const isSelf = meId === u.id;
+                  const isDisabled = u.status === "disabled";
+                  return (
+                    <tr key={u.id} data-testid="user-row">
+                      <td data-label="显示名">
+                        <span className="user-display-name">{u.displayName}</span>
+                      </td>
+                      <td data-label="用户名">{u.username}</td>
+                      <td data-label="角色">
+                        <span className={`users-role users-role--${u.role}`}>
+                          {ROLE_LABEL[u.role]}
                         </span>
-                      ) : (
-                        <>
-                          {!isDisabled && (
+                      </td>
+                      <td data-label="状态">
+                        <span className={`users-status users-status--${u.status}`}>
+                          {STATUS_LABEL[u.status]}
+                        </span>
+                        {u.mustChangePassword && (
+                          <span
+                            className="users-status users-status--must-change"
+                            title="该账号首次登录后需要修改密码"
+                          >
+                            待改密
+                          </span>
+                        )}
+                      </td>
+                      <td data-label="时区">{u.timezone}</td>
+                      <td data-label="每日预算">{u.dailyBudgetMinutes} 分钟</td>
+                      <td data-label="创建时间">{formatTime(u.createdAt)}</td>
+                      <td data-label="操作" className="users-actions">
+                        {isSelf ? (
+                          <span className="users-self-hint" title="不能停用自己的账号">
+                            当前账号
+                          </span>
+                        ) : (
+                          <>
+                            {!isDisabled && (
+                              <button
+                                type="button"
+                                className="secondary danger user-action-btn"
+                                onClick={() => {
+                                  setDisableError("");
+                                  setDisableTarget(u);
+                                }}
+                              >
+                                停用
+                              </button>
+                            )}
                             <button
                               type="button"
-                              className="secondary danger user-action-btn"
+                              className="secondary user-action-btn"
                               onClick={() => {
-                                setDisableError("");
-                                setDisableTarget(u);
+                                setResetError("");
+                                setResetTarget(u);
                               }}
                             >
-                              停用
+                              重置密码
                             </button>
-                          )}
-                          <button
-                            type="button"
-                            className="secondary user-action-btn"
-                            onClick={() => {
-                              setResetError("");
-                              setResetTarget(u);
-                            }}
-                          >
-                            重置密码
-                          </button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
             </tbody>
           </table>
         </div>

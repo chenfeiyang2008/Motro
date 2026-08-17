@@ -11,7 +11,13 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getStudyToday } from "@/lib/api";
-import { readResultSnapshot, clearResultSnapshot, type SessionResultSnapshot } from "../page";
+import {
+  clearResultSnapshot,
+  completionSummary,
+  projectResult,
+  readResultSnapshot,
+  type SessionResultSnapshot,
+} from "@/lib/study-result";
 
 type LoadState =
   | { phase: "loading" }
@@ -62,9 +68,9 @@ export default function ResultPage() {
     void load();
   }, [load]);
 
-  const counts = useMemo(() => {
-    if (state.phase !== "ready" || !state.snapshot) return null;
-    return state.snapshot.byKind;
+  const presentation = useMemo(() => {
+    if (state.phase !== "ready") return null;
+    return projectResult(state.snapshot, state.hasRemainingWork);
   }, [state]);
 
   if (state.phase === "loading") {
@@ -72,6 +78,12 @@ export default function ResultPage() {
       <section className="learner-result learner-result--state">
         <p className="result-eyebrow">学习完成</p>
         <h1>正在读取结果…</h1>
+        <div className="result-skeleton" aria-hidden="true">
+          <span className="result-skeleton__line result-skeleton__line--lede" />
+          <span className="result-skeleton__line" />
+          <span className="result-skeleton__line" />
+          <span className="result-skeleton__line result-skeleton__line--short" />
+        </div>
         <p role="status" className="result-state-note">
           正在确认这次学习的已接受记录。
         </p>
@@ -100,6 +112,8 @@ export default function ResultPage() {
   }
 
   const snapshot = state.snapshot;
+  const counts = presentation!.byKind;
+  const xpState = presentation!.xpState;
 
   return (
     <section className="learner-result">
@@ -113,7 +127,7 @@ export default function ResultPage() {
         <h1>这次学习完成</h1>
         <p className="result-lede">
           {snapshot
-            ? `你完成了本次安排的 ${snapshot.completedCount} 项学习。`
+            ? completionSummary(snapshot)
             : "本次学习已完成，已接受的进度会继续由系统安排。"}
         </p>
       </header>
@@ -122,30 +136,30 @@ export default function ResultPage() {
         <div className="result-summary">
           <div className="result-total">
             <span className="result-total-label">本次完成</span>
-            <strong>{snapshot.completedCount}</strong>
+            <strong>{presentation!.completedCount}</strong>
             <span className="result-total-unit">项学习</span>
           </div>
 
           <div className="result-breakdown">
             <p className="result-section-label">学习构成</p>
-            {counts!.newLearning > 0 || counts!.initial > 0 || counts!.review > 0 ? (
+            {counts.newLearning > 0 || counts.initial > 0 || counts.review > 0 ? (
               <ul className="result-counts">
-                {counts!.newLearning > 0 && (
+                {counts.newLearning > 0 && (
                   <li>
                     <span className="result-count-label">新学习</span>
-                    <span className="result-count-value">{counts!.newLearning}</span>
+                    <span className="result-count-value">{counts.newLearning}</span>
                   </li>
                 )}
-                {counts!.initial > 0 && (
+                {counts.initial > 0 && (
                   <li>
                     <span className="result-count-label">首复习</span>
-                    <span className="result-count-value">{counts!.initial}</span>
+                    <span className="result-count-value">{counts.initial}</span>
                   </li>
                 )}
-                {counts!.review > 0 && (
+                {counts.review > 0 && (
                   <li>
                     <span className="result-count-label">复习</span>
-                    <span className="result-count-value">{counts!.review}</span>
+                    <span className="result-count-value">{counts.review}</span>
                   </li>
                 )}
               </ul>
@@ -161,17 +175,17 @@ export default function ResultPage() {
 
           {/* 本次会话已接受事件累计获得的个人 XP（只来自服务端 xpAwarded，重放不计）。
               daily-learning XP 属于个人成长，绝不进入任何排行榜。 */}
-          {typeof snapshot.xpAwarded === "number" && snapshot.xpAwarded > 0 ? (
+          {xpState.variant === "earned" ? (
             <div className="result-xp">
               <span className="result-xp-label">本次获得个人经验</span>
-              <strong className="result-xp-amount">{snapshot.xpAwarded}</strong>
+              <strong className="result-xp-amount">{xpState.amount}</strong>
               <span className="result-xp-unit">XP</span>
               <p className="result-xp-note">合格首测/到期复习 5 XP；个人经验不参与排行榜排名。</p>
             </div>
           ) : (
             <div className="result-xp result-xp--zero">
               <span className="result-xp-label">本次个人经验</span>
-              <strong className="result-xp-amount">{snapshot?.xpAwarded ?? 0}</strong>
+              <strong className="result-xp-amount">{0}</strong>
               <span className="result-xp-unit">XP</span>
               <p className="result-xp-note">本次没有计入个人经验的合格评价。</p>
             </div>

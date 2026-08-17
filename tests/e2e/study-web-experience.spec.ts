@@ -8,7 +8,8 @@
 //   - 结果页：安静汇总（完成计数 + 新学习分类）、下一次复习提示、返回首页主操作；
 //     有剩余可学任务时出现次要“继续学习”。
 //   - 键盘：评分快捷键 1–4；移动滚动容器（390px）无横向溢出。
-//   - 只展示本会话已接受事件，不出现 XP / 等级 / 排行榜。
+//   - 只展示本会话已接受事件，不出现排行榜 / 等级 / 连续天数功能 UI。
+//     XP 只来自服务端 xpAwarded（本会话已接受事件），如实展示，绝不伪造。
 import { expect, test, type Page, type APIRequestContext } from "@playwright/test";
 
 const API = process.env.API_PUBLIC_URL ?? "http://127.0.0.1:3000";
@@ -197,7 +198,7 @@ test.describe("study web experience", () => {
       await page.keyboard.press("4");
       await expect(page).toHaveURL(/\/study\/[0-9a-f-]+\/result/, { timeout: 15000 });
 
-      // --- 结果页：安静汇总，无 XP / 等级 / 排行榜 ---
+      // --- 结果页：安静汇总；无排行榜/等级功能 UI，XP 由服务端如实展示 ---
       await expect(page.getByRole("heading", { name: "这次学习完成" })).toBeVisible();
       await expect(page.getByText(/本次完成了 2 项学习/)).toBeVisible();
       await expect(page.getByText("新学习")).toBeVisible();
@@ -206,8 +207,12 @@ test.describe("study web experience", () => {
       await expect(page.getByRole("link", { name: "继续学习" })).toBeVisible();
       // 主操作“返回首页”。
       await expect(page.getByRole("link", { name: "返回首页" })).toBeVisible();
-      // 不出现任何 XP / 等级 / 排行榜文案。
-      await expect(page.getByText(/XP|积分|等级|排行榜|streak/i)).toHaveCount(0);
+      // 结果页：无排行榜/等级/连续天数功能 UI（XP 由服务端如实展示）。
+      // "排行榜"可能出现在 XP 免责声明中（"不参与排行榜排名"），这是允许的文案，
+      // 但不应出现排行榜链接、等级徽章或连续天数计数器。
+      await expect(page.getByRole("link", { name: /排行榜/ })).toHaveCount(0);
+      await expect(page.getByText(/连续.*天|最长连续|streak/i)).toHaveCount(0);
+      await expect(page.getByText(/等级\s*\d|段位|徽章|rank/i)).toHaveCount(0);
 
       // 390px 下结果页无横向溢出。
       await page.setViewportSize({ width: 390, height: 844 });
@@ -656,4 +661,41 @@ test.describe("study shell (no API)", () => {
       expect(overflow, `${width}px 无横向滚动`).toBe(false);
     });
   }
+
+  test("亮暗主题下学习页骨架加载态均渲染且无横向溢出（网络失败时诚实可重试）", async ({ page }) => {
+    // 骨架加载态在 /study/:id 初始加载（真实 API 不可达或会话守卫）时出现，
+    // 并必须在亮/暗主题下都无横向溢出；网络失败时页面停留在诚实错误态而非渲染过期卡。
+    for (const theme of [
+      { name: "亮色", dataTheme: "light" },
+      { name: "暗色", dataTheme: "dark" },
+    ] as const) {
+      await page.emulateMedia({ colorScheme: theme.dataTheme });
+      await page.addStyleTag({ content: `html{color-scheme:${theme.dataTheme}}` });
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.goto("/study/00000000-0000-0000-0000-000000000000");
+      // 网络失败或未登录：URL 落在错误态或登录/首页，绝不渲染成功面板。
+      await expect(page).toHaveURL(/\/study|login|\/$/, { timeout: 15000 });
+      const overflow = await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth > document.documentElement.clientWidth ||
+          document.body.scrollWidth > document.body.clientWidth,
+      );
+      expect(overflow, `${theme.name}主题学习页无横向滚动`).toBe(false);
+    }
+  });
+
+  test("reduced-motion：结果页加载骨架无持续位移；明暗主题均无横向溢出", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    for (const width of [390, 768, 1440]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.goto("/study/00000000-0000-0000-0000-000000000000/result");
+      await expect(page).toHaveURL(/\/result|\/login/, { timeout: 15000 });
+      const overflow = await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth > document.documentElement.clientWidth ||
+          document.body.scrollWidth > document.body.clientWidth,
+      );
+      expect(overflow, `reduced-motion ${width}px 无横向滚动`).toBe(false);
+    }
+  });
 });

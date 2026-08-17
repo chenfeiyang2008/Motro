@@ -4,6 +4,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { login, warmCsrf } from "@/lib/auth";
+import { MotroLogo } from "@/components/motro-logo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -33,7 +34,13 @@ export default function LoginPage() {
 
   return (
     <section className="auth-form">
-      <h1>登录 Motro</h1>
+      <div className="auth-brand" aria-label="Motro">
+        <span className="auth-brand-mark" aria-hidden="true">
+          <MotroLogo />
+        </span>
+        <span className="auth-brand-name">Motro</span>
+      </div>
+      <h1>登录</h1>
       {error !== "" && (
         <p className="auth-error" role="alert">
           {error}

@@ -71,24 +71,32 @@ export default function AdminOperationsPage() {
         查看导入与补全等后台操作的执行状态。此处只显示安全摘要；失败任务可从详情页由管理员重试。
       </p>
 
-      <div className="operations-filter">
-        <label htmlFor="op-status-filter">状态过滤</label>
-        <select
-          id="op-status-filter"
-          value={statusFilter}
-          onChange={(e) => {
-            setStatusFilter(e.target.value);
-            setCursor(null);
-          }}
-        >
-          <option value="">全部</option>
-          <option value="queued">排队中</option>
-          <option value="running">运行中</option>
-          <option value="retry_wait">等待重试</option>
-          <option value="succeeded">已成功</option>
-          <option value="failed">已失败</option>
-          <option value="manual_action">待人工处理</option>
-        </select>
+      <div className="operations-toolbar">
+        <div className="operations-filter">
+          <label htmlFor="op-status-filter">状态过滤</label>
+          <select
+            id="op-status-filter"
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setCursor(null);
+            }}
+          >
+            <option value="">全部</option>
+            <option value="queued">排队中</option>
+            <option value="running">运行中</option>
+            <option value="retry_wait">等待重试</option>
+            <option value="succeeded">已成功</option>
+            <option value="failed">已失败</option>
+            <option value="manual_action">待人工处理</option>
+          </select>
+        </div>
+        <button type="button" className="secondary" onClick={() => void load(true)}>
+          刷新
+        </button>
+        {!loading && error === "" && items.length > 0 && (
+          <span className="operations-count">{items.length} 条</span>
+        )}
       </div>
 
       {loading && <p role="status">正在加载任务状态…</p>}

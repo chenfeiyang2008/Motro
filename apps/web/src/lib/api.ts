@@ -565,6 +565,65 @@ export function resetAdminUserPassword(
   );
 }
 
+// ---- 管理员：词库审核（Ticket 07/18） ----
+// 契约来自 @motro/api-client 的 ReviewDraftListDto / ReviewDraftDetailDto /
+// ReviewDecisionDto / ReviewDecisionResponseDto。
+// 安全边界：审核草稿的 provider payload/prompt/哈希/内部路径绝不进入此层；
+// 只读 detail/list/history 的投影（spelling、来源授权事实、decision 快照）。
+
+export type ReviewDraftListItem = components["schemas"]["ReviewDraftListItemDto"];
+export type ReviewDraftList = components["schemas"]["ReviewDraftListDto"];
+export type ReviewDraftDetail = components["schemas"]["ReviewDraftDetailDto"];
+export type ReviewDecision = components["schemas"]["ReviewDecisionDto"];
+export type ReviewDecisionResponse = components["schemas"]["ReviewDecisionResponseDto"];
+export type ReviewDecisionType = components["schemas"]["ReviewDecisionRequestDto"]["decision"];
+
+/** 待审草稿队列（来源完整、等待审核；含可补全 manual_action 的有效投影）。 */
+export function listReviewDrafts(): Promise<ApiResult<ReviewDraftList>> {
+  return apiFetch<ReviewDraftList>("/api/v1/admin/reviews", { method: "GET" });
+}
+
+/** 单个草稿详情（含来源投影 + 当前决定）。 */
+export function getReviewDraftDetail(id: string): Promise<ApiResult<ReviewDraftDetail>> {
+  return apiFetch<ReviewDraftDetail>(`/api/v1/admin/reviews/${encodeURIComponent(id)}`, {
+    method: "GET",
+  });
+}
+
+/** 该草稿的历史审核决定（不可变只读）。 */
+export function getReviewHistory(id: string): Promise<ApiResult<ReviewDraftList>> {
+  return apiFetch<ReviewDraftList>(`/api/v1/admin/reviews/${encodeURIComponent(id)}/history`, {
+    method: "GET",
+  });
+}
+
+/**
+ * 提交不可变人工审核决定（accept / accept_with_edits / reject）。
+ * Idempotency-Key 由调用方按“意图”生成并复用；重放返回冻结首响应（isIdempotentReplay）。
+ */
+export function submitReviewDecision(
+  id: string,
+  body: components["schemas"]["ReviewDecisionRequestDto"],
+  idempotencyKey: string,
+): Promise<ApiResult<ReviewDecisionResponse>> {
+  return apiFetch<ReviewDecisionResponse>(
+    `/api/v1/admin/reviews/${encodeURIComponent(id)}/decision`,
+    { method: "POST", body: JSON.stringify(body), headers: { "idempotency-key": idempotencyKey } },
+  );
+}
+
+/** 人工处理可补全的 manual_action（append-only handling fact）。返回 { handled, draftId }。 */
+export function resolveReviewManualAction(
+  id: string,
+  body: { reason: string; supplementSummary?: string },
+  idempotencyKey: string,
+): Promise<ApiResult<{ handled: boolean; draftId: string }>> {
+  return apiFetch<{ handled: boolean; draftId: string }>(
+    `/api/v1/admin/reviews/${encodeURIComponent(id)}/resolve`,
+    { method: "POST", body: JSON.stringify(body), headers: { "idempotency-key": idempotencyKey } },
+  );
+}
+
 // ---- 学习者：已发布课程目录（只读 current release + keyset 游标分页） ----
 
 export type CatalogCourseSummary = components["schemas"]["CatalogCourseSummaryDto"];

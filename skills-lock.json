@@ -13,6 +13,12 @@
       "skillPath": "skills/in-progress/batch-grill-me/SKILL.md",
       "computedHash": "f448831b8f04518b1527408f1d5024384ad5f543bdbaac6fabb7aa053ad60489"
     },
+    "brandkit": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github",
+      "skillPath": "skills/brandkit/SKILL.md",
+      "computedHash": "b63012f3c3d21197e0185d3e9cc7ec40c589fb10e0b5a32a561739de31aa3f20"
+    },
     "claude-handoff": {
       "source": "mattpocock/skills",
       "sourceType": "github",
@@ -37,6 +43,18 @@
       "skillPath": "skills/deprecated/design-an-interface/SKILL.md",
       "computedHash": "aef348a9af675b771635623b5aa7790da4d40adc1ee88b58b6fd116eda2047d8"
     },
+    "design-taste-frontend": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github",
+      "skillPath": "skills/taste-skill/SKILL.md",
+      "computedHash": "6d838b246d0e35d0b53f4f23f98ba7a1dd561937e64f7d0c7553b0928e376c3e"
+    },
+    "design-taste-frontend-v1": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github",
+      "skillPath": "skills/taste-skill-v1/SKILL.md",
+      "computedHash": "d704ab912c4d0ca954ffa858983da755ae4cd5cad9ba22554db5557382f5bd34"
+    },
     "diagnosing-bugs": {
       "source": "mattpocock/skills",
       "sourceType": "github",
@@ -55,11 +73,23 @@
       "skillPath": "skills/personal/edit-article/SKILL.md",
       "computedHash": "cb2a13b2acb6c8a0706eb3a973a2681f30fd74c00784c74ceaa98e12eb2b2fc3"
     },
+    "full-output-enforcement": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github",
+      "skillPath": "skills/output-skill/SKILL.md",
+      "computedHash": "26bd29ce4c5e02c7666b2d503609bf466bd32290822e91f0e984147048dbb924"
+    },
     "git-guardrails-claude-code": {
       "source": "mattpocock/skills",
       "sourceType": "github",
       "skillPath": "skills/misc/git-guardrails-claude-code/SKILL.md",
       "computedHash": "8c29552c621da0121427306afd92f8e02f47f446cdb0b55ceae01de6879fcb3a"
+    },
+    "gpt-taste": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github",
+      "skillPath": "skills/gpt-tasteskill/SKILL.md",
+      "computedHash": "cc8f0c601d8240a124e1d11634351a2be7b8a72fd807c75e5b6bf7afcd5ddee0"
     },
     "grill-me": {
       "source": "mattpocock/skills",
@@ -85,6 +115,38 @@
       "skillPath": "skills/productivity/handoff/SKILL.md",
       "computedHash": "ad03e8d4ea3cbbff66420eb7ba3cc375b5cbe1821a2449b53e863256cf5b5cde"
     },
+    "high-end-visual-design": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github",
+      "skillPath": "skills/soft-skill/SKILL.md",
+      "computedHash": "7db385e4c5370e5a7fca9704a1361b056e4504ea6a03924bb86f33a4f00b5c73"
+    },
+    "image-to-code": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github",
+      "skillPath": "skills/image-to-code-skill/SKILL.md",
+      "computedHash": "58517b03b2a01f4c9ba65861559d03df931400871bbc200978c975b24bb92c73"
+    },
+    "imagegen-frontend-mobile": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github",
+      "skillPath": "skills/imagegen-frontend-mobile/SKILL.md",
+      "computedHash": "9ab7f4f6ce66a3cff02bbf5894e5bd5af50bf5d6ef0adffdc88e8fab772fe44f"
+    },
+    "imagegen-frontend-web": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github",
+      "skillPath": "skills/imagegen-frontend-web/SKILL.md",
+      "computedHash": "65f5ae59fa317567809438310b1c54f78cd133426deb43e4d3d4ca4c8f541628"
+    },
+    "impeccable": {
+      "source": "pbakaus/impeccable",
+      "sourceType": "github",
+      "ref": "ae5e95101a6979e7f7973a4ff57680b3c7adc1ec",
+      "version": "3.5.0",
+      "skillPath": "plugin/skills/impeccable/SKILL.md",
+      "computedHash": "574331ee26a454633996c26e3042e40e9d7b51f558de9be47d19184880c3bdf4"
+    },
     "implement": {
       "source": "mattpocock/skills",
       "sourceType": "github",
@@ -97,17 +159,35 @@
       "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
       "computedHash": "66e8a50c83c3c724fcfe0769701b665c56cec220cc4f49cc1aee8bdfc07de94a"
     },
+    "industrial-brutalist-ui": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github",
+      "skillPath": "skills/brutalist-skill/SKILL.md",
+      "computedHash": "8fc355c4aadb7d29c53ca28bc41be3cd6eea765d121e3737c4dc2d0f90a8effa"
+    },
     "loop-me": {
       "source": "mattpocock/skills",
       "sourceType": "github",
       "skillPath": "skills/in-progress/loop-me/SKILL.md",
       "computedHash": "e1fcab9b531b338eb540c9d57ee089e2660e4bba1d7623ec566c6f32f77f2d26"
     },
+    "migrate-radix-to-base": {
+      "source": "shadcn/ui",
+      "sourceType": "github",
+      "skillPath": "skills/migrate-radix-to-base/SKILL.md",
+      "computedHash": "e1f2030ee5059be3dff0812ca0e4b995ee9fa3132176f049ebe6c90346a6755e"
+    },
     "migrate-to-shoehorn": {
       "source": "mattpocock/skills",
       "sourceType": "github",
       "skillPath": "skills/misc/migrate-to-shoehorn/SKILL.md",
       "computedHash": "6397731ced114f3657aa88b55ed13d1344a56d77ca449c568e3200c21740fa99"
+    },
+    "minimalist-ui": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github",
+      "skillPath": "skills/minimalist-skill/SKILL.md",
+      "computedHash": "08873a3131d3be27bef9bf3304b310b16b44ca6e3561aebe532797be3443f6bd"
     },
     "obsidian-vault": {
       "source": "mattpocock/skills",
@@ -126,6 +206,12 @@
       "sourceType": "github",
       "skillPath": "skills/deprecated/qa/SKILL.md",
       "computedHash": "223de2b02aa9ab36cfa4fe93e80e527b56e912e7ae725f9d596f6d2457afab77"
+    },
+    "redesign-existing-projects": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github",
+      "skillPath": "skills/redesign-skill/SKILL.md",
+      "computedHash": "b405eee0e0e80fc243f731d9aa368bca307e356db7e6157d27101d369dac6726"
     },
     "request-refactor-plan": {
       "source": "mattpocock/skills",
@@ -168,6 +254,18 @@
       "sourceType": "github",
       "skillPath": "skills/in-progress/setup-ts-deep-modules/SKILL.md",
       "computedHash": "bd5cbaa455454c2d6c27a1b734e0d820606da6c482bf3c79ec55fbc3f3e03ef3"
+    },
+    "shadcn": {
+      "source": "shadcn/ui",
+      "sourceType": "github",
+      "skillPath": "skills/shadcn/SKILL.md",
+      "computedHash": "c1a68ee06a668aced9ab2b5fbdea5f989864123794eb2e056b339a072dbb7f10"
+    },
+    "stitch-design-taste": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github",
+      "skillPath": "skills/stitch-skill/SKILL.md",
+      "computedHash": "13322f38406cd3abf16ba45e35bdc9b18002d0153a79b4612b97aefc65d5a335"
     },
     "tdd": {
       "source": "mattpocock/skills",
@@ -217,6 +315,14 @@
       "skillPath": "skills/engineering/wayfinder/SKILL.md",
       "computedHash": "c9e18cefd77b6b5b0ee35f59ce2fd96359aa2d2f02e3479e12c873c5402d9d43"
     },
+    "web-design-guidelines": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "ref": "7c180d9044c9ae2b442b567aad4e42a28dd5ed62",
+      "version": "1.0.0",
+      "skillPath": "skills/web-design-guidelines/SKILL.md",
+      "computedHash": "f4647ca866a3accf763777f83e7682954f0187cd6bea7eea0399796652414e8f"
+    },
     "wizard": {
       "source": "mattpocock/skills",
       "sourceType": "github",
@@ -246,22 +352,6 @@
       "sourceType": "github",
       "skillPath": "skills/in-progress/writing-shape/SKILL.md",
       "computedHash": "90899c7b3853a80da0d9ef634844b22871cc3ea6aa1bc9e4299f40484ac05392"
-    },
-    "impeccable": {
-      "source": "pbakaus/impeccable",
-      "sourceType": "github",
-      "ref": "ae5e95101a6979e7f7973a4ff57680b3c7adc1ec",
-      "version": "3.5.0",
-      "skillPath": "plugin/skills/impeccable/SKILL.md",
-      "computedHash": "574331ee26a454633996c26e3042e40e9d7b51f558de9be47d19184880c3bdf4"
-    },
-    "web-design-guidelines": {
-      "source": "vercel-labs/agent-skills",
-      "sourceType": "github",
-      "ref": "7c180d9044c9ae2b442b567aad4e42a28dd5ed62",
-      "version": "1.0.0",
-      "skillPath": "skills/web-design-guidelines/SKILL.md",
-      "computedHash": "f4647ca866a3accf763777f83e7682954f0187cd6bea7eea0399796652414e8f"
     }
   }
 }

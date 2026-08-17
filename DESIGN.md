@@ -31,14 +31,14 @@ Motro 的艺术方向是“现代学习工作室”：页面不是把组件摆�
 | Primary tint | `color-brand-050` | `#FFF2E8` |
 | On-primary text | `color-text-on-brand` | `#182230` |
 | Focus | `color-focus` | `#182230` |
-| Page | `color-bg-page` | `#F7F9FC` |
-| Surface | `color-bg-surface` | `#FFFFFF` |
-| Text | `color-text-primary` | `#182230` |
-| Secondary text | `color-text-secondary` | `#5D6B7A` |
-| Border | `color-border` | `#DCE3EC` |
-| Success | `color-success` | `#23875B` |
-| Warning | `color-warning` | `#C47A16` |
-| Error | `color-error` | `#C84545` |
+| Page | `color-bg-page` | `#F5F1EB` |
+| Surface | `color-bg-surface` | `#FFFDF9` |
+| Text | `color-text-primary` | `#1B252C` |
+| Secondary text | `color-text-secondary` | `#52616B` |
+| Border | `color-border` | `#DDD5CB` |
+| Success | `color-success` | `#237257` |
+| Warning | `color-warning` | `#9A6813` |
+| Error | `color-error` | `#B24141` |
 
 - 英语学习内容：自托管 Lexend；中文和界面：`PingFang SC`, `Noto Sans SC`, system-ui, sans-serif。
 - 4px 间距网格；普通控件 8px 圆角；面板 12px 圆角；胶囊只用于短标签、状态和具有明确导航分组的 Liquid Glass Dock。

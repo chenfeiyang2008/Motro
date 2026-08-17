@@ -218,6 +218,28 @@ test.describe("admin user management", () => {
     await expect(rows).toHaveCount(1);
   });
 
+  test("列表显示能力边界说明，前端搜索框可过滤可见行", async ({ adminPage }) => {
+    await gotoUsers(adminPage);
+    // 等待列表加载（隔离管理员自身通常出现，或为空）。
+    await expect(adminPage.locator(".admin-users")).toBeVisible();
+
+    // 能力边界说明可见。
+    await expect(adminPage.getByText(/当前后端不支持服务端搜索与分页/)).toBeVisible();
+
+    // 若有至少一个用户行，则搜索框可过滤。
+    const filterInput = adminPage.getByLabel("搜索用户名/显示名");
+    const rowCount = await adminPage.getByTestId("user-row").count();
+    if (rowCount > 0) {
+      await expect(filterInput).toBeVisible();
+      // 输入一个不存在的关键词 → 过滤后无可见行。
+      await filterInput.fill("__definitely_non_existent_user__");
+      await expect(adminPage.getByTestId("user-row")).toHaveCount(0);
+      // 清空 → 恢复。
+      await filterInput.fill("");
+      await expect(adminPage.getByTestId("user-row").first()).toBeVisible();
+    }
+  });
+
   test("重置其他用户密码并进入一次性密码层；停用后状态更新且停用按钮消失", async ({
     adminPage,
   }) => {

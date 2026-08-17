@@ -13,7 +13,12 @@ export const ADMIN_NAV_GROUPS: Array<{ label: string; items: AdminNavItem[] }> =
       { href: "/admin/imports", label: "导入", icon: "import" },
       { href: "/admin/courses", label: "课程", icon: "courses" },
       { href: "/admin/lexicon", label: "词库", icon: "lexicon" },
+      { href: "/admin/reviews", label: "审核", icon: "reviews" },
     ],
+  },
+  {
+    label: "学习数据",
+    items: [{ href: "/admin/xp", label: "经验", icon: "operations" }],
   },
   {
     label: "运维",

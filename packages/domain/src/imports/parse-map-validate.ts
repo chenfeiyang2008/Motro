@@ -161,7 +161,12 @@ export function stripBom(text: string): string {
 // ---- 行诊断 / 校验 ----
 
 export type ImportRowIssue =
-  "empty" | "invalid_spelling" | "unparsable" | "over_field_limit" | "over_row_limit";
+  | "empty"
+  | "invalid_spelling"
+  | "unparsable"
+  | "over_field_limit"
+  | "over_row_limit"
+  | "ambiguous_entry";
 
 /**
  * 逐行诊断的核心纯规则：给定规范化拼写与上下文，返回该行的最终判定。
@@ -198,6 +203,8 @@ export function resolveRowDisposition(options: {
   if (options.issues.includes("over_field_limit") || options.issues.includes("over_row_limit")) {
     return "invalid";
   }
+  // 歧义：同一 normalized_spelling 存在多个 active 词条 → fail closed（决不做任意选取）。
+  if (options.issues.includes("ambiguous_entry")) return "invalid";
   if (options.duplicateOfOrdinal !== undefined) return "duplicate_in_file";
   if (options.matchingEntryId !== undefined) return "existing_entry";
   return "candidate";

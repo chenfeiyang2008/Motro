@@ -19,6 +19,7 @@ import {
   type StudySessionDetail,
   type StudySessionItem,
 } from "@/lib/api";
+import { saveResultSnapshot } from "@/lib/study-result";
 
 const RATINGS: { key: "again" | "hard" | "good" | "easy"; label: string; shortcut: string }[] = [
   { key: "again", label: "Again", shortcut: "1" },
@@ -31,50 +32,6 @@ const RATINGS: { key: "again" | "hard" | "good" | "easy"; label: string; shortcu
 function currentItemOf(detail: StudySessionDetail): StudySessionItem | null {
   const cursor = detail.session.cursor;
   return detail.items.find((i) => i.position === cursor) ?? null;
-}
-
-export interface SessionResultSnapshot {
-  sessionId: string;
-  startedAt: string;
-  totalItems: number;
-  completedCount: number;
-  /** 计划项分类计数（来自会话计划快照）。 */
-  byKind: { newLearning: number; initial: number; review: number };
-  /** 本次会话已接受事件累计奖励的 XP（只来自服务端 xpAwarded；重放不重复累计）。 */
-  xpAwarded: number;
-}
-
-const RESULT_SNAPSHOT_KEY = "motro.result-snapshot";
-
-/** 正常完成路径：把「本会话已接受事件」的最小展示快照写入 sessionStorage（仅展示缓存，非进度真相）。 */
-function saveResultSnapshot(snapshot: SessionResultSnapshot): void {
-  try {
-    sessionStorage.setItem(RESULT_SNAPSHOT_KEY, JSON.stringify(snapshot));
-  } catch {
-    // sessionStorage 不可用（隐私模式等）时忽略：结果页会退回诚实的完成状态。
-  }
-}
-
-export function readResultSnapshot(): SessionResultSnapshot | null {
-  try {
-    const raw = sessionStorage.getItem(RESULT_SNAPSHOT_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as SessionResultSnapshot;
-    if (!parsed || typeof parsed.sessionId !== "string" || typeof parsed.totalItems !== "number") {
-      return null;
-    }
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-export function clearResultSnapshot(): void {
-  try {
-    sessionStorage.removeItem(RESULT_SNAPSHOT_KEY);
-  } catch {
-    // 忽略：结果页已读取快照。
-  }
 }
 
 type PageState =
@@ -461,8 +418,20 @@ export default function StudyPage() {
   if (state.phase === "loading") {
     return (
       <section className="study-shell">
-        <h1>学习会话</h1>
-        <p role="status">正在恢复学习…</p>
+        <h1 className="visually-hidden">学习会话</h1>
+        <div className="study-skeleton" aria-hidden="true">
+          {/* 贴近最终布局的骨架：状态栏占位 + 方向 + 词项 + 主操作占位。 */}
+          <div className="study-skeleton__header" />
+          <div className="study-skeleton__body">
+            <span className="study-skeleton__direction" />
+            <span className="study-skeleton__prompt" />
+            <span className="study-skeleton__prompt study-skeleton__prompt--short" />
+          </div>
+          <span className="study-skeleton__action" />
+        </div>
+        <p role="status" className="study-live">
+          正在恢复学习…
+        </p>
       </section>
     );
   }

@@ -65,6 +65,17 @@ export function IconUsers(props: IconProps) {
   );
 }
 
+export function IconReviews(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v13.5A2.5 2.5 0 0 1 17.5 19H6.5A2.5 2.5 0 0 1 4 16.5v-11Z" />
+      <path d="M8 7h1.2M11.5 7H16" />
+      <path d="M8 11h1.2M11.5 11H16" />
+      <path d="m8.5 15 1 1 2-2" />
+    </svg>
+  );
+}
+
 export function IconDashboard(props: IconProps) {
   return (
     <svg {...base} {...props}>
@@ -97,6 +108,7 @@ export const ADMIN_ICONS = {
   import: IconImport,
   courses: IconCourses,
   lexicon: IconLexicon,
+  reviews: IconReviews,
   operations: IconOperations,
   users: IconUsers,
   dashboard: IconDashboard,

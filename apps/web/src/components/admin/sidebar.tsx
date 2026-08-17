@@ -5,6 +5,7 @@
 // Liquid Glass 仅作用于侧栏功能层，正文/表单/表格保持实体表面。
 import Link from "next/link";
 
+import { MotroLogo } from "../motro-logo";
 import { ADMIN_NAV_GROUPS } from "./nav";
 import { AdminNavList } from "./nav-list";
 
@@ -17,7 +18,7 @@ export function AdminSidebar({ pathname }: Props) {
     <aside className="admin-sidebar" aria-label="管理端导航">
       <Link className="admin-brand" href="/admin" aria-label="Motro 管理端首页">
         <span className="admin-brand-mark" aria-hidden="true">
-          M
+          <MotroLogo compact />
         </span>
         <span className="admin-brand-name">Motro</span>
       </Link>

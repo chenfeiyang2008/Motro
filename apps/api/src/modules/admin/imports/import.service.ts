@@ -1170,7 +1170,16 @@ export class ImportService {
         entryId = targetId!;
         associatedExistingEntryCount += 1;
       } else {
-        const existingEntryId = existing.get(spelling);
+        // candidate 行：若该拼写歧义（多个 active 词条）→ fail closed，绝不任意关联。
+        if (existing.ambiguous.has(spelling)) {
+          await client.query("ROLLBACK").catch(() => {});
+          const err = new Error(
+            "该拼写对应多个 active 词条，无法安全关联。请先在词条库消歧并重新校验后重试。",
+          );
+          (err as { code?: string }).code = "COMMIT_REVALIDATION_REQUIRED";
+          throw err;
+        }
+        const existingEntryId = existing.bySpelling.get(spelling);
         if (existingEntryId) {
           entryId = existingEntryId;
           associatedExistingEntryCount += 1;
@@ -1198,6 +1207,16 @@ export class ImportService {
                WHERE canonical_spelling = $1 AND status = 'active'`,
               [spelling],
             );
+            // 防御：若同一 canonical_spelling 竟返回多个 active 行（不应发生因 UNIQUE，
+            // 但请勿任意取第一行）→ fail closed。
+            if (found.rowCount === null || found.rowCount > 1) {
+              await client.query("ROLLBACK").catch(() => {});
+              const err = new Error(
+                "该拼写对应多个 active 词条，无法安全关联。请先消歧并重新校验后重试。",
+              );
+              (err as { code?: string }).code = "COMMIT_REVALIDATION_REQUIRED";
+              throw err;
+            }
             const activeId = found.rows[0]?.id;
             if (!activeId) {
               await client.query("ROLLBACK").catch(() => {});
@@ -1507,22 +1526,38 @@ export class ImportService {
   private async lookupExistingEntries(
     client: PoolClient,
     candidateSpellings: Set<string>,
-  ): Promise<Map<string, string>> {
-    if (candidateSpellings.size === 0) return new Map();
+  ): Promise<{ bySpelling: Map<string, string>; ambiguous: Set<string> }> {
+    const empty = { bySpelling: new Map<string, string>(), ambiguous: new Set<string>() };
+    if (candidateSpellings.size === 0) return empty;
     const list = [...candidateSpellings];
     const CHUNK = 500;
-    const map = new Map<string, string>();
+    const bySpelling = new Map<string, string>();
+    const ambiguous = new Set<string>();
     for (let i = 0; i < list.length; i += CHUNK) {
       const chunk = list.slice(i, i + CHUNK);
-      const result = await client.query<{ normalized_spelling: string; id: string }>(
-        `SELECT normalized_spelling, id
+      const result = await client.query<{
+        normalized_spelling: string;
+        id: string;
+        cnt: string;
+      }>(
+        `SELECT normalized_spelling, id, count(*) OVER (PARTITION BY normalized_spelling) AS cnt
          FROM lexical_entries
          WHERE status = 'active' AND normalized_spelling = ANY($1::text[])`,
         [chunk],
       );
-      for (const r of result.rows) map.set(r.normalized_spelling, r.id);
+      const firstBySpelling = new Map<string, string>();
+      for (const r of result.rows) {
+        // 仅当该拼写恰好 1 个 active 词条时才建立确定性关联；
+        // 多个 active → 歧义，绝不任意选取，交给调用方 fail closed。
+        if (Number(r.cnt) === 1) {
+          firstBySpelling.set(r.normalized_spelling, r.id);
+        } else {
+          ambiguous.add(r.normalized_spelling);
+        }
+      }
+      for (const [k, v] of firstBySpelling) bySpelling.set(k, v);
     }
-    return map;
+    return { bySpelling, ambiguous };
   }
 
   private buildRows(
@@ -1531,7 +1566,7 @@ export class ImportService {
       rowIssues: ImportRowIssue[][];
       ignoredBlankCount: number;
     },
-    existing: Map<string, string>,
+    existing: { bySpelling: Map<string, string>; ambiguous: Set<string> },
   ): Array<{
     ordinal: number;
     rawSummary: string;
@@ -1569,7 +1604,12 @@ export class ImportService {
         } else {
           seen.set(normalized, ordinal);
         }
-        entryId = existing.get(normalized) ?? null;
+        // 歧义：同一拼写存在多个 active 词条 → fail closed（绝不任意选取），归为 invalid。
+        if (existing.ambiguous.has(normalized)) {
+          issues.push("ambiguous_entry");
+        } else {
+          entryId = existing.bySpelling.get(normalized) ?? null;
+        }
       }
 
       const disposition = resolveRowDisposition({
@@ -1698,6 +1738,8 @@ export class ImportService {
         return "超过行数上限";
       case "unparsable":
         return "无法解析该行";
+      case "ambiguous_entry":
+        return "该拼写存在多个 active 词条，无法安全关联（请先在词条库消歧）";
       default:
         return "校验失败";
     }

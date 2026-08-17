@@ -7,6 +7,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { MotroLogo } from "../../components/motro-logo";
 import { LiquidDock } from "./liquid-dock";
 
 const NAV_ITEMS = [
@@ -55,7 +56,7 @@ export default function LearnerLayout({ children }: { children: React.ReactNode 
       <div className="learner-topbar glass-surface glass-surface--clear">
         <Link className="learner-brand learner-brand--mobile" href="/" aria-label="Motro 首页">
           <span className="learner-brand-mark" aria-hidden="true">
-            M
+            <MotroLogo compact />
           </span>
           <span className="learner-brand-name">Motro</span>
         </Link>
@@ -64,7 +65,7 @@ export default function LearnerLayout({ children }: { children: React.ReactNode 
       <nav className="learner-rail glass-surface glass-surface--regular" aria-label="学习者导航">
         <Link className="learner-brand" href="/" aria-label="Motro 首页">
           <span className="learner-brand-mark" aria-hidden="true">
-            M
+            <MotroLogo compact />
           </span>
           <span className="learner-brand-name">Motro</span>
         </Link>

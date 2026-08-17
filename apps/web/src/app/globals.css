@@ -10,21 +10,21 @@ body {
 
 body {
   /* 语义 token：颜色只在 token 层引用字面值，组件消费 token。 */
-  --color-brand-600: #2e6a9a;
-  --color-brand-700: #24557f;
-  --color-brand-800: #1d4568;
-  --color-brand-900: #17364f;
-  --color-brand-050: #dceaf5;
-  --color-text-on-brand: #ffffff;
-  --color-focus: #1f5f91;
-  --color-bg-page: #e7edf3;
-  --color-bg-surface: #f8fafc;
-  --color-text-primary: #142231;
-  --color-text-secondary: #435466;
-  --color-border: #b8c6d4;
-  --color-success: #216a50;
-  --color-warning: #875b0e;
-  --color-error: #a13b3b;
+  --color-brand-600: #f5781f;
+  --color-brand-700: #e76812;
+  --color-brand-800: #de640f;
+  --color-brand-900: #b84d22;
+  --color-brand-050: #fff2e8;
+  --color-text-on-brand: #182230;
+  --color-focus: #182230;
+  --color-bg-page: #f5f1eb;
+  --color-bg-surface: #fffdf9;
+  --color-text-primary: #1b252c;
+  --color-text-secondary: #52616b;
+  --color-border: #ddd5cb;
+  --color-success: #237257;
+  --color-warning: #9a6813;
+  --color-error: #b24141;
 
   /* 间距/圆角/字体 */
   --space-1: 4px;
@@ -42,12 +42,12 @@ body {
    * for every component. The layered edge/highlight treatment below keeps
    * the material legible without pretending CSS can model physical IOR.
    */
-  --glass-bg: rgba(248, 250, 252, 0.9);
+  --glass-bg: rgba(255, 253, 249, 0.9);
   --glass-edge: rgba(255, 255, 255, 0.92);
-  --glass-edge-shadow: rgba(28, 52, 76, 0.18);
+  --glass-edge-shadow: rgba(79, 57, 39, 0.14);
   --glass-highlight: rgba(255, 255, 255, 0.78);
   --glass-blur: saturate(1.15) blur(16px);
-  --glass-clear-bg: rgba(248, 250, 252, 0.72);
+  --glass-clear-bg: rgba(255, 253, 249, 0.72);
   --glass-clear-blur: saturate(1.25) blur(14px);
   --glass-lens-offset: -42%;
 
@@ -139,6 +139,33 @@ summary {
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+
+.auth-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--color-text-primary);
+}
+
+.auth-brand-mark {
+  display: grid;
+  width: 40px;
+  height: 28px;
+  place-items: center;
+  color: var(--color-brand-600);
+}
+
+.auth-brand-mark svg {
+  width: 100%;
+  height: 100%;
+}
+
+.auth-brand-name {
+  font-family: Lexend, "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 .auth-form label {
@@ -321,10 +348,12 @@ main > .admin-shell {
   border-radius: 8px;
   background: var(--color-brand-600);
   color: var(--color-text-on-brand);
-  font-family: Arial, sans-serif;
-  font-size: 17px;
-  font-weight: 800;
-  line-height: 1;
+  padding: 5px;
+}
+
+.admin-brand-mark svg {
+  width: 100%;
+  height: 100%;
 }
 
 .admin-brand-name {
@@ -1575,11 +1604,13 @@ button.secondary.danger {
   border-radius: 9px;
   background: var(--color-brand-600);
   color: var(--color-text-on-brand);
-  font-family: Arial, sans-serif;
-  font-size: 17px;
-  font-weight: 800;
-  line-height: 1;
+  padding: 5px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.learner-brand-mark svg {
+  width: 100%;
+  height: 100%;
 }
 
 .learner-brand-name {
@@ -2029,7 +2060,7 @@ button.secondary.danger {
   gap: 8px;
   color: var(--color-text-secondary);
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.02em;
   margin: 0;
 }
@@ -2166,6 +2197,132 @@ body:has(.learner-layout--focused) .theme-toggle--global {
   margin: -1px;
   clip: rect(0 0 0 0);
   overflow: hidden;
+}
+
+/* ============================================================
+   学习页骨架加载态（§4.3：接近最终布局的占位，不使用孤立 spinner）。
+   骨架本身无动画；仅在非 reduced-motion 下允许微弱呼吸感脉冲。
+   ============================================================ */
+
+.study-skeleton {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 0;
+  min-height: 100dvh;
+  padding: 0;
+}
+
+.study-skeleton__header {
+  height: 48px;
+  margin-bottom: clamp(24px, 5vh, 56px);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--color-border) 42%, var(--color-bg-surface));
+}
+
+.study-skeleton__body {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  padding: clamp(28px, 5vw, 64px);
+  min-height: clamp(400px, 52dvh, 560px);
+  display: flex;
+  flex-direction: column;
+}
+
+.study-skeleton__direction {
+  display: inline-block;
+  width: 96px;
+  height: 14px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-border) 38%, var(--color-bg-surface));
+}
+
+.study-skeleton__prompt {
+  display: block;
+  height: clamp(42px, 7vw, 76px);
+  margin-top: clamp(48px, 8vh, 96px);
+  width: 80%;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-border) 28%, var(--color-bg-surface));
+}
+
+.study-skeleton__prompt--short {
+  height: clamp(40px, 7vw, 60px);
+  width: 42%;
+  margin-top: clamp(8px, 1.5vw, 16px);
+}
+
+.study-skeleton__action {
+  margin-top: auto;
+  padding-top: clamp(48px, 10vh, 112px);
+}
+
+.study-skeleton__action::before {
+  content: "";
+  display: block;
+  width: 132px;
+  height: 44px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-brand-600) 22%, var(--color-bg-surface));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .study-skeleton__header,
+  .study-skeleton__direction,
+  .study-skeleton__prompt,
+  .study-skeleton__action::before {
+    animation: skeleton-pulse 1.4s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes skeleton-pulse {
+  from {
+    opacity: 0.56;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 599px) {
+  .study-skeleton__header {
+    height: 44px;
+    border-radius: 14px;
+  }
+
+  .study-skeleton__body {
+    border-radius: 16px;
+    padding: 28px 22px;
+    min-height: clamp(420px, 62dvh, 560px);
+  }
+
+  .study-skeleton__prompt {
+    margin-top: 56px;
+  }
+}
+
+/* ============================================================
+   答案揭示微动效（motion.state 160-220ms）
+   仅作用于 opacity + translateY，不超过 6px 位移，可中断。
+   reduced-motion → 无动画，直接替换。
+   ============================================================ */
+
+@media (prefers-reduced-motion: no-preference) {
+  .study-answer {
+    animation: study-reveal 180ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  }
+}
+
+@keyframes study-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @media (max-width: 599px) {
@@ -2447,6 +2604,40 @@ body:has(.learner-layout--focused) .theme-toggle--global {
 
 .learner-result--state h1 {
   max-width: 18ch;
+}
+
+/* 结果页骨架加载态（§4.3：贴近最终摘要布局的占位块） */
+.result-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 42ch;
+  margin: 24px 0 0;
+}
+
+.result-skeleton__line {
+  display: block;
+  width: 100%;
+  height: 16px;
+  border-radius: 8px;
+  background: var(--color-bg-surface);
+  border: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent);
+}
+
+.result-skeleton__line--lede {
+  width: 70%;
+  height: 22px;
+  margin-bottom: 4px;
+}
+
+.result-skeleton__line--short {
+  width: 46%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .result-skeleton__line {
+    animation: skeleton-pulse 1.4s ease-in-out infinite alternate;
+  }
 }
 
 .result-network-error {
@@ -3533,30 +3724,30 @@ html[data-theme="dark"] .confirm-layer {
 }
 
 html[data-theme="dark"] {
-  /* 背景：深灰带蓝，不使用暖棕；正文保持接近纯白。 */
-  --color-brand-600: #7eb8e5;
-  --color-brand-700: #a7d2f1;
-  --color-brand-800: #5597ca;
-  --color-brand-900: #d9edff;
-  --color-brand-050: #1b334a;
-  --color-text-on-brand: #07111d;
-  --color-focus: #9bd1fa;
-  --color-bg-page: #050912;
-  --color-bg-surface: #0d1724;
-  --color-text-primary: #ffffff;
-  --color-text-secondary: #d0dceb;
-  --color-border: #3b5067;
-  --color-success: #7fd0a8;
-  --color-warning: #f2c36d;
+  /* A 方向暗色：深暖墨，不使用冷蓝；正文保持接近纯白。 */
+  --color-brand-600: #ff914a;
+  --color-brand-700: #ffa66d;
+  --color-brand-800: #e86e29;
+  --color-brand-900: #ffb681;
+  --color-brand-050: #402b1e;
+  --color-text-on-brand: #281407;
+  --color-focus: #ffc09a;
+  --color-bg-page: #171310;
+  --color-bg-surface: #211a16;
+  --color-text-primary: #f9efe5;
+  --color-text-secondary: #cdbdaf;
+  --color-border: #4b3b2f;
+  --color-success: #7bd3ac;
+  --color-warning: #f4c76e;
   --color-error: #ffaaa8;
 
   /* 玻璃层在暗色下使用低透明度暖黑，仍降级为不透明面 */
-  --glass-bg: rgba(13, 23, 36, 0.98);
-  --glass-edge: rgba(190, 220, 247, 0.34);
+  --glass-bg: rgba(30, 23, 19, 0.98);
+  --glass-edge: rgba(255, 245, 235, 0.18);
   --glass-edge-shadow: rgba(0, 0, 0, 0.44);
-  --glass-highlight: rgba(220, 239, 255, 0.2);
+  --glass-highlight: rgba(255, 245, 235, 0.1);
   --glass-blur: saturate(1.08) blur(16px);
-  --glass-clear-bg: rgba(13, 23, 36, 0.88);
+  --glass-clear-bg: rgba(30, 23, 19, 0.9);
   --glass-clear-blur: saturate(1.18) blur(14px);
   --glass-lens-offset: -46%;
 }
@@ -3565,27 +3756,27 @@ html[data-theme="dark"] {
    此处把暗色 token 也应用到 body，保证 body 的背景/文字随主题切换。
    （语义 token 重映射：仅改 token 值，不机械反相组件颜色。） */
 html[data-theme="dark"] body {
-  --color-brand-600: #7eb8e5;
-  --color-brand-700: #a7d2f1;
-  --color-brand-800: #5597ca;
-  --color-brand-900: #d9edff;
-  --color-brand-050: #1b334a;
-  --color-text-on-brand: #07111d;
-  --color-focus: #9bd1fa;
-  --color-bg-page: #050912;
-  --color-bg-surface: #0d1724;
-  --color-text-primary: #ffffff;
-  --color-text-secondary: #d0dceb;
-  --color-border: #3b5067;
-  --color-success: #7fd0a8;
-  --color-warning: #f2c36d;
+  --color-brand-600: #ff914a;
+  --color-brand-700: #ffa66d;
+  --color-brand-800: #e86e29;
+  --color-brand-900: #ffb681;
+  --color-brand-050: #402b1e;
+  --color-text-on-brand: #281407;
+  --color-focus: #ffc09a;
+  --color-bg-page: #171310;
+  --color-bg-surface: #211a16;
+  --color-text-primary: #f9efe5;
+  --color-text-secondary: #cdbdaf;
+  --color-border: #4b3b2f;
+  --color-success: #7bd3ac;
+  --color-warning: #f4c76e;
   --color-error: #ffaaa8;
-  --glass-bg: rgba(13, 23, 36, 0.98);
-  --glass-edge: rgba(190, 220, 247, 0.34);
+  --glass-bg: rgba(30, 23, 19, 0.98);
+  --glass-edge: rgba(255, 245, 235, 0.18);
   --glass-edge-shadow: rgba(0, 0, 0, 0.44);
-  --glass-highlight: rgba(220, 239, 255, 0.2);
+  --glass-highlight: rgba(255, 245, 235, 0.1);
   --glass-blur: saturate(1.08) blur(16px);
-  --glass-clear-bg: rgba(13, 23, 36, 0.88);
+  --glass-clear-bg: rgba(30, 23, 19, 0.9);
   --glass-clear-blur: saturate(1.18) blur(14px);
   --glass-lens-offset: -46%;
 }
@@ -4491,4 +4682,519 @@ html[data-theme="dark"] .skip-link {
   .admin-nav-group a {
     transition: none;
   }
+}
+
+/* ============================================================
+   管理端审核工作台（Ticket 18）
+   表格优先、只读来源事实面板、AI 草稿明确标注、决策确认层。
+   信息完整 ≠ 直接篡改事实：来源/provenance 只读，决定 append-only。
+   ============================================================ */
+
+.admin-reviews,
+.admin-review-detail {
+  min-width: 0;
+  max-width: 1080px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.reviews-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.reviews-header h1,
+.admin-review-detail h1 {
+  margin: 0 0 4px;
+  font-size: 28px;
+  line-height: 36px;
+  letter-spacing: -0.02em;
+}
+
+.reviews-intro {
+  color: var(--color-text-secondary);
+  margin: 0;
+  max-width: 60ch;
+}
+
+.reviews-status {
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.reviews-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--color-text-secondary);
+}
+
+.reviews-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+}
+
+.reviews-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  min-width: 0;
+}
+
+.reviews-table caption {
+  text-align: left;
+  font-weight: 600;
+  padding: 12px 16px;
+  color: var(--color-text-primary);
+}
+
+.reviews-table th,
+.reviews-table td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+}
+
+.reviews-table th {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.reviews-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.reviews-link {
+  color: var(--color-brand-900);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .reviews-link:hover {
+    text-decoration: underline;
+  }
+}
+
+.review-status,
+.review-decision-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  line-height: 22px;
+  white-space: nowrap;
+}
+
+.review-badge--pending {
+  background: color-mix(in srgb, var(--color-success) 16%, transparent);
+  color: var(--color-success);
+}
+
+.review-badge--manual {
+  background: color-mix(in srgb, var(--color-warning) 18%, transparent);
+  color: var(--color-warning);
+}
+
+.review-badge--unknown {
+  background: var(--color-bg-page);
+  color: var(--color-text-secondary);
+}
+
+.review-decision-pill {
+  background: var(--color-bg-page);
+  color: var(--color-brand-900);
+}
+
+.review-muted {
+  color: var(--color-text-secondary);
+}
+
+.reviews-caption {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  margin: 0;
+}
+
+/* ---- 详情页 ---- */
+
+.review-back {
+  margin: 0;
+}
+
+.review-back a {
+  color: var(--color-brand-600);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.review-back a:hover {
+  text-decoration: underline;
+}
+
+.review-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.review-spelling {
+  margin: 0;
+  font-family: var(--font-english);
+}
+
+.review-intro {
+  color: var(--color-text-secondary);
+  max-width: 70ch;
+  margin: 0;
+}
+
+.review-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 840px) {
+  .review-detail-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    align-items: start;
+  }
+}
+
+.review-source-panel,
+.review-decision-panel,
+.review-history-panel {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.review-source-panel h2,
+.review-decision-panel h2,
+.review-history-panel h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.review-readonly-note {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  margin: 0 0 4px;
+}
+
+.review-source-dl {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.review-source-dl > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.review-source-dl dt {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.review-source-dl dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.review-source-link {
+  color: var(--color-brand-600);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.review-source-link:hover {
+  text-decoration: underline;
+}
+
+.review-ai-warning {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--color-warning) 55%, var(--color-border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+  color: var(--color-text-primary);
+  font-size: 14px;
+}
+
+.review-manual-hint {
+  margin: 0;
+  color: var(--color-warning);
+  font-size: 14px;
+}
+
+.review-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.review-form label {
+  font-weight: 600;
+}
+
+.review-form textarea,
+.review-form input {
+  min-height: 44px;
+  font-size: 16px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  width: 100%;
+}
+
+.review-form textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
+.review-action-bar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.review-manual-resolve {
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.review-manual-note,
+.review-confirm-note,
+.review-resolve-note {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  margin: 0;
+}
+
+.review-resolve-layer,
+.review-confirm-layer {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  padding: 24px;
+  max-width: 460px;
+  width: calc(100% - 32px);
+  box-shadow: 0 12px 32px rgba(24, 34, 48, 0.16);
+}
+
+.review-resolve-layer h2,
+.review-confirm-layer h2 {
+  margin: 0 0 12px;
+  font-size: 20px;
+}
+
+.review-resolve-layer label {
+  font-weight: 600;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.review-resolve-layer textarea {
+  width: 100%;
+  min-height: 72px;
+  font-size: 16px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  font-family: inherit;
+}
+
+.review-empty {
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+/* 窄屏：决策按钮占满整行，便于触控 */
+@media (max-width: 599px) {
+  .reviews-table {
+    font-size: 13px;
+  }
+  .review-action-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .review-action-bar button {
+    width: 100%;
+  }
+  .reviews-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* 暗色下审核状态徽章保持 token 驱动的底色 */
+html[data-theme="dark"] .review-badge--pending,
+html[data-theme="dark"] .review-badge--manual,
+html[data-theme="dark"] .review-badge--unknown,
+html[data-theme="dark"] .review-decision-pill {
+  background: var(--color-bg-page);
+}
+
+/* ============================================================
+   管理端经验 / 学习数据（Ticket 18）：BLOCKED 能力边界页
+   后端暂无管理员 XP ledger / correction / void 接口，不做假账本或假按钮。
+   ============================================================ */
+
+.admin-xp-blocked {
+  min-width: 0;
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.admin-xp-blocked h1 {
+  margin: 0 0 4px;
+  font-size: 28px;
+  line-height: 36px;
+  letter-spacing: -0.02em;
+}
+
+.xp-blocked-panel {
+  background: var(--color-bg-surface);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 45%, var(--color-border));
+  border-radius: var(--radius-panel);
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.xp-blocked-title {
+  margin: 0;
+  font-weight: 600;
+  color: var(--color-warning);
+  font-size: 16px;
+}
+
+.xp-blocked-body {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.xp-blocked-list {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--color-text-secondary);
+}
+
+.xp-blocked-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+/* 用户管理：能力边界说明 + 前端过滤 */
+.users-capability-note {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  margin: 0;
+}
+
+.users-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.users-filter label {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.users-filter input {
+  min-height: 44px;
+  font-size: 16px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  width: 260px;
+  max-width: 100%;
+}
+
+html[data-theme="dark"] .users-filter input {
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+
+.users-status--must-change {
+  margin-left: 6px;
+  background: color-mix(in srgb, var(--color-warning) 18%, transparent);
+  color: var(--color-warning);
+}
+
+html[data-theme="dark"] .users-status--must-change {
+  background: var(--color-bg-page);
+}
+
+.operations-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.operations-count {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.lexicon-readonly-note {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--color-warning) 45%, var(--color-border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-warning) 8%, transparent);
+  color: var(--color-text-secondary);
+  font-size: 14px;
 }

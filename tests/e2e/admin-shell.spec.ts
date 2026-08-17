@@ -71,11 +71,12 @@ test.describe("admin shell structure and navigation", () => {
 
     // 导航组标题
     await expect(sidebar.getByText("内容", { exact: true })).toBeVisible();
+    await expect(sidebar.getByText("学习数据", { exact: true })).toBeVisible();
     await expect(sidebar.getByText("运维", { exact: true })).toBeVisible();
     await expect(sidebar.getByText("账号", { exact: true })).toBeVisible();
 
     // 导航项（所有可见）
-    for (const label of ["导入", "课程", "词库", "任务状态", "用户管理"]) {
+    for (const label of ["导入", "课程", "词库", "审核", "经验", "任务状态", "用户管理"]) {
       await expect(sidebar.getByRole("link", { name: label })).toBeVisible();
     }
 
@@ -165,7 +166,7 @@ test.describe("admin shell structure and navigation", () => {
     await expect(panel).toHaveAttribute("aria-label", "管理导航");
 
     // 面板内导航项可见
-    for (const label of ["导入", "课程", "词库", "任务状态", "用户管理"]) {
+    for (const label of ["导入", "课程", "词库", "审核", "经验", "任务状态", "用户管理"]) {
       await expect(panel.getByRole("link", { name: label })).toBeVisible();
     }
 

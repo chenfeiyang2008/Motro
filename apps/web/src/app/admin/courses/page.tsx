@@ -210,7 +210,9 @@ export default function AdminCoursesPage() {
                   <Link href={`/admin/courses/${course.id}/draft`}>{course.title}</Link>
                 </td>
                 <td>{course.slug}</td>
-                <td>{course.level.toUpperCase()}</td>
+                <td>
+                  <span className="course-badge">{course.level.toUpperCase()}</span>
+                </td>
                 <td>{course.draftVersion ?? "—"}</td>
                 <td>{course.visibility}</td>
               </tr>

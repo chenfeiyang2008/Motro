@@ -25,14 +25,14 @@ This document makes [`DESIGN.md`](../../DESIGN.md) implementable for the respons
 | `brand.050` | `#FFF2E8` | Selected/quiet brand background |
 | `text.on-brand` | `#182230` | Text and icons on filled primary orange |
 | `focus.default` | `#182230` | Visible focus indicator on light and filled-brand surfaces |
-| `bg.page` | `#F7F9FC` | App canvas |
-| `bg.surface` | `#FFFFFF` | Content surface and controls |
-| `text.primary` | `#182230` | Headings and body |
-| `text.secondary` | `#5D6B7A` | Supporting text |
-| `border.default` | `#DCE3EC` | Dividers and component outlines |
-| `status.success` | `#23875B` | Confirmed success and positive state |
-| `status.warning` | `#C47A16` | Attention and recoverable risk |
-| `status.error` | `#C84545` | Errors and destructive intent |
+| `bg.page` | `#F5F1EB` | App canvas |
+| `bg.surface` | `#FFFDF9` | Content surface and controls |
+| `text.primary` | `#1B252C` | Headings and body |
+| `text.secondary` | `#52616B` | Supporting text |
+| `border.default` | `#DDD5CB` | Dividers and component outlines |
+| `status.success` | `#237257` | Confirmed success and positive state |
+| `status.warning` | `#9A6813` | Attention and recoverable risk |
+| `status.error` | `#B24141` | Errors and destructive intent |
 
 Every foreground/background pair must be verified for WCAG 2.2 AA. `text.on-brand` on `brand.600` is 5.79:1; `brand.900` on `brand.050` is 4.64:1. `focus.default` is a solid focus indicator with equivalent contrast on both the light canvas and filled-brand controls; it never depends on a reflection cue. Semantic colors may use separately tested pale backgrounds; never lower opacity on text to create muted colors. Status is never conveyed by color alone.
 

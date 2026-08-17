@@ -381,6 +381,7 @@ export default function AdminLexiconPage() {
           <thead>
             <tr>
               <th scope="col">拼写</th>
+              <th scope="col">词性</th>
               <th scope="col">来源</th>
               <th scope="col">引用次数</th>
               <th scope="col">更新时间</th>
@@ -392,6 +393,7 @@ export default function AdminLexiconPage() {
                 <td>
                   <Link href={`/admin/lexicon/${item.id}`}>{item.canonicalSpelling}</Link>
                 </td>
+                <td>{item.partOfSpeech ?? "—"}</td>
                 <td>{item.sourceStatus}</td>
                 <td>{item.referenceCount}</td>
                 <td>{formatTime(item.updatedAt)}</td>

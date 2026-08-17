@@ -50,6 +50,9 @@ export default function LexicalEntryDetailPage() {
       ) : entry ? (
         <>
           <h1>{entry.canonicalSpelling}</h1>
+          <p className="lexicon-readonly-note" role="note">
+            当前后端未提供词条编辑接口：本页内容（拼写、词性、释义、来源）为只读展示。来源事实属于不可变记录，不可覆盖或删除。
+          </p>
 
           <h2>词条信息</h2>
           <dl>
