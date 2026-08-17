@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   ParseIntPipe,
   Post,
   Req,
@@ -43,7 +44,8 @@ export class ChallengeController {
   @ApiOkResponse({ type: ChallengeAnswerDto })
   async submit(
     @Req() req: AuthenticatedRequest,
-    @Param("attemptId") attemptId: string,
+    @Param("attemptId", new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST }))
+    attemptId: string,
     @Param("position", new ParseIntPipe()) position: number,
     @Body() body: ChallengeAnswerDto,
   ) {

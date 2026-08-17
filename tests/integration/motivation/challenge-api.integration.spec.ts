@@ -8,7 +8,7 @@
 //   - privacy: responses expose no username/user_id/session; a learner can read only
 //     their own attempt.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { createPool, loadDbConfigFromEnv, migrate } from "@motro/db";
 import type { Pool } from "pg";
@@ -37,6 +37,7 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
   "challenge quiz API (isolated DB)",
   () => {
     let dbName: string;
+    const previousDb = process.env.POSTGRES_DB;
     let pool: Pool;
     let app: Awaited<ReturnType<typeof createApp>>;
     const learnerPass = "challenge-api-pass-1";
@@ -51,6 +52,7 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
       }
       const iso = { ...config, database: dbName };
       await migrate(iso, MIGRATIONS_DIR);
+      process.env.POSTGRES_DB = dbName;
       pool = createPool({ ...iso, max: 5 });
 
       const ps = new PasswordService();
@@ -71,6 +73,8 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
         if (app) await app.close();
         if (pool) await pool.end();
       } finally {
+        if (previousDb === undefined) delete process.env.POSTGRES_DB;
+        else process.env.POSTGRES_DB = previousDb;
         if (dbName) await dropIsolatedDatabase(dbName);
       }
     });
@@ -153,20 +157,28 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
     it("submitting an answer to a nonexistent attempt → 404", async () => {
       const learner = makeClient();
       await learner.login("t14api", learnerPass);
-      const res = await learner.req("POST", "/api/v1/challenge/attempts/does-not-exist/answers/1", {
-        clientEventId: "c1",
-        answer: "x",
-      });
+      const res = await learner.req(
+        "POST",
+        `/api/v1/challenge/attempts/${randomUUID()}/answers/1`,
+        {
+          clientEventId: "c1",
+          answer: "x",
+        },
+      );
       expect(res.statusCode).toBe(404);
     });
 
-    it("invalid body (missing answer) → 400 by DTO validation", async () => {
+    it("invalid body (missing answer) → 422 by DTO validation", async () => {
       const learner = makeClient();
       await learner.login("t14api", learnerPass);
-      const res = await learner.req("POST", "/api/v1/challenge/attempts/does-not-exist/answers/1", {
-        clientEventId: "c2",
-      });
-      expect(res.statusCode).toBe(400);
+      const res = await learner.req(
+        "POST",
+        `/api/v1/challenge/attempts/${randomUUID()}/answers/1`,
+        {
+          clientEventId: "c2",
+        },
+      );
+      expect(res.statusCode).toBe(422);
     });
 
     it("answers JSON never leaks username/user_id/session fields", async () => {
