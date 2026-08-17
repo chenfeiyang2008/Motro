@@ -1,0 +1,73 @@
+# Motro 内网反向代理示例（Caddy）——仅供内网，不暴露公网
+# ---------------------------------------------------------------------------
+# 用途：浏览器唯一入口；终结 TLS；路由 /api/v1/* 到 api、其余到 web；加安全响应头、
+#      请求体限制与超时；内部服务端口不对外。
+#
+# 所有值均为占位符；真实域名/证书路径由部署者在 intranet.env 提供。仓库不含密钥/证书。
+# ---------------------------------------------------------------------------
+# 如何启用：
+#   1) 在 compose/intranet.yml 中新增 proxy 服务（或独立运行本 Caddyfile）；
+#   2) 提供真实域名（<intranet-host>）或内网 CA 证书；
+#   3) 仅监听内网地址。
+# ---------------------------------------------------------------------------
+
+# 占位符：部署者替换为真实内网主机名（Tailscale 名 / 私有 CA 域），不允许公网名。
+${INTRA_HOST_NAME}
+
+# 仅绑定内网网卡；不监听 0.0.0.0 公网。把 ${PROXY_BIND_ADDR} 设为私网地址。
+{
+  admin off
+  auto_https off                       # 内网环境：不自动申请公网 CA；用下面的 tls 段
+  default_sni ${INTRA_HOST_NAME}
+}
+
+# 内网 TLS（自签/私有 CA）。证书与密钥路径为占位符，由部署者提供。
+tls {
+  cert_file ${TLS_CERT_FILE}
+  key_file  ${TLS_KEY_FILE}
+}
+
+# 安全响应头 + 请求体限制 + 超时（Motro 学习端为同源 /api/v1 路由）。
+# 学习端 /study、/courses 等页面与 /api/v1/* 都经此代理。
+handle {
+  header {
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "DENY"
+    Referrer-Policy "strict-origin-when-cross-origin"
+    -Server
+  }
+
+  # 上传/请求体限制：与 @fastify/multipart 20MB 上限一致；导入文件走 API 侧自有校验。
+  request_body {
+    max_size 21MB
+  }
+
+  # ---- 健康检查边界：只允许内部探活，不对外暴露后端细节 ----
+  @health {
+    path /api/v1/health/*
+  }
+  handle @health {
+    reverse_proxy api:3000
+  }
+
+  # ---- API 路由（同源） ----
+  @api {
+    path /api/v1/*
+  }
+  handle @api {
+    reverse_proxy api:3000 {
+      header_up Host {host}
+      # 透传客户端真实来源（仅从已知代理；见超时与连接控制）
+      header_up X-Forwarded-For {remote_host}
+    }
+  }
+
+  # ---- 其余 → Web（Next.js） ----
+  reverse_proxy web:3001
+}
+
+# 日志轮转由外部（logrotate / 容器 stdout）负责；此处仅区分访问日志级别。
+log {
+  output stdout
+  format json
+}

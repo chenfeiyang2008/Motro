@@ -1,0 +1,149 @@
+# Motro 内网部署 Compose 模板（Ticket 11）
+# ---------------------------------------------------------------------------
+# 目标：把 $HOME/srv/motro 或同等的内网主机上部署 Motro（web/api/worker/postgres +
+# 反向代理）。仅面向受控内网；不启用公网入口；不访问真实 Wiktionary/DeepSeek。
+#
+# 重要：
+#   - 本文件【不含任何真实密钥/域名/证书/服务器地址】。一律使用 ${VAR} 占位符，
+#     真值由部署者提供（见部署 runbook：compose/intranet/README.md）。
+#   - 默认：假 Provider（fake/fixture handler），真实 provider 网络开关默认关闭。
+#   - 不暴露 PostgreSQL / Graphile / Worker 管理端口；仅反向代理暴露 HTTP(S)。
+#   - 命名卷：docker compose down 不删数据；需显式 down -v（见 runbook）。
+#   - 独立于动机/学习端 UI 工单：本模板只描述服务编排，不改任何应用代码。
+#
+# 使用前提：先按下方 env 占位符创建内向 .env（或 shell 环境），再
+#   docker compose -f compose/intranet.yml --env-file <intranet.env> up -d --build
+# ---------------------------------------------------------------------------
+name: motro-intranet
+
+x-intranet-config: &intranet-base
+  restart: unless-stopped
+  networks: [intranet-net]
+
+services:
+  db:
+    <<: *intranet-base
+    image: postgres:16-alpine
+    environment:
+      # 真实口令由部署者注入；禁止默认 `dev_only_change_me` 用于内网生产。
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB 必须设置}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER 必须设置}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 必须设置为非默认强口令}
+    # 仅绑定内网回环/私有网卡；由部署者按需改为 ${POSTGRES_BIND_ADDR:-127.0.0.1}
+    ports:
+      - "${POSTGRES_BIND_ADDR:-127.0.0.1}:${POSTGRES_BIND_PORT:-5432}:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  worker-migrate:
+    <<: *intranet-base
+    restart: "no" # 一次性：业务迁移 + Graphile schema
+    build:
+      context: ../
+      dockerfile: apps/worker/Dockerfile
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:?}
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      WORKER_MAX_POOL_SIZE: ${WORKER_MAX_POOL_SIZE:-2}
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["node", "apps/worker/dist/worker-migrate.js"]
+
+  api:
+    <<: *intranet-base
+    build:
+      context: ../
+      dockerfile: apps/api/Dockerfile
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      API_PORT: 3000
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:?}
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      SESSION_KEY: ${SESSION_KEY:?SESSION_KEY 必须设置}
+      CSRF_KEY: ${CSRF_KEY:?CSRF_KEY 必须设置}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      COOKIE_SAMESITE: ${COOKIE_SAMESITE:-lax}
+      # 仅允许 Motro 自身 origin（学习端同源；来自反向代理）。
+      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS 必须设置}
+      # ---- 真实 provider 默认关闭（内网 fake-only） ----
+      DEEPSEEK_ENABLED: ${DEEPSEEK_ENABLED:-false}
+      MOTRO_WIKTIONARY_ALLOW_NETWORK: ${MOTRO_WIKTIONARY_ALLOW_NETWORK:-false}
+      MOTRO_PROVIDER_MODE: ${MOTRO_PROVIDER_MODE:-fake}
+    ports:
+      # API 不直接对外；可选仅内网绑定。反向代理才是浏览器入口。
+      - "${API_BIND_ADDR:-127.0.0.1}:${API_BIND_PORT:-3000}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      worker-migrate:
+        condition: service_completed_successfully
+
+  worker:
+    <<: *intranet-base
+    build:
+      context: ../
+      dockerfile: apps/worker/Dockerfile
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:?}
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-1}
+      WORKER_MAX_POOL_SIZE: ${WORKER_MAX_POOL_SIZE:-2}
+      WORKER_MAX_ATTEMPTS: ${WORKER_MAX_ATTEMPTS:-5}
+      WORKER_POLL_INTERVAL_MS: ${WORKER_POLL_INTERVAL_MS:-2000}
+      WORKER_LEASE_MS: ${WORKER_LEASE_MS:-60000}
+      WORKER_RECOVER_INTERVAL_MS: ${WORKER_RECOVER_INTERVAL_MS:-2000}
+      WORKER_RECOVER_BATCH_SIZE: ${WORKER_RECOVER_BATCH_SIZE:-20}
+      # 假 Provider 演示模式（无真实网络）：由 worker 内置 fixture/fake handler。
+      MOTRO_PROVIDER_MODE: ${MOTRO_PROVIDER_MODE:-fake}
+    # 不暴露 host 端口；仅内网网络内可达。
+    depends_on:
+      db:
+        condition: service_healthy
+      worker-migrate:
+        condition: service_completed_successfully
+    command: ["node", "apps/worker/dist/worker-main.js"]
+
+  web:
+    <<: *intranet-base
+    build:
+      context: ../
+      dockerfile: apps/web/Dockerfile
+      args:
+        API_INTERNAL_URL: http://api:3000
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      API_INTERNAL_URL: http://api:3000
+      API_PUBLIC_URL: ${WEB_PUBLIC_URL:?WEB_PUBLIC_URL 必须设置（浏览器访问 origin）}
+      WEB_PORT: 3001
+    ports:
+      - "${WEB_BIND_ADDR:-127.0.0.1}:${WEB_BIND_PORT:-3001}:3001"
+    depends_on:
+      api:
+        condition: service_started
+
+  # 反向代理/TLS：默认经 compose/intranet/proxy.yaml 提供（Caddy 示例）。
+  # 浏览器只访问 proxy；web/api 不直接暴露给学习者网卡。
+
+volumes:
+  db-data:
+
+networks:
+  intranet-net:
+    driver: bridge
