@@ -9,3 +9,4 @@ export * from "./drafts/index.js";
 export * from "./learning-metrics/index.js";
 export * from "./reviews/index.js";
 export * from "./motivation/index.js";
+export * from "./motivation-copy.js";

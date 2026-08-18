@@ -10,6 +10,7 @@ export * from "./schema/wiktionary.js";
 export * from "./schema/enrichment-drafts.js";
 export * from "./schema/reviews.js";
 export * from "./schema/game.js";
+export * from "./schema/motivation-copies.js";
 export { createPool, type DbConfig, loadDbConfigFromEnv } from "./client.js";
 export {
   assessMigrationState,

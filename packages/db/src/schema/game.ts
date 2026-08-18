@@ -65,6 +65,29 @@ export const xpEntries = pgTable(
   ],
 );
 
+export const levelAwards = pgTable(
+  "level_awards",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    level: integer("level").notNull(),
+    titleKey: text("title_key").notNull(),
+    ruleVersion: integer("rule_version")
+      .notNull()
+      .references(() => gameRuleSets.ruleVersion, { onDelete: "restrict" }),
+    qualifiedXp: integer("qualified_xp").notNull(),
+    reason: text("reason").notNull(),
+    awardedAt: timestamp("awarded_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("level_awards_user_level_unique").on(t.userId, t.level),
+    index("level_awards_user_level_idx").on(t.userId, t.level),
+  ],
+);
+
 export const challengePointEntries = pgTable(
   "challenge_point_entries",
   {

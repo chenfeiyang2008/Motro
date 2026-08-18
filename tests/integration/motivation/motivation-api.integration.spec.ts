@@ -147,9 +147,23 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
       await learner.login("api-learner", "api-pass-123");
       const xp = await learner.req("GET", "/api/v1/me/xp");
       expect(xp.statusCode).toBe(200);
-      const xpBody = xp.json() as { totalXp: number; entries: unknown[] };
+      const xpBody = xp.json() as {
+        totalXp: number;
+        entries: unknown[];
+        level: number;
+        title: string;
+        nextLevelThreshold: number | null;
+        progressPercent: number;
+      };
       expect(xpBody.totalXp).toBe(0);
       expect(Array.isArray(xpBody.entries)).toBe(true);
+      expect(xpBody.level).toBe(1);
+      expect(xpBody.title).toBe("初学黑铁");
+      expect(xpBody.nextLevelThreshold).toBe(50);
+      expect(xpBody.progressPercent).toBe(0);
+      expect(JSON.stringify(xpBody)).not.toMatch(
+        /password|session|source_event_id|review_event_id/,
+      );
 
       const lb = await learner.req("GET", "/api/v1/leaderboard/weekly");
       expect(lb.statusCode).toBe(200);

@@ -215,9 +215,9 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
       });
       await pool.query(
         `INSERT INTO game_rule_sets (rule_version, label, effective_at, status, configuration)
-         VALUES (2, 'motro-v2', now(), 'active', '{}'::jsonb)`,
+         VALUES (3, 'motro-test-v3', now(), 'active', '{}'::jsonb)`,
       );
-      // Same event, rule 1 and rule 2 both allowed (unique is per rule_version).
+      // Same event, rule 1 and test rule 3 both allowed (unique is per rule_version).
       await pool.query(
         `INSERT INTO xp_entries (user_id, review_event_id, rule_version, amount, reason, source_event_id, earned_at)
          VALUES ($1,$2,1,5,'initial_review','rv-evt',now())`,
@@ -225,7 +225,7 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
       );
       await pool.query(
         `INSERT INTO xp_entries (user_id, review_event_id, rule_version, amount, reason, source_event_id, earned_at)
-         VALUES ($1,$2,2,5,'initial_review','rv-evt',now())`,
+         VALUES ($1,$2,3,5,'initial_review','rv-evt',now())`,
         [uid, evId],
       );
       const cnt = await pool.query<{ n: string }>(
@@ -290,6 +290,30 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
       await expect(
         pool.query(`DELETE FROM challenge_point_entries WHERE user_id=$1`, [uid]),
       ).rejects.toThrow(/immutable|update\/delete/);
+    });
+
+    it("level_awards are append-only and unique per user/rank", async () => {
+      const uid = await seedUser("rank-award");
+      await pool.query(
+        `INSERT INTO level_awards
+           (user_id, level, title_key, rule_version, qualified_xp, reason, awarded_at)
+         VALUES ($1, 1, '初学黑铁', 2, 0, 'legacy_backfill', now())`,
+        [uid],
+      );
+      await expect(
+        pool.query(
+          `INSERT INTO level_awards
+             (user_id, level, title_key, rule_version, qualified_xp, reason, awarded_at)
+           VALUES ($1, 1, '初学黑铁', 2, 0, 'legacy_backfill', now())`,
+          [uid],
+        ),
+      ).rejects.toThrow(/duplicate|unique/i);
+      await expect(
+        pool.query(`UPDATE level_awards SET title_key='开口青铜' WHERE user_id=$1`, [uid]),
+      ).rejects.toThrow(/immutable|update\/delete/);
+      await expect(pool.query(`DELETE FROM level_awards WHERE user_id=$1`, [uid])).rejects.toThrow(
+        /immutable|update\/delete/,
+      );
     });
 
     it("challenge_point dedup: replay rejected once; correction/void is deferred seam limitation", async () => {

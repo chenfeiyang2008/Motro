@@ -68,10 +68,10 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
         const rows = await c.query<{ version: number }>(
           "SELECT version FROM schema_migrations ORDER BY version",
         );
-        // Ticket 07 + Ticket 09 已合入：迁移集合必须完整连续覆盖 0001–0035。
+        // Ticket 14 challenge + rank configuration 已合入；0038 由隔离工单占用，主线集合为 0001–0037、0039–0042。
         expect(rows.rows.map((r) => r.version)).toEqual([
           1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
-          26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37,
+          26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 39, 40, 41, 42,
         ]);
 
         // 0011：learning_cards 调度参数版本列存在且 NOT NULL。
