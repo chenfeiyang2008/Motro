@@ -1,0 +1,108 @@
+# Motro 内网部署环境变量模板（Ticket 11）
+# ---------------------------------------------------------------------------
+# 用法：cp docs/deployment/intranet-env.example intranet.env
+# 然后用占位符 `<请填>` 填写真实值。真实密钥/证书路径【绝对不要】提交到仓库。
+# 空值或缺省（未标 `?-` / `:?` 的 required 项）会 fail-fast 拒绝启动。
+# ---------------------------------------------------------------------------
+
+# ---- 环境 ----
+# 内网固定为 production；触发 config.ts 的生产校验（Secure cookie、必填 secret）。
+NODE_ENV=production
+
+# ---- PostgreSQL ----
+# 对应 compose/intranet.yml 的 db 服务环境变量；容器内从 env 读取。
+POSTGRES_HOST=db              # 容器网络内服务名；浏览器/主机不直连
+POSTGRES_PORT=5432
+POSTGRES_DB=<请填，例如 motro_intranet>
+POSTGRES_USER=<请填>
+POSTGRES_PASSWORD=<请填，强口令，20+ 字符>
+POSTGRES_BIND_ADDR=127.0.0.1  # 主机绑定地址；0.0.0.0 仅在确有需要时
+POSTGRES_BIND_PORT=5432
+
+# ---- Cookie / CSRF（必填 32+ 字符随机）----
+SESSION_KEY=<请填：32+ 字节随机字符串>
+CSRF_KEY=<请填：32+ 字节随机字符串>
+COOKIE_SECURE=true            # production 强制 → config.ts 校验
+COOKIE_SAMESITE=lax           # 内网同源 → 可选 lax；跨域则 strict/none+must-secure
+COOKIE_IDLE_MINUTES=30
+COOKIE_ABSOLUTE_HOURS=168
+# 禁止在生产配置中写入 E2E_ADMIN_PASSWORD —— 仅 E2E 测试使用，由 CI 注入。
+
+# ---- API ----
+API_PORT=3000                 # 容器内部端口；host 绑定由下文 BIND_ADDR 控制
+API_PUBLIC_URL=<请填：https://<intranet-host>/api/v1>   # 浏览器可见 origin（反代后）
+CORS_ORIGINS=https://<intranet-host>   # 逗号分隔，仅允许反代 origin；不要 *
+
+# ---- Web ----
+WEB_PORT=3001                 # 容器内部端口
+WEB_BIND_ADDR=127.0.0.1       # 主机绑定：仅内网回环；浏览器经 Caddy
+WEB_BIND_PORT=3001
+WEB_PUBLIC_URL=<请填：https://<intranet-host>>        # 浏览器主页 origin
+API_INTERNAL_URL=http://api:3000                      # 容器网络内 API 地址
+
+# ---- Worker ----
+WORKER_CONCURRENCY=1          # 单进程并发；4GB 主机建议≤2
+WORKER_MAX_POOL_SIZE=2        # worker 自用连接池上限（固定≤2）
+WORKER_MAX_ATTEMPTS=5         # 单 job 最大尝试次数
+WORKER_POLL_INTERVAL_MS=2000  # 轮询间隔
+WORKER_LEASE_MS=60000         # claim lease 时长（毫秒，min 600）
+WORKER_RECOVER_INTERVAL_MS=2000   # lease-expiry 恢复扫描间隔（500–5000）
+WORKER_RECOVER_BATCH_SIZE=20      # 单次扫描候上限（≤20）
+
+# ---- Provider 网络开关（内网默认关闭真实网络）----
+# fake-only（默认）：worker 注册 built-in fake handler，零真实网络。
+# real（仅 staging/production）：worker 注册真实 Wiktionary/DeepSeek adapter。
+#   - real + production 未启用任一 provider → 启动失败（fail-fast）；
+#   - real + DeepSeek enabled 但缺 DEEPSEEK_API_KEY → 启动失败（fail-fast）。
+MOTRO_PROVIDER_MODE=fake
+DEEPSEEK_ENABLED=false
+MOTRO_WIKTIONARY_ALLOW_NETWORK=false
+
+# ---- 真实 Provider 参数（T22；仅 real 模式需要，默认占位）----
+# DeepSeek（真实生产配置不得写入仓库；DEEPSEEK_API_KEY 由部署 secret 注入）
+DEEPSEEK_API_KEY=<请填：仅 staging/production；fake-only 留空>
+DEEPSEEK_API_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-chat
+DEEPSEEK_TIMEOUT_MS=30000
+DEEPSEEK_MAX_RESPONSE_BYTES=1048576
+
+# Wiktionary（MediaWiki Action API）
+WIKTIONARY_API_BASE_URL=https://en.wiktionary.org/w/api.php
+# User-Agent 必须含项目名与联系邮箱（Wikimedia 合规）。
+MOTRO_WIKTIONARY_USER_AGENT=MotroBot/1.0 (contact: motro@example.com)
+MOTRO_WIKTIONARY_TIMEOUT_MS=15000
+MOTRO_WIKTIONARY_MAX_RESPONSE_BYTES=5242880
+# SSRF 防护：仅允许白名单主机（逗号分隔，纯 hostname/IP）。
+MOTRO_WIKTIONARY_HOST_ALLOWLIST=en.wiktionary.org
+
+# ---- 导入文件 ----
+IMPORT_FILE_ROOT_DIR=.local-import-files
+IMPORT_MAX_FILE_BYTES=10485760
+IMPORT_ALLOWED_FORMATS=txt,csv,json,xlsx
+IMPORT_MAX_ROWS=50000
+IMPORT_MAX_CELL_LENGTH=1000
+IMPORT_MAX_JSON_DEPTH=10
+IMPORT_MAX_SHEETS=50
+IMPORT_MAX_CELLS=200000
+IMPORT_MAX_SUMMARY_LENGTH=120
+IMPORT_MAX_ZIP_ENTRIES=1024
+IMPORT_MAX_ZIP_UNCOMPRESSED_BYTES=268435456
+IMPORT_MAX_ZIP_EXPANSION_RATIO=100
+
+# ---- 日志 / OpenAPI / 限速 ----
+LOG_LEVEL=info
+OPENAPI_ENABLED=false         # 内网建议关闭 OpenAPI 文档暴露
+RATE_LIMIT_LOGIN_PER_MINUTE=10
+
+# ---- 反向代理 / TLS（Caddy）----
+# 仅浏览器入口；API/Web host 端口不直接暴露给学习者网卡。
+INTRA_HOST_NAME=<请填：内网域名，e.g. motro.local.example>
+TLS_CERT_FILE=<请填：证书路径，容器挂载或宿主机路径>
+TLS_KEY_FILE=<请填：密钥路径，容器挂载或宿主机路径>
+PROXY_BIND_ADDR=127.0.0.1    # Caddy host 绑定；监听内网网卡
+PROXY_BIND_PORT=443
+
+# ---- 备份（Runbook 占位）----
+BACKUP_DIR=/srv/motro-backups          # 独立磁盘/NAS；不得与 DB 数据同卷
+BACKUP_RETENTION_DAYS=30
+BACKUP_ENC_KEY_FILE=/root/motro-backup.key  # 解密密钥绝不与备份并存

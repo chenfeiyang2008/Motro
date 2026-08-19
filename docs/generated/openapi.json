@@ -2506,6 +2506,43 @@
         ]
       }
     },
+    "/api/v1/admin/memberships/bulk/daily-limit": {
+      "patch": {
+        "operationId": "AdminMembershipController_setBulkDailyLimit",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetDailyLimitDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminBulkDailyLimitResultDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "批量设置全体非会员用户的每日学习时长（服务端原子 + 审计汇总）",
+        "tags": [
+          "admin membership"
+        ]
+      }
+    },
     "/api/v1/me/xp": {
       "get": {
         "operationId": "GameController_meXp",
@@ -7463,6 +7500,23 @@
           }
         },
         "required": [
+          "dailyLimitMinutes"
+        ]
+      },
+      "AdminBulkDailyLimitResultDto": {
+        "type": "object",
+        "properties": {
+          "affected": {
+            "type": "number",
+            "description": "受影响（设为新时长）的非会员用户数"
+          },
+          "dailyLimitMinutes": {
+            "type": "number",
+            "description": "保存后的非会员每日学习时长（分钟）"
+          }
+        },
+        "required": [
+          "affected",
           "dailyLimitMinutes"
         ]
       },

@@ -52,7 +52,8 @@ export const IV_RETRYABLE = 12; // WIKI_TRANSIENT（retryable）
 
 // ---- Fake Provider 结果（确定性、无网络、无随机）----
 
-export interface FakeFetchedFields {
+/** 被 Fake 与 Real adapter 共用的 fetched fields 接口。 */
+export interface FetchedFields {
   canonicalTitle: string;
   normalizedSpelling: string;
   language: string;
@@ -64,6 +65,8 @@ export interface FakeFetchedFields {
   licenseUrl: string;
   attribution: string;
 }
+
+export type FakeFetchedFields = FetchedFields;
 
 export type FakeProviderOutcome =
   | {
@@ -255,14 +258,15 @@ async function readTargetSpelling(pool: Pool, targetId: string): Promise<string>
  * 不调用 pool.query——事实写入由 executeOperation 在最终事务中与 completeAttempt 同事务完成。
  * contentHash 由 handler 计算后传入，供 DB CHECK 校验；validateDeferredFact 在返回前验证。
  */
-function buildFetchedFact(
+export function buildFetchedFact(
   identity: string,
   pageId: string,
   revisionId: string,
   revisionTimestamp: Date,
-  fields: FakeFetchedFields,
+  fields: FetchedFields,
   commitRowId: string | null,
   inputVersion: number,
+  parserVersion: string,
 ): DeferredSourceFact {
   const pageHash = pageIdentity({ pageId, language: fields.language });
   const revHash = revisionIdentity({ pageId, revisionId });
@@ -292,7 +296,7 @@ function buildFetchedFact(
     licenseVersion: fields.licenseVersion,
     licenseUrl: fields.licenseUrl,
     attribution: fields.attribution,
-    parserVersion: FAKE_PARSER_VERSION,
+    parserVersion,
     status: "fetched",
     ambiguityNote: null,
     ambiguityCandidates: null,
@@ -306,7 +310,7 @@ function buildFetchedFact(
  * candidate 列表供 Ticket 07 人工选择；绝不自动归一。不保存 provider 原文。
  * contentHash 为 null（ambiguous 无 fetched 内容）；DB CHECK 保证 ambiguous 必须携带 candidates。
  */
-function buildAmbiguousFact(
+export function buildAmbiguousFact(
   identity: string,
   pageId: string,
   revisionId: string,
@@ -395,6 +399,7 @@ export function buildWiktionaryFakeHandler(pool: Pool): OperationHandlerRegistry
             outcome.fields,
             row.target_id,
             inputVersion,
+            FAKE_PARSER_VERSION,
           );
           // domain 校验：非法草稿直接抛永久错误（不写事实，由 executor 记录 failed）。
           const v = validateDeferredFact(fact);

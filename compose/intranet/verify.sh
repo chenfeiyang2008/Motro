@@ -48,10 +48,14 @@ echo "ready=$ready"
 echo "$ready" | grep -q '"db":"ok"' || fail "DB 未就绪"
 echo "$ready" | grep -q '"graphileWorker":"ok"' || fail "graphile_worker schema 未就绪"
 
-step "3/6 校验迁移版本（schema_migrations 最高 == 部署目标 0042）"
+step "3/6 校验迁移版本（schema_migrations 最高 == 源码最高）"
+# 动态从源码 db/migrations/ 确定目标版本，不写死固定值。
+EXPECTED_MIG=$(ls db/migrations/*.sql 2>/dev/null | sort -V | tail -1 | sed -E 's/.*\/([0-9]+)_.*/\1/')
+EXPECTED_MIG=${EXPECTED_MIG:-0}
+[ "${EXPECTED_MIG}" -gt 0 ] || fail "无法从源码 db/migrations/ 确定迁移目标版本"
 max_mig=$("${COMPOSE[@]}" exec -T db psql -U "${POSTGRES_USER:-motro}" -d "${POSTGRES_DB:-motro}" \
   -tAc "SELECT max(version) FROM schema_migrations" 2>/dev/null || echo "")
-[ "${max_mig:-0}" -ge 42 ] || fail "迁移最高版本 ${max_mig:-0} < 42"
+[ "${max_mig:-0}" -eq "${EXPECTED_MIG}" ] || fail "迁移最高版本 ${max_mig:-0} != 源码最高 ${EXPECTED_MIG}"
 
 step "4/6 worker 进程存活"
 "${COMPOSE[@]}" ps worker | grep -qi "Up" || fail "worker 未运行"

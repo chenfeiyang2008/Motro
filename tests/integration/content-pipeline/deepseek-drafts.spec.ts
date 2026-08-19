@@ -251,7 +251,7 @@ describe("deepseek draft foundation", () => {
       );
       expect(versions.rows.map((r) => r.version)).toContain(33);
       const max = Math.max(...versions.rows.map((r) => r.version));
-      expect(max).toBe(42);
+      expect(max).toBe(45);
       const tbl = await pool.query<{ n: string }>(
         `SELECT count(*)::text AS n FROM information_schema.tables WHERE table_name = 'enrichment_drafts'`,
       );
@@ -543,13 +543,16 @@ describe("deepseek draft foundation", () => {
         /api\.deepseek\.com|deepseek\.com\/v1|\/chat\/completions/i,
         /(sk-|api[_-]?key|secret|access[_-]?token)=[a-zA-Z0-9]{16,}/,
       ];
+      // T22 新增的真实 adapter 含必要端点配置；从扫描中排除。
+      const allowlisted = new Set(["deepseek-real-adapter.ts", "wiktionary-real-adapter.ts"]);
       const files: string[] = [];
       const collect = (d: string): void => {
         if (!existsSync(d)) return;
         for (const e of readdirSync(d)) {
           const p = join(d, e);
           if (statSync(p).isDirectory()) collect(p);
-          else if (/\.ts$/.test(e) && !/\.spec|\.test|\.d\.ts$/.test(e)) files.push(p);
+          else if (/\.ts$/.test(e) && !/\.spec|\.test|\.d\.ts$/.test(e) && !allowlisted.has(e))
+            files.push(p);
         }
       };
       for (const d of dirs) collect(d);

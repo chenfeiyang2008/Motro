@@ -209,7 +209,7 @@ export class DraftRetryableError extends Error {
 }
 
 /** 读 operation 目标 commit row 的受控字段（只读稳定字段，绝不写业务事实）。 */
-async function readTarget(
+export async function readTarget(
   pool: Pool,
   targetId: string,
 ): Promise<{
@@ -231,7 +231,7 @@ async function readTarget(
  * 用于 draft.wiktionary_source_fact_id；source fact 表我们只按 identity 反查，
  * 找不到即视为来源缺失。
  */
-async function resolveSourceFactId(pool: Pool, commitRowId: string): Promise<string | null> {
+export async function resolveSourceFactId(pool: Pool, commitRowId: string): Promise<string | null> {
   const res = await pool.query<{ source_fact_identity: string }>(
     `SELECT source_fact_identity FROM wiktionary_source_facts
      WHERE commit_row_id = $1 AND status = 'fetched'

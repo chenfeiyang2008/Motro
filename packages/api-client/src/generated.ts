@@ -847,6 +847,23 @@ export interface paths {
         patch: operations["AdminMembershipController_setDailyLimit"];
         trace?: never;
     };
+    "/api/v1/admin/memberships/bulk/daily-limit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** 批量设置全体非会员用户的每日学习时长（服务端原子 + 审计汇总） */
+        patch: operations["AdminMembershipController_setBulkDailyLimit"];
+        trace?: never;
+    };
     "/api/v1/me/xp": {
         parameters: {
             query?: never;
@@ -2490,6 +2507,12 @@ export interface components {
             minutes: number;
         };
         AdminDailyLimitResultDto: {
+            /** @description 保存后的非会员每日学习时长（分钟） */
+            dailyLimitMinutes: number;
+        };
+        AdminBulkDailyLimitResultDto: {
+            /** @description 受影响（设为新时长）的非会员用户数 */
+            affected: number;
             /** @description 保存后的非会员每日学习时长（分钟） */
             dailyLimitMinutes: number;
         };
@@ -4601,6 +4624,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminDailyLimitResultDto"];
+                };
+            };
+        };
+    };
+    AdminMembershipController_setBulkDailyLimit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetDailyLimitDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBulkDailyLimitResultDto"];
                 };
             };
         };

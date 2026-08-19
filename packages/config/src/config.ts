@@ -1,6 +1,14 @@
 // 类型化配置边界：按进程分组的环境变量 schema、启动校验与脱敏诊断。
 // 凭证只允许通过运行时 secret 注入；本模块不会输出任何密钥原文。
 import { z } from "zod";
+import {
+  DeepSeekProviderSchema,
+  ProviderModeSchema,
+  WiktionaryProviderSchema,
+  type DeepSeekProviderConfig,
+  type ProviderMode,
+  type WiktionaryProviderConfig,
+} from "./providers.js";
 
 export const NODE_ENV_SCHEMA = z.enum(["development", "test", "production"]);
 export type NodeEnv = z.infer<typeof NODE_ENV_SCHEMA>;
@@ -130,6 +138,9 @@ const ImportSchema = z.object({
 });
 export type ImportConfig = z.infer<typeof ImportSchema>;
 
+export { ProviderModeSchema, WiktionaryProviderSchema, DeepSeekProviderSchema };
+export type { ProviderMode, WiktionaryProviderConfig, DeepSeekProviderConfig };
+
 export const AppConfigSchema = z.object({
   env: NODE_ENV_SCHEMA,
   db: DbSchema,
@@ -143,6 +154,9 @@ export const AppConfigSchema = z.object({
   rateLimit: RateLimitSchema,
   worker: WorkerSchema,
   import: ImportSchema,
+  providerMode: ProviderModeSchema,
+  wiktionary: WiktionaryProviderSchema,
+  deepseek: DeepSeekProviderSchema,
 });
 export type AppConfig = z.infer<typeof AppConfigSchema>;
 
@@ -179,12 +193,30 @@ function parseNodeEnv(value: string | undefined): NodeEnv {
   return parsed.data;
 }
 
+/**
+ * 生产必需值注入：fake-only 部署天然无 secret（如 DEEPSEEK_API_KEY 留空）。
+ * 空字符串/纯空白视为「未提供」→ 生产返回 undefined（后续按业务 cross-field 校验 fail-fast），
+ * 开发/测试用 fallback。修复 T24 演练发现的发布阻断：`DEEPSEEK_API_KEY=`（空）不应在
+ * fake-only production 启动时触发 Zod min(1) 失败。
+ */
 function requiredInProduction<T>(
   value: T | undefined,
   fallback: T,
   isProduction: boolean,
 ): T | undefined {
-  return value ?? (isProduction ? undefined : fallback);
+  const normalized =
+    typeof value === "string" && value.trim().length === 0 ? undefined : value;
+  return normalized ?? (isProduction ? undefined : fallback);
+}
+
+/**
+ * 解析布尔环境变量。接受 "1"/"true"/"yes"/"on" 为真；其余为假（默认 false）。
+ * 显式不把 "0"/"false" 之外的串当真，保证默认零网络。
+ */
+function parseBool(value: string | undefined, fallback: boolean): boolean {
+  if (value === undefined) return fallback;
+  const v = value.trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes" || v === "on";
 }
 
 /**
@@ -264,6 +296,31 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, explicitEnv?: N
       maxZipUncompressedBytes: env.IMPORT_MAX_ZIP_UNCOMPRESSED_BYTES ?? String(256 * 1024 * 1024),
       maxZipExpansionRatio: env.IMPORT_MAX_ZIP_EXPANSION_RATIO ?? "100",
     },
+    // ---- Provider 网络开关（Ticket 11/T22）----
+    // 默认 fake-only：零真实网络；real 模式需显式开启并提供 secret。
+    providerMode: env.MOTRO_PROVIDER_MODE ?? "fake",
+    wiktionary: {
+      apiBaseUrl: env.WIKTIONARY_API_BASE_URL ?? "https://en.wiktionary.org/w/api.php",
+      // MediaWiki 合规：User-Agent 必须含项目名与联系邮箱。
+      userAgent: env.MOTRO_WIKTIONARY_USER_AGENT ?? "MotroBot/1.0 (contact: motro@example.com)",
+      allowNetwork: parseBool(env.MOTRO_WIKTIONARY_ALLOW_NETWORK, false),
+      timeoutMs: env.MOTRO_WIKTIONARY_TIMEOUT_MS ?? "15000",
+      maxResponseBytes: env.MOTRO_WIKTIONARY_MAX_RESPONSE_BYTES ?? String(5 * 1024 * 1024),
+      // 主机名白名单（SSRF 防护）；逗号分隔，纯 hostname/IP。
+      hostAllowlist: (env.MOTRO_WIKTIONARY_HOST_ALLOWLIST ?? "en.wiktionary.org")
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0),
+    },
+    deepseek: {
+      enabled: parseBool(env.DEEPSEEK_ENABLED, false),
+      // production 时必须由 secret 注入；开发/测试用占位。
+      apiKey: requiredInProduction(env.DEEPSEEK_API_KEY, "dev_only_no_key", isProduction),
+      apiBaseUrl: env.DEEPSEEK_API_BASE_URL ?? "https://api.deepseek.com",
+      model: env.DEEPSEEK_MODEL ?? "deepseek-chat",
+      timeoutMs: env.DEEPSEEK_TIMEOUT_MS ?? "30000",
+      maxResponseBytes: env.DEEPSEEK_MAX_RESPONSE_BYTES ?? String(1024 * 1024),
+    },
   };
 
   const result = AppConfigSchema.safeParse(raw);
@@ -298,6 +355,34 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, explicitEnv?: N
     ]);
   }
 
+  // ---- Provider 网络模式与密钥校验 ----
+  // real 模式必须至少启用一个真实 provider；生产 real 模式下启用 DeepSeek 必须提供 apiKey。
+  if (isProduction && result.data.providerMode === "real") {
+    if (!result.data.deepseek.enabled && !result.data.wiktionary.allowNetwork) {
+      throw new ConfigError([
+        {
+          path: "providerMode",
+          code: "no_provider_enabled",
+          message:
+            "production real 模式必须至少启用一个真实 provider（DEEPSEEK_ENABLED=true 或 MOTRO_WIKTIONARY_ALLOW_NETWORK=true）",
+        },
+      ]);
+    }
+    // DeepSeek 启用时 apiKey 必须非空（optional + Zod 不强制；此处做 cross-field 校验）
+    if (
+      result.data.deepseek.enabled &&
+      (!result.data.deepseek.apiKey || result.data.deepseek.apiKey.length === 0)
+    ) {
+      throw new ConfigError([
+        {
+          path: "deepseek.apiKey",
+          code: "missing_secret",
+          message: "production 启用 DeepSeek 时必须提供 DEEPSEEK_API_KEY",
+        },
+      ]);
+    }
+  }
+
   return result.data;
 }
 
@@ -329,5 +414,8 @@ export function redactConfig(config: AppConfig): Record<string, unknown> {
       maxZipUncompressedBytes: config.import.maxZipUncompressedBytes,
       maxZipExpansionRatio: config.import.maxZipExpansionRatio,
     },
+    providerMode: config.providerMode,
+    wiktionary: { ...config.wiktionary },
+    deepseek: { ...config.deepseek, apiKey: "***" },
   };
 }

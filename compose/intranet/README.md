@@ -58,10 +58,25 @@ WEB_BIND_ADDR=127.0.0.1
 WEB_BIND_PORT=3001
 WEB_PUBLIC_URL=http://<intranet-host>   # 浏览器访问 origin
 
-# Provider（内网默认关闭真实网络）
+# Provider（T22：三档部署模式）
+#   1) fake-only 内网演示（默认）：MOTRO_PROVIDER_MODE=fake，零真实网络；
+#   2) real provider staging：MOTRO_PROVIDER_MODE=real + 测试 key / allowlist；
+#   3) real provider production：MOTRO_PROVIDER_MODE=real + 真实 key（配置不写入仓库）。
 DEEPSEEK_ENABLED=false
 MOTRO_WIKTIONARY_ALLOW_NETWORK=false
 MOTRO_PROVIDER_MODE=fake
+
+# 真实 provider 参数（仅 real 模式需要；fake-only 可留空）
+DEEPSEEK_API_KEY=
+DEEPSEEK_API_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-chat
+DEEPSEEK_TIMEOUT_MS=30000
+DEEPSEEK_MAX_RESPONSE_BYTES=1048576
+WIKTIONARY_API_BASE_URL=https://en.wiktionary.org/w/api.php
+MOTRO_WIKTIONARY_USER_AGENT=MotroBot/1.0 (contact: motro@example.com)
+MOTRO_WIKTIONARY_TIMEOUT_MS=15000
+MOTRO_WIKTIONARY_MAX_RESPONSE_BYTES=5242880
+MOTRO_WIKTIONARY_HOST_ALLOWLIST=en.wiktionary.org
 
 # Worker
 WORKER_CONCURRENCY=1

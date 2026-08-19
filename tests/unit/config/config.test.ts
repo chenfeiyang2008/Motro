@@ -51,6 +51,7 @@ describe("loadConfig", () => {
       SESSION_KEY: "production-session-key-0123456789abcdef",
       CSRF_KEY: "production-csrf-key-0123456789abcdef",
       POSTGRES_PASSWORD: "production-password",
+      DEEPSEEK_ENABLED: "false",
     };
     expect(() => loadConfig({ ...valid, COOKIE_SECURE: "false" })).toThrow(
       /production 必须使用 Secure cookie/,
@@ -77,6 +78,7 @@ describe("loadConfig", () => {
         CSRF_KEY: "production-csrf-key-0123456789abcdef",
         POSTGRES_PASSWORD: "production-password",
         OPENAPI_ENABLED: "true",
+        DEEPSEEK_ENABLED: "false",
       }),
     ).not.toThrow(ConfigError);
   });
@@ -91,5 +93,67 @@ describe("loadConfig", () => {
     const text = JSON.stringify(redactConfig(config));
     expect(text).not.toMatch(/very-secret|super-secret-password/);
     expect(text).toContain("***");
+  });
+
+  it("providerMode 默认为 fake", () => {
+    const config = loadConfig(DEV_ENV);
+    expect(config.providerMode).toBe("fake");
+  });
+
+  it("production real 模式且 DeepSeek 全不启用时被拒绝", () => {
+    expect(() =>
+      loadConfig({
+        NODE_ENV: "production",
+        SESSION_KEY: "production-session-key-0123456789abcdef",
+        CSRF_KEY: "production-csrf-key-0123456789abcdef",
+        POSTGRES_PASSWORD: "production-password",
+        MOTRO_PROVIDER_MODE: "real",
+      }),
+    ).toThrow(ConfigError);
+  });
+
+  it("production real 模式 + DeepSeek enabled 但缺少 apiKey 被拒绝", () => {
+    expect(() =>
+      loadConfig({
+        NODE_ENV: "production",
+        SESSION_KEY: "production-session-key-0123456789abcdef",
+        CSRF_KEY: "production-csrf-key-0123456789abcdef",
+        POSTGRES_PASSWORD: "production-password",
+        MOTRO_PROVIDER_MODE: "real",
+        DEEPSEEK_ENABLED: "true",
+      }),
+    ).toThrow(ConfigError);
+  });
+
+  it("redactConfig 脱敏 deepseek.apiKey", () => {
+    const config = loadConfig({
+      ...DEV_ENV,
+      DEEPSEEK_API_KEY: "sk-real-secret-key-12345",
+      DEEPSEEK_ENABLED: "true",
+    });
+    const text = JSON.stringify(redactConfig(config));
+    expect(text).not.toMatch(/sk-real-secret-key-12345/);
+    expect(text).toContain("deepseek");
+    expect(text).toContain("***");
+  });
+
+  it("wiktionary 配置默认值正确", () => {
+    const config = loadConfig(DEV_ENV);
+    expect(config.wiktionary.apiBaseUrl).toBe("https://en.wiktionary.org/w/api.php");
+    expect(config.wiktionary.allowNetwork).toBe(false);
+    expect(config.wiktionary.userAgent).toContain("motro@example.com");
+    expect(config.wiktionary.hostAllowlist).toEqual(["en.wiktionary.org"]);
+    expect(config.wiktionary.timeoutMs).toBe(15000);
+    expect(config.wiktionary.maxResponseBytes).toBe(5 * 1024 * 1024);
+  });
+
+  it("MOTRO_WIKTIONARY_ALLOW_NETWORK=1 开启网络", () => {
+    const config = loadConfig({ ...DEV_ENV, MOTRO_WIKTIONARY_ALLOW_NETWORK: "1" });
+    expect(config.wiktionary.allowNetwork).toBe(true);
+  });
+
+  it("MOTRO_WIKTIONARY_ALLOW_NETWORK=0 关闭网络", () => {
+    const config = loadConfig({ ...DEV_ENV, MOTRO_WIKTIONARY_ALLOW_NETWORK: "0" });
+    expect(config.wiktionary.allowNetwork).toBe(false);
   });
 });
