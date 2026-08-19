@@ -12,7 +12,7 @@ function m(
   status: "member" | "free",
   expiresAt: string | null = null,
 ): AdminMembershipRead {
-  return { plan, status, expiresAt };
+  return { plan, status, expiresAt, dailyLimitMinutes: 15 };
 }
 
 describe("deriveMembershipBadge", () => {

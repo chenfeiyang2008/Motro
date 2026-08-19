@@ -15,17 +15,13 @@ import {
   disableAdminUser,
   enableAdminUser,
   getAdminUserMembership,
-  grantAdminUserMembership,
   listAdminUsers,
-  renewAdminUserMembership,
   resetAdminUserPassword,
-  revokeAdminUserMembership,
   updateAdminUser,
   type AdminMembershipRead,
   type AdminUser,
   type AdminUserRole,
   type AdminUserStatus,
-  type ApiError,
 } from "@/lib/api";
 import {
   deriveMembershipBadge,
@@ -147,8 +143,23 @@ function ConfirmLayer({
   onConfirm: () => void;
   onDismiss: () => void;
 }) {
+  useEffect(() => {
+    if (busy) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onDismiss();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [busy, onDismiss]);
+
   return (
-    <div className="dialog-backdrop" role="presentation">
+    <div
+      className="dialog-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !busy) onDismiss();
+      }}
+    >
       <div
         className="confirm-layer"
         role="dialog"
@@ -301,98 +312,6 @@ export default function AdminUsersPage() {
     setMemberships(next);
     setMembershipsLoading(false);
   }, []);
-
-  // ---- 会员操作（幂等 + 防重复点击）----
-  // 单一活跃操作目标：任一操作期间 disable 该行全部按钮；成功后刷新单行会员投影。
-  const [activeMembershipUser, setActiveMembershipUser] = useState<string | null>(null);
-  const [membershipError, setMembershipError] = useState<string>("");
-  // 每个目标一次性 intent key，失败重试复用；成功/换目标后清空。
-  const membershipIntentRef = useRef<Record<string, string>>({});
-  const membershipActionRef = useRef<{
-    userId: string;
-    kind: "grant" | "renew" | "revoke";
-  } | null>(null);
-
-  async function refreshMembership(userId: string): Promise<void> {
-    const res = await getAdminUserMembership(userId);
-    setMemberships((prev) => ({
-      ...prev,
-      [userId]: res.ok ? (res.data as AdminMembershipRead) : null,
-    }));
-  }
-
-  function ensureIntent(userId: string): string {
-    const existing = membershipIntentRef.current[userId];
-    if (existing) return existing;
-    const key = uuid();
-    membershipIntentRef.current[userId] = key;
-    return key;
-  }
-
-  function clearIntent(userId: string): void {
-    delete membershipIntentRef.current[userId];
-  }
-
-  async function withMembershipAction(
-    userId: string,
-    kind: "grant" | "renew" | "revoke",
-    fn: (key: string) => Promise<{ ok: boolean; status: number; error: ApiError | undefined }>,
-  ): Promise<void> {
-    setMembershipError("");
-    membershipActionRef.current = { userId, kind };
-    setActiveMembershipUser(userId);
-    const key = ensureIntent(userId);
-    const res = await fn(key);
-    setActiveMembershipUser(null);
-    if (!res.ok) {
-      if (res.status === 401) {
-        // 凭据失效 → 跳转登录。
-        window.location.href = "/login";
-        return;
-      }
-      if (res.status === 403) {
-        setMembershipError("无权限执行此操作");
-      } else if (res.status === 409) {
-        setMembershipError("该操作已冲突，请刷新后重试");
-        // 冲突后不复用意图键，下次生成新键。
-        clearIntent(userId);
-      } else if (res.status === 404) {
-        setMembershipError("该用户尚无会员记录，无法续期/撤销（请先授予）");
-        clearIntent(userId);
-      } else if (res.status === 0) {
-        setMembershipError("网络连接失败，请点击重试");
-        // 网络错误复用意图键。
-      } else {
-        setMembershipError(res.error?.message ?? "操作失败，请重试");
-        if (res.status >= 400 && res.status < 500 && res.status !== 409) clearIntent(userId);
-      }
-      return;
-    }
-    // 成功 → 刷新单行会员投影，清理意图。
-    clearIntent(userId);
-    await refreshMembership(userId);
-  }
-
-  async function onGrantMember(userId: string): Promise<void> {
-    await withMembershipAction(userId, "grant", async (key) => {
-      const res = await grantAdminUserMembership(userId, { plan: "member", expiresAt: null }, key);
-      return { ok: res.ok, status: res.status, error: res.error };
-    });
-  }
-
-  async function onRenewMember(userId: string, expiresAt: string | null): Promise<void> {
-    await withMembershipAction(userId, "renew", async (key) => {
-      const res = await renewAdminUserMembership(userId, expiresAt, key);
-      return { ok: res.ok, status: res.status, error: res.error };
-    });
-  }
-
-  async function onRevokeMember(userId: string): Promise<void> {
-    await withMembershipAction(userId, "revoke", async (key) => {
-      const res = await revokeAdminUserMembership(userId, key);
-      return { ok: res.ok, status: res.status, error: res.error };
-    });
-  }
 
   // 列表加载时同步获取会员状态。
   useEffect(() => {
@@ -681,19 +600,6 @@ export default function AdminUsersPage() {
           </button>
         </p>
       )}
-      {membershipError !== "" && (
-        <p className="form-error users-membership-error" role="alert">
-          {membershipError}
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => setMembershipError("")}
-            aria-label="关闭错误提示"
-          >
-            关闭
-          </button>
-        </p>
-      )}
       {membershipsLoading && (
         <p className="users-membership-loading" role="status" aria-live="polite">
           正在加载会员状态…
@@ -840,70 +746,6 @@ export default function AdminUsersPage() {
                           >
                             删除
                           </button>
-                          {/* ---- 会员操作（幂等 + 防重复点击） ---- */}
-                          {(() => {
-                            const m = memberships[u.id];
-                            const badge = deriveMembershipBadge(m);
-                            const busy = activeMembershipUser === u.id;
-                            const canGrant = badge !== "member";
-                            const canRenew = badge === "member" || badge === "expired";
-                            const canRevoke = badge === "member" || badge === "expired";
-                            return (
-                              <>
-                                {canGrant && (
-                                  <button
-                                    type="button"
-                                    className="secondary user-action-btn"
-                                    disabled={busy}
-                                    aria-busy={busy || undefined}
-                                    title="开通会员"
-                                    data-testid={`member-grant-${u.id}`}
-                                    onClick={() => void onGrantMember(u.id)}
-                                  >
-                                    {busy && membershipActionRef.current?.userId === u.id ? (
-                                      <span aria-hidden="true">处理中…</span>
-                                    ) : (
-                                      "开通会员"
-                                    )}
-                                  </button>
-                                )}
-                                {canRenew && (
-                                  <button
-                                    type="button"
-                                    className="secondary user-action-btn"
-                                    disabled={busy}
-                                    aria-busy={busy || undefined}
-                                    title="续期会员（永不过期）"
-                                    data-testid={`member-renew-${u.id}`}
-                                    onClick={() => void onRenewMember(u.id, null)}
-                                  >
-                                    {busy && membershipActionRef.current?.userId === u.id ? (
-                                      <span aria-hidden="true">处理中…</span>
-                                    ) : (
-                                      "续期会员"
-                                    )}
-                                  </button>
-                                )}
-                                {canRevoke && (
-                                  <button
-                                    type="button"
-                                    className="secondary user-action-btn"
-                                    disabled={busy}
-                                    aria-busy={busy || undefined}
-                                    title="撤销会员"
-                                    data-testid={`member-revoke-${u.id}`}
-                                    onClick={() => void onRevokeMember(u.id)}
-                                  >
-                                    {busy && membershipActionRef.current?.userId === u.id ? (
-                                      <span aria-hidden="true">处理中…</span>
-                                    ) : (
-                                      "撤销会员"
-                                    )}
-                                  </button>
-                                )}
-                              </>
-                            );
-                          })()}
                         </>
                       )}
                     </td>
@@ -929,7 +771,16 @@ export default function AdminUsersPage() {
 
       {/* 添加用户受控表单层 */}
       {showCreate && (
-        <div className="dialog-backdrop" role="presentation">
+        <div
+          className="dialog-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !creating) {
+              resetCreateForm();
+              setShowCreate(false);
+            }
+          }}
+        >
           <div
             className="create-user-layer"
             role="dialog"
@@ -1097,7 +948,13 @@ export default function AdminUsersPage() {
 
       {/* 编辑账号弹窗 */}
       {editTarget && (
-        <div className="dialog-backdrop" role="presentation">
+        <div
+          className="dialog-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !editBusy) setEditTarget(null);
+          }}
+        >
           <div
             className="create-user-layer"
             role="dialog"

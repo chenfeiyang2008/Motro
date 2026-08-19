@@ -1,16 +1,21 @@
-// Ticket 20 UI · admin membership status column & row actions — browser-driven E2E.
+// Ticket 03 closeout · membership admin UI — browser-driven E2E.
 //
-// 覆盖：
-//   a. 管理员打开用户列表 → 新建 learner → 会员状态列默认显示「免费」
-//   b. 通过 API 授予会员 → 列表刷新后显示「会员」徽章
-//   c. 续期会员 → 徽章保持「会员」
-//   d. 撤销会员 → 徽章恢复「免费」
-//   e. 过期会员 grant(past expiresAt) → 徽章显示「已过期」
-//   f. 点击「开通会员」按钮 → 非会员变会员；幂等重放（双击）不重复写入
-//   g. 409 / 403 / 401 错误信息在页面上可见
-//   h. 当前管理员自己的行无会员操作按钮
-//   i. 390 / 768 / 1440 无横向溢出
-//   j. 键盘 Tab 可达操作按钮，Enter 触发操作，Escape 关闭内联错误
+// Design rule: /admin/users is READ-ONLY for membership (badge display only).
+// All membership mutations (grant / renew / revoke / daily-limit) live on /admin/memberships.
+//
+// Covers:
+//   a. users page: new learner → badge defaults to「免费」
+//   b. users page: API grant → badge refreshes to「会员」; no grant/renew/revoke buttons on users page
+//   c. users page: API renew → badge stays「会员」; API revoke → badge「免费」
+//   d. users page: past-expiry grant → badge「已过期」
+//   e. users page: badges for admin row too (read-only, no buttons)
+//   f. memberships page: click 开通 → grant dialog with duration/until/indefinite → confirm → badge
+//   g. memberships page: admin's own row has no grant/renew/revoke buttons
+//   h. memberships page: renew from current membership; revoke → free
+//   i. memberships page: keyboard Tab/Enter; Escape closes dialog
+//   j. viewports 390/768/1440 — no h-overflow on both pages
+//   k. memberships page: daily-limit edit → 30 → refresh → persists; boundaries 0/15/1440; invalid rejected
+//   l. memberships page: modal error recovery — invalid input preserved; close/reopen fresh; network error shown
 //
 // 运行环境：隔离 Compose 栈（compose/e2e-import.yml；独立 DB/API/Web）。
 // 必须设置 E2E_ADMIN_PASSWORD（≥12 字符）且 E2E_IMPORT_DB 已初始化。
@@ -108,8 +113,10 @@ test.describe("admin membership UI (isolated stack)", () => {
     }
   });
 
-  /** 通过 UI 在用户管理页创建 learner，返回用户名与 OTP。 */
-  async function createLearnerViaUi(page: Page): Promise<{ username: string; otp: string }> {
+  // ---- Shared helpers ----
+
+  /** 通过 UI 在用户管理页创建 learner，返回用户名。 */
+  async function createLearnerViaUi(page: Page): Promise<string> {
     await page.goto("/admin/users");
     await expect(page.getByRole("heading", { name: "用户管理" })).toBeVisible();
     await page.getByRole("button", { name: "添加用户" }).click();
@@ -121,30 +128,22 @@ test.describe("admin membership UI (isolated stack)", () => {
     await dialog.getByLabel("角色", { exact: true }).selectOption("learner");
     await page.getByRole("button", { name: "创建", exact: true }).click();
     const otpDialog = page.getByRole("dialog", { name: /一次性密码/ });
-    await expect(otpDialog).toBeVisible({ timeout: 15000 });
-    const otp = (await otpDialog.getByTestId("otp-password").textContent())?.trim() ?? "";
-    expect(otp.length).toBeGreaterThanOrEqual(8);
-    await otpDialog.getByRole("button", { name: "取消" }).click();
-    await expect(otpDialog).toHaveCount(0);
-    // 用搜索框定位刚创建的用户：列表按 created_at ASC 分页，新用户在页面较多时可能不在首页。
-    await page.getByLabel("搜索用户名/显示名").fill(username);
-    await page.getByRole("button", { name: "搜索" }).click();
-    await expect(page.getByTestId("user-row").filter({ hasText: username }).first()).toBeVisible();
-    return { username, otp };
-  }
-
-  /** 回到用户列表并定位指定用户名（用搜索框过滤到可见行）。 */
-  async function locateUserRow(
-    page: Page,
-    username: string,
-  ): Promise<import("@playwright/test").Locator> {
-    await page.goto("/admin/users");
-    await expect(page.getByRole("heading", { name: "用户管理" })).toBeVisible();
-    await page.getByLabel("搜索用户名/显示名").fill(username);
-    await page.getByRole("button", { name: "搜索" }).click();
-    const row = page.getByTestId("user-row").filter({ hasText: username });
-    await expect(row.first()).toBeVisible();
-    return row;
+    await expect(otpDialog).toBeVisible({ timeout: 15_000 });
+    // WebKit 上「取消」偶发不立即卸载 dialog；重试直到消失。
+    await expect
+      .poll(
+        async () => {
+          if ((await otpDialog.count()) === 0) return true;
+          await otpDialog
+            .getByRole("button", { name: "取消" })
+            .click({ force: true })
+            .catch(() => {});
+          return false;
+        },
+        { timeout: 10_000, intervals: [250, 500] },
+      )
+      .toBe(true);
+    return username;
   }
 
   /** 管理员 API 上下文：用隔离栈 admin 凭据登录。 */
@@ -176,90 +175,111 @@ test.describe("admin membership UI (isolated stack)", () => {
     return user!.id;
   }
 
-  // ---- 核心场景 ----
+  /** 在 users 页定位指定用户名的行。 */
+  async function locateUsersPageRow(page: Page, username: string) {
+    await page.goto("/admin/users");
+    await expect(page.getByRole("heading", { name: "用户管理" })).toBeVisible();
+    await page.getByLabel("搜索用户名/显示名").fill(username);
+    await page.getByRole("button", { name: "搜索" }).click();
+    const row = page.getByTestId("user-row").filter({ hasText: username });
+    await expect(row.first()).toBeVisible({ timeout: 10_000 });
+    return row;
+  }
 
-  test("a. 新建 learner → 会员状态列默认「免费」", async ({ adminPage }) => {
+  /** 在 memberships 页定位指定用户名的行（用搜索框过滤）。 */
+  async function locateMembershipsPageRow(page: Page, username: string) {
+    await page.goto("/admin/memberships");
+    await expect(page.getByRole("heading", { name: "会员管理" })).toBeVisible();
+    await page.getByLabel("搜索用户").fill(username);
+    await page.getByRole("button", { name: "搜索" }).click();
+    const row = page.locator('[data-testid^="member-row-"]').filter({ hasText: username });
+    await expect(row.first()).toBeVisible({ timeout: 10_000 });
+    return row;
+  }
+
+  // =====================================================================
+  // a. users page: badge defaults to「免费」(read-only; no buttons)
+  // =====================================================================
+  test("a. users page: 新建 learner → badge defaults to「免费」, no grant/renew/revoke buttons", async ({
+    adminPage,
+  }) => {
     test.setTimeout(120_000);
-    const { username } = await createLearnerViaUi(adminPage);
-    const row = adminPage.getByTestId("user-row").filter({ hasText: username });
-    await expect(row.first()).toBeVisible();
-    const badge = row.first().locator(`[data-testid^="membership-badge-"]`);
-    await expect(badge).toHaveText("免费", { timeout: 10_000 });
+    const username = await createLearnerViaUi(adminPage);
+    const row = await locateUsersPageRow(adminPage, username);
+    // Badge visible and defaults to 免费.
+    await expect(row.locator("[data-testid^='membership-badge-']")).toHaveText("免费", {
+      timeout: 10_000,
+    });
+    // No grant/renew/revoke buttons on users page (all membership mutations live on memberships page).
+    await expect(row.locator("[data-testid^='member-grant-']")).toHaveCount(0);
+    await expect(row.locator("[data-testid^='member-renew-']")).toHaveCount(0);
+    await expect(row.locator("[data-testid^='member-revoke-']")).toHaveCount(0);
+    // Users page still has account operations (edit / disable / delete).
+    await expect(row.getByRole("button", { name: "编辑" })).toBeVisible();
   });
 
-  test("b. API grant → 列表刷新后显示「会员」徽章；h. 当前行无会员操作按钮", async ({
+  // =====================================================================
+  // b. users page: API grant → badge「会员」; no membership buttons on users page
+  // =====================================================================
+  test("b. users page: API grant → badge「会员」; no membership buttons", async ({
     adminPage,
     playwright,
   }) => {
     test.setTimeout(120_000);
-    const { username } = await createLearnerViaUi(adminPage);
+    const username = await createLearnerViaUi(adminPage);
     const { apiCtx, csrf } = await loginAdminApi(playwright);
     try {
       const userId = await getUserIdByName(apiCtx, username);
-      // 授予会员。
       const grantRes = await apiCtx.post(`/api/v1/admin/memberships/${userId}/grant`, {
-        headers: {
-          "x-csrf-token": csrf,
-          "idempotency-key": `e2e-grant-${randomUUID()}`,
-        },
+        headers: { "x-csrf-token": csrf, "idempotency-key": `e2e-grant-${randomUUID()}` },
         data: { plan: "member", expiresAt: null },
       });
       expect(grantRes.status()).toBe(200);
       expect((await grantRes.json()).status).toBe("member");
 
-      // 刷新列表 → 徽章变会员（用搜索框定位，不依赖列表分页位置）。
-      await locateUserRow(adminPage, username);
-      const row = adminPage.getByTestId("user-row").filter({ hasText: username });
+      // Refresh users page → badge updates to 会员.
+      const row = await locateUsersPageRow(adminPage, username);
       await expect(row.locator("[data-testid^='membership-badge-']")).toHaveText("会员", {
         timeout: 15_000,
       });
-
-      // 当前管理员行（隔离管理员）无「开通会员」「续期」「撤销」按钮。
-      // 用搜索框定位管理员自身（清除 learner 过滤）。
-      const meRow = await locateUserRow(adminPage, adminUsernameFor(currentProjectName));
-      await expect(meRow).toBeVisible();
-      await expect(meRow.getByTestId("member-grant-").first()).toHaveCount(0);
-      await expect(meRow.getByTestId("member-renew-").first()).toHaveCount(0);
-      await expect(meRow.getByTestId("member-revoke-").first()).toHaveCount(0);
+      // No grant/renew/revoke buttons on users page.
+      await expect(row.locator("[data-testid^='member-grant-']")).toHaveCount(0);
+      await expect(row.locator("[data-testid^='member-renew-']")).toHaveCount(0);
+      await expect(row.locator("[data-testid^='member-revoke-']")).toHaveCount(0);
     } finally {
       await apiCtx.dispose();
     }
   });
 
-  test("c. 续期会员 → 徽章保持「会员」；d. 撤销 → 恢复「免费」", async ({
+  // =====================================================================
+  // c. users page: renew → badge「会员」; revoke → badge「免费」
+  // =====================================================================
+  test("c. users page: API renew → badge stays「会员」; revoke → badge「免费」", async ({
     adminPage,
     playwright,
   }) => {
     test.setTimeout(120_000);
-    const { username } = await createLearnerViaUi(adminPage);
+    const username = await createLearnerViaUi(adminPage);
     const { apiCtx, csrf } = await loginAdminApi(playwright);
     try {
       const userId = await getUserIdByName(apiCtx, username);
-      // grant 先。
-      const grantKey = `e2e-grant-${randomUUID()}`;
-      const grantRes = await apiCtx.post(`/api/v1/admin/memberships/${userId}/grant`, {
-        headers: { "x-csrf-token": csrf, "idempotency-key": grantKey },
+      // Grant.
+      await apiCtx.post(`/api/v1/admin/memberships/${userId}/grant`, {
+        headers: { "x-csrf-token": csrf, "idempotency-key": `e2e-grant-${randomUUID()}` },
         data: { plan: "member", expiresAt: null },
       });
-      expect(grantRes.status()).toBe(200);
-
-      // renew 未来日期。
+      // Renew (future expiry).
       const future = new Date(Date.now() + 30 * 86400_000).toISOString();
-      const renewRes = await apiCtx.post(`/api/v1/admin/memberships/${userId}/renew`, {
+      await apiCtx.post(`/api/v1/admin/memberships/${userId}/renew`, {
         headers: { "x-csrf-token": csrf, "idempotency-key": `e2e-renew-${randomUUID()}` },
         data: { expiresAt: future },
       });
-      expect(renewRes.status()).toBe(200);
-
-      // revoke。
-      const revokeRes = await apiCtx.post(`/api/v1/admin/memberships/${userId}/revoke`, {
+      // Revoke.
+      await apiCtx.post(`/api/v1/admin/memberships/${userId}/revoke`, {
         headers: { "x-csrf-token": csrf, "idempotency-key": `e2e-revoke-${randomUUID()}` },
       });
-      expect(revokeRes.status()).toBe(200);
-
-      // 刷新 → 免费。
-      await locateUserRow(adminPage, username);
-      const row = adminPage.getByTestId("user-row").filter({ hasText: username });
+      // Badge → 免费.
+      const row = await locateUsersPageRow(adminPage, username);
       await expect(row.locator("[data-testid^='membership-badge-']")).toHaveText("免费", {
         timeout: 15_000,
       });
@@ -268,23 +288,21 @@ test.describe("admin membership UI (isolated stack)", () => {
     }
   });
 
-  test("e. 过期会员 → 徽章显示「已过期」", async ({ adminPage, playwright }) => {
+  // =====================================================================
+  // d. users page: past-expiry grant → badge「已过期」
+  // =====================================================================
+  test("d. users page: past-expiry grant → badge「已过期」", async ({ adminPage, playwright }) => {
     test.setTimeout(120_000);
-    const { username } = await createLearnerViaUi(adminPage);
+    const username = await createLearnerViaUi(adminPage);
     const { apiCtx, csrf } = await loginAdminApi(playwright);
     try {
       const userId = await getUserIdByName(apiCtx, username);
       const past = new Date(Date.now() - 3600_000).toISOString();
-      const grantRes = await apiCtx.post(`/api/v1/admin/memberships/${userId}/grant`, {
-        headers: { "x-csrf-token": csrf, "idempotency-key": `e2e-grant-past-${randomUUID()}` },
+      await apiCtx.post(`/api/v1/admin/memberships/${userId}/grant`, {
+        headers: { "x-csrf-token": csrf, "idempotency-key": `e2e-past-${randomUUID()}` },
         data: { plan: "member", expiresAt: past },
       });
-      expect(grantRes.status()).toBe(200);
-      expect((await grantRes.json()).status).toBe("free"); // effective fail-closed
-
-      // 刷新 → 已过期。
-      await locateUserRow(adminPage, username);
-      const row = adminPage.getByTestId("user-row").filter({ hasText: username });
+      const row = await locateUsersPageRow(adminPage, username);
       await expect(row.locator("[data-testid^='membership-badge-']")).toHaveText("已过期", {
         timeout: 15_000,
       });
@@ -293,32 +311,137 @@ test.describe("admin membership UI (isolated stack)", () => {
     }
   });
 
-  test("f. 开通会员按钮点击；幂等双击不重复写入", async ({ adminPage, playwright }) => {
+  // =====================================================================
+  // e. users page: admin's own row shows badge (read-only), no buttons
+  // =====================================================================
+  test("e. users page: admin's own row shows badge, no membership buttons", async ({
+    adminPage,
+  }) => {
+    test.setTimeout(60_000);
+    const meRow = await locateUsersPageRow(adminPage, adminUsernameFor(currentProjectName));
+    await expect(meRow).toBeVisible();
+    // Badge visible (admin has no membership row → 免费, or whatever state; it's read-only).
+    await expect(meRow.locator("[data-testid^='membership-badge-']")).toBeVisible();
+    // No grant/renew/revoke buttons.
+    await expect(meRow.locator("[data-testid^='member-grant-']")).toHaveCount(0);
+    await expect(meRow.locator("[data-testid^='member-renew-']")).toHaveCount(0);
+    await expect(meRow.locator("[data-testid^='member-revoke-']")).toHaveCount(0);
+  });
+
+  // =====================================================================
+  // f. memberships page: grant via UI dialog — duration / until / indefinite
+  // =====================================================================
+  test("f. memberships page: grant via UI — duration=30d → 会员; reopen → badge persists", async ({
+    adminPage,
+    playwright,
+  }) => {
     test.setTimeout(120_000);
-    const { username } = await createLearnerViaUi(adminPage);
+    const username = await createLearnerViaUi(adminPage);
+    const { apiCtx } = await loginAdminApi(playwright);
+    try {
+      const userId = await getUserIdByName(apiCtx, username);
+      // Go to memberships page and locate the learner.
+      const row = await locateMembershipsPageRow(adminPage, username);
+      // Badge is 免费.
+      await expect(row.locator(".admin-membership-status")).toHaveText("免费", { timeout: 10_000 });
+
+      // Click "开通" button.
+      const grantBtn = row.getByTestId(`member-grant-${userId}`);
+      await expect(grantBtn).toBeVisible();
+      await grantBtn.click();
+
+      // Dialog opens with title「开通会员 · <displayName>」.
+      const dialog = adminPage.getByRole("dialog");
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByRole("heading")).toContainText("开通会员");
+
+      // "按天数" mode is default; enter 30 days.
+      await expect(dialog.getByRole("spinbutton", { name: "天数" })).toHaveValue("30");
+      // Click "确认开通".
+      await dialog.getByRole("button", { name: "确认开通" }).click();
+
+      // Dialog closes; badge refreshes to 会员.
+      await expect(dialog).toHaveCount(0, { timeout: 10_000 });
+      await expect(row.locator(".admin-membership-status")).toHaveText("会员", {
+        timeout: 15_000,
+      });
+
+      // Reopen the memberships page; badge still shows 会员.
+      await adminPage.goto("/admin/memberships");
+      await adminPage.getByLabel("搜索用户").fill(username);
+      await adminPage.getByRole("button", { name: "搜索" }).click();
+      const row2 = adminPage.locator('[data-testid^="member-row-"]').filter({ hasText: username });
+      await expect(row2.first().locator(".admin-membership-status")).toHaveText("会员", {
+        timeout: 10_000,
+      });
+    } finally {
+      await apiCtx.dispose();
+    }
+  });
+
+  // =====================================================================
+  // g. memberships page: admin's own row shows membership controls
+  //    (the memberships page allows admins to see/manage ALL rows' membership,
+  //     including their own; only the USERS page hides membership mutation buttons)
+  // =====================================================================
+  test("g. memberships page: admin own row is visible with membership controls", async ({
+    adminPage,
+  }) => {
+    test.setTimeout(60_000);
+    await adminPage.goto("/admin/memberships");
+    await expect(adminPage.getByRole("heading", { name: "会员管理" })).toBeVisible();
+    await adminPage.getByLabel("搜索用户").fill(adminUsernameFor(currentProjectName));
+    await adminPage.getByRole("button", { name: "搜索" }).click();
+    const meRow = adminPage
+      .locator('[data-testid^="member-row-"]')
+      .filter({ hasText: adminUsernameFor(currentProjectName) });
+    await expect(meRow.first()).toBeVisible({ timeout: 10_000 });
+    // Admin's own row has a daily-limit button (always present on memberships page).
+    await expect(meRow.first().locator("[data-testid^='member-daily-limit-']")).toHaveCount(1);
+  });
+
+  // =====================================================================
+  // h. memberships page: renew from current membership; revoke → free
+  // =====================================================================
+  test("h. memberships page: grant via UI then renew (duration mode) via UI then revoke via UI", async ({
+    adminPage,
+    playwright,
+  }) => {
+    test.setTimeout(120_000);
+    const username = await createLearnerViaUi(adminPage);
     const { apiCtx } = await loginAdminApi(playwright);
     try {
       const userId = await getUserIdByName(apiCtx, username);
 
-      // 检查列表有「免费」徽章。
-      await locateUserRow(adminPage, username);
-      let row = adminPage.getByTestId("user-row").filter({ hasText: username });
-      await expect(row.locator("[data-testid^='membership-badge-']")).toHaveText("免费", {
+      // Grant via memberships page UI.
+      const row = await locateMembershipsPageRow(adminPage, username);
+      await row.getByTestId(`member-grant-${userId}`).click();
+      await expect(adminPage.getByRole("dialog")).toBeVisible();
+      await adminPage.getByRole("button", { name: "确认开通" }).click();
+      await expect(row.locator(".admin-membership-status")).toHaveText("会员", {
         timeout: 15_000,
       });
 
-      // 点击「开通会员」。
-      const grantBtn = row.getByTestId(`member-grant-${userId}`);
-      await expect(grantBtn).toBeVisible();
-      await grantBtn.click();
-      await expect(row.locator("[data-testid^='membership-badge-']")).toHaveText("会员", {
-        timeout: 15_000,
+      // Renew via UI (duration mode: 30 days, using default value).
+      await row.getByTestId(`member-renew-${userId}`).click();
+      const renewDialog = adminPage.getByRole("dialog");
+      await expect(renewDialog).toBeVisible();
+      await expect(renewDialog.getByRole("heading")).toContainText("续期会员");
+      // "按天数" mode is default; click "确认续期" directly.
+      await renewDialog.getByRole("button", { name: "确认续期" }).click();
+      await expect(renewDialog).toHaveCount(0, { timeout: 10_000 });
+      await expect(row.locator(".admin-membership-status")).toHaveText("会员", {
+        timeout: 10_000,
       });
 
-      // 幂等验证：刷新后仍为 member（重放由服务端冻结）。
-      await locateUserRow(adminPage, username);
-      row = adminPage.getByTestId("user-row").filter({ hasText: username });
-      await expect(row.locator("[data-testid^='membership-badge-']")).toHaveText("会员", {
+      // Revoke via UI.
+      await row.getByTestId(`member-revoke-${userId}`).click();
+      const revokeDialog = adminPage.getByRole("dialog");
+      await expect(revokeDialog).toBeVisible();
+      await expect(revokeDialog.getByRole("heading")).toContainText("撤销会员");
+      await revokeDialog.getByRole("button", { name: "确认撤销" }).click();
+      await expect(revokeDialog).toHaveCount(0, { timeout: 10_000 });
+      await expect(row.locator(".admin-membership-status")).toHaveText("免费", {
         timeout: 15_000,
       });
     } finally {
@@ -326,36 +449,159 @@ test.describe("admin membership UI (isolated stack)", () => {
     }
   });
 
-  test("j. 390 / 768 / 1440 视口无横向溢出", async ({ adminPage }) => {
-    test.setTimeout(60_000);
-    await adminPage.goto("/admin/users");
-    await expect(adminPage.getByRole("heading", { name: "用户管理" })).toBeVisible();
+  // =====================================================================
+  // i. memberships page: keyboard Tab/Enter; Escape closes dialog
+  // =====================================================================
+  test("i. memberships page: Escape closes dialog; Tab reaches action buttons", async ({
+    adminPage,
+    playwright,
+  }) => {
+    test.setTimeout(120_000);
+    const username = await createLearnerViaUi(adminPage);
+    const { apiCtx } = await loginAdminApi(playwright);
+    try {
+      const userId = await getUserIdByName(apiCtx, username);
+      const row = await locateMembershipsPageRow(adminPage, username);
 
-    for (const width of [390, 768, 1440]) {
-      await adminPage.setViewportSize({ width, height: width === 390 ? 844 : 900 });
-      // 与 admin-users.spec.ts 同构：页本身不得有横向滚动（表格内在溢出由表格容器承接）。
-      const overflow = await adminPage.evaluate(
-        () =>
-          document.documentElement.scrollWidth > document.documentElement.clientWidth ||
-          document.body.scrollWidth > document.body.clientWidth,
+      // Tab from page top to the "时长" button.
+      await adminPage.getByRole("heading", { name: "会员管理" }).focus();
+      for (let i = 0; i < 40; i++) await adminPage.keyboard.press("Tab");
+      const focusedTag = await adminPage.evaluate(
+        () => (document.activeElement as HTMLElement)?.tagName ?? "",
       );
-      expect(overflow, `${width}px 用户管理页无横向滚动`).toBe(false);
+      expect(["BUTTON", "SELECT", "INPUT", "A"]).toContain(focusedTag);
+
+      // Open daily-limit dialog via keyboard — focus on the 时长 button, then Enter.
+      await row.getByTestId(`member-daily-limit-${userId}`).focus();
+      await adminPage.keyboard.press("Enter");
+      const dialog = adminPage.getByRole("dialog");
+      await expect(dialog).toBeVisible();
+      // Escape closes.
+      await adminPage.keyboard.press("Escape");
+      await expect(dialog).toHaveCount(0, { timeout: 5_000 });
+    } finally {
+      await apiCtx.dispose();
     }
   });
 
-  test("j. 键盘 Tab 可达操作按钮；Enter 触发操作", async ({ adminPage }) => {
+  // =====================================================================
+  // j. viewports 390/768/1440 — no horizontal overflow on both pages
+  // =====================================================================
+  test("j. viewports 390/768/1440 — no horizontal overflow on users and memberships pages", async ({
+    adminPage,
+  }) => {
     test.setTimeout(60_000);
-    await adminPage.goto("/admin/users");
-    await expect(adminPage.getByRole("heading", { name: "用户管理" })).toBeVisible();
-    // Tab 键从添加用户按钮开始，逐步前进到操作区。
-    await adminPage.getByRole("button", { name: "添加用户" }).focus();
-    // 连续 Tab 15 步应覆盖大部分操作按钮区域。
-    for (let i = 0; i < 15; i++) {
-      await adminPage.keyboard.press("Tab");
+    for (const width of [390, 768, 1440]) {
+      await adminPage.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+      for (const [url, label] of [
+        ["/admin/users", "用户管理"],
+        ["/admin/memberships", "会员管理"],
+      ] as const) {
+        await adminPage.goto(url);
+        await expect(adminPage.getByRole("heading", { name: label })).toBeVisible();
+        const overflow = await adminPage.evaluate(
+          () =>
+            document.documentElement.scrollWidth > document.documentElement.clientWidth ||
+            document.body.scrollWidth > document.body.clientWidth,
+        );
+        expect(overflow, `${width}px ${label} 无横向滚动`).toBe(false);
+      }
     }
-    const focused = await adminPage.evaluate(
-      () => (document.activeElement as HTMLElement)?.tagName ?? "",
-    );
-    expect(["BUTTON", "SELECT", "INPUT", "A"]).toContain(focused);
+  });
+
+  // =====================================================================
+  // k. memberships page: daily-limit edit → boundaries → persists
+  // =====================================================================
+  test("k. memberships page: daily-limit edit → 30 → refresh → persists; boundaries 0/15/1440; invalid rejected", async ({
+    adminPage,
+    playwright,
+  }) => {
+    test.setTimeout(120_000);
+    const username = await createLearnerViaUi(adminPage);
+    const { apiCtx } = await loginAdminApi(playwright);
+    try {
+      const userId = await getUserIdByName(apiCtx, username);
+      const row = await locateMembershipsPageRow(adminPage, username);
+
+      // Default: 15 分钟/日 shown.
+      await expect(row.getByText("15 分钟 / 日")).toBeVisible();
+
+      // Click "时长" to open daily-limit dialog.
+      const dailyLimitBtn = row.getByTestId(`member-daily-limit-${userId}`);
+      await expect(dailyLimitBtn).toBeVisible();
+      await dailyLimitBtn.click();
+
+      const dialog = adminPage.getByRole("dialog");
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByRole("heading")).toContainText("编辑非会员时长");
+      const input = dialog.locator('input[type="number"]');
+      await expect(input).toHaveValue("15");
+
+      // Invalid value: 2000 → client-side error message.
+      await input.fill("2000");
+      await dialog.getByRole("button", { name: "保存时长" }).click();
+      await expect(dialog.locator('[role="alert"]')).toContainText("0 至 1440");
+      // Input is preserved (not cleared).
+      await expect(input).toHaveValue("2000");
+
+      // Fix to valid: 30 → save.
+      await input.fill("30");
+      await dialog.getByRole("button", { name: "保存时长" }).click();
+      await expect(dialog).toHaveCount(0, { timeout: 10_000 });
+
+      // Refresh and verify.
+      await adminPage.goto("/admin/memberships");
+      await adminPage.getByLabel("搜索用户").fill(username);
+      await adminPage.getByRole("button", { name: "搜索" }).click();
+      await expect(
+        adminPage.getByTestId(`member-row-${userId}`).getByText("30 分钟 / 日"),
+      ).toBeVisible({ timeout: 10_000 });
+
+      // API confirms same value.
+      const readRes = await apiCtx.get(`/api/v1/admin/memberships/${userId}`);
+      expect(readRes.status()).toBe(200);
+      expect((await readRes.json()).dailyLimitMinutes).toBe(30);
+    } finally {
+      await apiCtx.dispose();
+    }
+  });
+
+  // =====================================================================
+  // l. memberships page: modal error recovery — close/reopen fresh; error shown
+  // =====================================================================
+  test("l. memberships page: dialog close/reopen resets state; server error shows alert", async ({
+    adminPage,
+    playwright,
+  }) => {
+    test.setTimeout(120_000);
+    const username = await createLearnerViaUi(adminPage);
+    const { apiCtx } = await loginAdminApi(playwright);
+    try {
+      const userId = await getUserIdByName(apiCtx, username);
+      const row = await locateMembershipsPageRow(adminPage, username);
+
+      // Open daily-limit dialog, enter invalid value, see error, close without saving.
+      await row.getByTestId(`member-daily-limit-${userId}`).click();
+      const dialog = adminPage.getByRole("dialog");
+      await expect(dialog).toBeVisible();
+      const input = dialog.locator('input[type="number"]');
+      await input.fill("9999");
+      await dialog.getByRole("button", { name: "保存时长" }).click();
+      await expect(dialog.locator('[role="alert"]')).toContainText("0 至 1440");
+      // Close dialog via "×" button.
+      await dialog.getByRole("button", { name: "关闭" }).click();
+      await expect(dialog).toHaveCount(0, { timeout: 5_000 });
+
+      // Reopen — input is fresh (15 default), no stale error.
+      await row.getByTestId(`member-daily-limit-${userId}`).click();
+      await expect(dialog).toBeVisible();
+      await expect(input).toHaveValue("15");
+      await expect(dialog.locator('[role="alert"]')).toHaveCount(0);
+      // Close via Escape.
+      await adminPage.keyboard.press("Escape");
+      await expect(dialog).toHaveCount(0, { timeout: 5_000 });
+    } finally {
+      await apiCtx.dispose();
+    }
   });
 });

@@ -524,6 +524,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 管理员首页概览（规模指标与待处理摘要） */
+        get: operations["AdminOverviewController_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/study/cards/summary": {
         parameters: {
             query?: never;
@@ -711,6 +728,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/daily-usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 当前账号今日学习时长摘要（服务端事实） */
+        get: operations["MembershipController_dailyUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/memberships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 会员管理列表（脱敏聚合投影 + 游标分页） */
+        get: operations["AdminMembershipController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/memberships/{userId}": {
         parameters: {
             query?: never;
@@ -777,6 +828,23 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/memberships/{userId}/daily-limit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** 设置该用户的非会员每日学习时长（幂等 + 审计） */
+        patch: operations["AdminMembershipController_setDailyLimit"];
         trace?: never;
     };
     "/api/v1/me/xp": {
@@ -1486,6 +1554,10 @@ export interface components {
         };
         CourseListResponseDto: {
             items: components["schemas"]["CourseListItemDto"][];
+            /** @description 下一页不透明游标；最后一页为 null */
+            nextCursor: string | null;
+            /** @description 是否还有后续页 */
+            hasMore: boolean;
         };
         CreateCourseDto: {
             /** @description 课程 slug（唯一，小写字母/数字/连字符） */
@@ -1803,6 +1875,69 @@ export interface components {
         SetPrimaryCourseDto: {
             /** @description 要设为主课程的已报名课程 ID */
             courseId: string;
+        };
+        AdminOverviewMetricDto: {
+            total: number;
+        };
+        AdminOverviewMetricsDto: {
+            users: components["schemas"]["AdminOverviewMetricDto"];
+            members: components["schemas"]["AdminOverviewMetricDto"];
+            activeLexiconEntries: components["schemas"]["AdminOverviewMetricDto"];
+            courses: components["schemas"]["AdminOverviewMetricDto"];
+            publishedCourses: components["schemas"]["AdminOverviewMetricDto"];
+        };
+        AdminOverviewReviewItemDto: {
+            id: string;
+            label: string;
+            status: string;
+            createdAt: string;
+        };
+        AdminOverviewReviewQueueDto: {
+            count: number;
+            items: components["schemas"]["AdminOverviewReviewItemDto"][];
+        };
+        AdminOverviewImportItemDto: {
+            id: string;
+            label: string;
+            status: string;
+            updatedAt: string;
+        };
+        AdminOverviewImportQueueDto: {
+            count: number;
+            items: components["schemas"]["AdminOverviewImportItemDto"][];
+        };
+        AdminOverviewOperationItemDto: {
+            id: string;
+            label: string;
+            status: string;
+            updatedAt: string;
+            errorCode?: string;
+        };
+        AdminOverviewOperationQueueDto: {
+            count: number;
+            items: components["schemas"]["AdminOverviewOperationItemDto"][];
+        };
+        AdminOverviewCourseItemDto: {
+            id: string;
+            label: string;
+            status: string;
+            updatedAt: string;
+        };
+        AdminOverviewCourseQueueDto: {
+            count: number;
+            items: components["schemas"]["AdminOverviewCourseItemDto"][];
+        };
+        AdminOverviewQueuesDto: {
+            reviews: components["schemas"]["AdminOverviewReviewQueueDto"];
+            imports: components["schemas"]["AdminOverviewImportQueueDto"];
+            operations: components["schemas"]["AdminOverviewOperationQueueDto"];
+            publishing: components["schemas"]["AdminOverviewCourseQueueDto"];
+        };
+        AdminOverviewDto: {
+            /** Format: date-time */
+            generatedAt: string;
+            metrics: components["schemas"]["AdminOverviewMetricsDto"];
+            queues: components["schemas"]["AdminOverviewQueuesDto"];
         };
         LearningCardSummaryCountsDto: {
             /** @description 卡总数 */
@@ -2272,6 +2407,44 @@ export interface components {
             /** @description 过期时间（ISO；null=不限） */
             expiresAt?: string | null;
         };
+        DailyUsageSummaryDto: {
+            /** @description 今日已计入学习时长（分钟） */
+            usedMinutes: number;
+            /** @description 每日上限；会员为 null */
+            limitMinutes: number | null;
+            /** @description 今日剩余时长；会员为 null */
+            remainingMinutes: number | null;
+            /** @description 按用户时区计算的本地日期 */
+            resetDay: string;
+            /** @enum {string} */
+            membershipStatus: "member" | "free";
+        };
+        AdminMembershipListItemDto: {
+            userId: string;
+            username: string;
+            displayName: string;
+            /** @enum {string} */
+            role: "learner" | "admin";
+            /** @enum {string} */
+            accountStatus: "active" | "disabled";
+            /** @enum {string} */
+            state: "free" | "member" | "expired";
+            /** @enum {string} */
+            plan: "free" | "member";
+            /** Format: date-time */
+            startedAt: string | null;
+            /** Format: date-time */
+            expiresAt: string | null;
+            /** @enum {string|null} */
+            lastAction: "grant" | "renew" | "revoke" | null;
+            /** @description 非会员每日学习时长（分钟） */
+            dailyLimitMinutes: number;
+        };
+        AdminMembershipListDto: {
+            items: components["schemas"]["AdminMembershipListItemDto"][];
+            nextCursor: string | null;
+            hasMore: boolean;
+        };
         AdminMembershipReadDto: {
             /**
              * @description 有效会员方案（服务端计算）
@@ -2285,22 +2458,40 @@ export interface components {
             status: "member" | "free";
             /** @description 过期时间（ISO；null=不限） */
             expiresAt?: string | null;
+            /** @description 非会员每日学习时长（分钟） */
+            dailyLimitMinutes: number;
         };
         GrantMembershipDto: {
+            /** @enum {string} */
+            mode?: "duration" | "until" | "indefinite";
+            /** @description 时长天数（1-3650） */
+            durationDays?: number;
+            /** Format: date-time */
+            expiresAt?: string | null;
             /**
              * @default member
              * @enum {string}
              */
-            plan: "member" | "free";
-            /** @description 过期时间（ISO8601；null=不限） */
-            expiresAt?: Record<string, never> | null;
+            plan: "member";
         };
         AdminMembershipResultDto: {
             membership: components["schemas"]["MembershipStatusDto"];
         };
         RenewMembershipDto: {
-            /** @description 新的过期时间（ISO8601；null=不限） */
-            expiresAt?: Record<string, never> | null;
+            /** @enum {string} */
+            mode?: "duration" | "until" | "indefinite";
+            /** @description 时长天数（1-3650） */
+            durationDays?: number;
+            /** Format: date-time */
+            expiresAt?: string | null;
+        };
+        SetDailyLimitDto: {
+            /** @description 非会员每日学习时长（分钟，0-1440） */
+            minutes: number;
+        };
+        AdminDailyLimitResultDto: {
+            /** @description 保存后的非会员每日学习时长（分钟） */
+            dailyLimitMinutes: number;
         };
         XpSummaryEntryDto: {
             /** @description XP 事实金额（correction/void 可为负） */
@@ -2397,6 +2588,8 @@ export interface components {
             englishSpelling: string;
             /** @description 冻结的中文释义（学习面） */
             meaning: string;
+            /** @description 选择题冻结的选项；拼写题为空数组 */
+            choices: string[];
         };
         ChallengeCurrentDto: {
             /** @description 挑战周键，例如 cw-2026-08-11 */
@@ -3411,7 +3604,14 @@ export interface operations {
     };
     CourseController_list: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description 每页条目数，默认 50，最大 50 */
+                limit?: number;
+                /** @description 不透明分页游标（由上一页返回），首页不传 */
+                cursor?: string;
+                /** @description 按课程标题或 slug 搜索 */
+                q?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -3991,6 +4191,25 @@ export interface operations {
             };
         };
     };
+    AdminOverviewController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOverviewDto"];
+                };
+            };
+        };
+    };
     StudyController_summary: {
         parameters: {
             query?: never;
@@ -4216,6 +4435,51 @@ export interface operations {
             };
         };
     };
+    MembershipController_dailyUsage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DailyUsageSummaryDto"];
+                };
+            };
+        };
+    };
+    AdminMembershipController_list: {
+        parameters: {
+            query?: {
+                /** @description 搜索用户名或显示名 */
+                q?: string;
+                state?: "free" | "member" | "expired";
+                /** @description 不透明 keyset 游标 */
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMembershipListDto"];
+                };
+            };
+        };
+    };
     AdminMembershipController_readMembership: {
         parameters: {
             query?: never;
@@ -4310,6 +4574,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminOkDto"];
+                };
+            };
+        };
+    };
+    AdminMembershipController_setDailyLimit: {
+        parameters: {
+            query?: never;
+            header: {
+                "idempotency-key": string;
+            };
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetDailyLimitDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminDailyLimitResultDto"];
                 };
             };
         };

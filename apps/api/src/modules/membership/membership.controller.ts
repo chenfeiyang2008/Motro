@@ -7,7 +7,9 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from "@nestjs/common";
@@ -16,11 +18,16 @@ import { Roles, RolesGuard } from "../../auth/roles.guard.js";
 import { SessionGuard, type AuthenticatedRequest } from "../../auth/session.guard.js";
 import {
   AdminMembershipReadDto,
+  AdminDailyLimitResultDto,
+  AdminMembershipListDto,
+  AdminMembershipListQueryDto,
   AdminMembershipResultDto,
   AdminOkDto,
+  DailyUsageSummaryDto,
   GrantMembershipDto,
   MembershipStatusDto,
   RenewMembershipDto,
+  SetDailyLimitDto,
 } from "./membership.dto.js";
 import { MembershipService } from "./membership.service.js";
 
@@ -37,6 +44,23 @@ export class MembershipController {
   myMembership(@Req() req: AuthenticatedRequest): Promise<MembershipStatusDto> {
     return this.membershipService.getMembershipProjection(req.user.id);
   }
+
+  @Get("me/daily-usage")
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "当前账号今日学习时长摘要（服务端事实）" })
+  @ApiOkResponse({ type: DailyUsageSummaryDto })
+  async dailyUsage(@Req() req: AuthenticatedRequest): Promise<DailyUsageSummaryDto> {
+    const summary = await this.membershipService.getDailyUsageSummary(req.user.id);
+    const limitMinutes = Number.isFinite(summary.limitMinutes) ? summary.limitMinutes : null;
+    return {
+      usedMinutes: summary.usedMinutes,
+      limitMinutes,
+      remainingMinutes:
+        limitMinutes === null ? null : Math.max(limitMinutes - summary.usedMinutes, 0),
+      resetDay: summary.resetDay,
+      membershipStatus: summary.membershipStatus,
+    };
+  }
 }
 
 @ApiTags("admin membership")
@@ -45,6 +69,14 @@ export class MembershipController {
 @Roles("admin")
 export class AdminMembershipController {
   constructor(private readonly membershipService: MembershipService) {}
+
+  @Get()
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "会员管理列表（脱敏聚合投影 + 游标分页）" })
+  @ApiOkResponse({ type: AdminMembershipListDto })
+  list(@Query() query: AdminMembershipListQueryDto): Promise<AdminMembershipListDto> {
+    return this.membershipService.listMemberships(query);
+  }
 
   @Get(":userId")
   @ApiBearerAuth()
@@ -68,7 +100,7 @@ export class AdminMembershipController {
     return this.membershipService.grantMembershipIdempotent(
       req.user,
       userId,
-      { plan: dto.plan, expiresAt: dto.expiresAt ?? null },
+      { plan: dto.plan, mode: dto.mode, durationDays: dto.durationDays, expiresAt: dto.expiresAt },
       req.id,
       idempotencyKey,
     );
@@ -88,7 +120,7 @@ export class AdminMembershipController {
     return this.membershipService.renewMembershipIdempotent(
       req.user,
       userId,
-      dto.expiresAt ?? null,
+      { mode: dto.mode, durationDays: dto.durationDays, expiresAt: dto.expiresAt },
       req.id,
       idempotencyKey,
     );
@@ -111,5 +143,25 @@ export class AdminMembershipController {
       idempotencyKey,
     );
     return { ok: true };
+  }
+
+  @Patch(":userId/daily-limit")
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "设置该用户的非会员每日学习时长（幂等 + 审计）" })
+  @ApiOkResponse({ type: AdminDailyLimitResultDto })
+  setDailyLimit(
+    @Req() req: AuthenticatedRequest,
+    @Param("userId") userId: string,
+    @Body() dto: SetDailyLimitDto,
+    @Headers("idempotency-key") idempotencyKey?: string,
+  ): Promise<AdminDailyLimitResultDto> {
+    return this.membershipService.setDailyLimitIdempotent(
+      req.user,
+      userId,
+      dto.minutes,
+      req.id,
+      idempotencyKey,
+    );
   }
 }

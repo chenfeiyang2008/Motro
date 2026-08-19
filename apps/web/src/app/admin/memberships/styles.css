@@ -1,0 +1,347 @@
+/* Membership operations: dense, practical table-first admin surface. */
+.admin-memberships-page {
+  width: 100%;
+  margin-inline: auto;
+  padding: 28px 24px 80px;
+  color: var(--color-text-primary);
+}
+.admin-membership-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--color-border);
+}
+.admin-membership-heading h1 {
+  margin: 0;
+  font-size: clamp(30px, 4vw, 44px);
+  letter-spacing: -0.04em;
+}
+.admin-membership-heading p {
+  margin: 8px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+.admin-memberships-page .admin-membership-heading h1 {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: -0.02em;
+}
+.admin-membership-quiet-button,
+.admin-membership-toolbar button,
+.admin-membership-toolbar input,
+.admin-membership-toolbar select {
+  min-height: 44px;
+  box-sizing: border-box;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+}
+.admin-membership-quiet-button,
+.admin-membership-toolbar button {
+  padding: 0 16px;
+  cursor: pointer;
+}
+.admin-membership-quiet-button:hover,
+.admin-membership-toolbar button:hover {
+  border-color: var(--color-brand-600);
+  color: var(--color-brand-700);
+}
+.admin-memberships-page .admin-membership-toolbar {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) auto 170px;
+  align-items: end;
+  gap: 14px;
+  margin: 22px 0 14px;
+}
+.admin-membership-filter-field {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+.admin-membership-filter-field label {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 650;
+}
+.admin-membership-filter-field input,
+.admin-membership-filter-field select {
+  width: 100%;
+}
+.admin-membership-filter-field input {
+  padding: 0 12px;
+}
+.admin-membership-filter-field select {
+  padding: 0 32px 0 12px;
+}
+.admin-membership-table-wrap {
+  overflow-x: auto;
+  border-top: 2px solid var(--color-text-primary);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+}
+.admin-membership-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+.admin-membership-table th,
+.admin-membership-table td {
+  padding: 12px 12px;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.admin-membership-table th {
+  background: color-mix(in srgb, var(--color-bg-surface) 92%, var(--color-brand-600));
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.admin-membership-table th:nth-child(8),
+.admin-membership-table td:nth-child(8) {
+  width: 1%;
+  white-space: normal;
+}
+.admin-membership-table tbody tr:hover {
+  background: color-mix(in srgb, var(--color-brand-050) 40%, transparent);
+}
+.admin-membership-table td small {
+  display: block;
+  margin-top: 3px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+.admin-membership-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 9px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.admin-membership-status--free {
+  color: var(--color-text-secondary);
+}
+.admin-membership-status--member {
+  color: var(--color-success);
+}
+.admin-membership-status--expired {
+  color: var(--color-warning);
+}
+.admin-membership-inline-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  margin-left: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.admin-membership-inline-action:hover {
+  border-color: var(--color-brand-600);
+  color: var(--color-brand-700);
+}
+.admin-membership-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  white-space: normal;
+}
+.admin-membership-row-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+.admin-membership-row-actions button:hover {
+  border-color: var(--color-brand-600);
+  color: var(--color-brand-700);
+}
+.admin-membership-row-actions .danger {
+  color: var(--color-danger, #b43f35);
+}
+.admin-membership-empty,
+.admin-membership-loading {
+  padding: 36px 16px;
+  color: var(--color-text-secondary);
+}
+.admin-membership-load-more {
+  display: block;
+  margin: 18px auto;
+  min-height: 44px;
+  padding: 0 24px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+}
+.admin-membership-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-left: 3px solid var(--color-danger, #b43f35);
+  background: color-mix(in srgb, var(--color-danger, #b43f35) 10%, transparent);
+  color: var(--color-danger, #b43f35);
+}
+.admin-membership-error button {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid currentColor;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+}
+.admin-membership-dialog-backdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(9 12 14 / 38%);
+}
+.admin-membership-panel {
+  position: relative;
+  z-index: 1;
+  width: min(460px, 100%);
+  padding: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg-surface);
+  box-shadow: 0 18px 48px rgb(23 35 43 / 18%);
+}
+.admin-membership-panel-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.admin-membership-panel-header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.admin-membership-panel-header button {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--color-border);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: 24px;
+  line-height: 1;
+}
+.admin-membership-mode {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.admin-membership-mode label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  border: 1px solid var(--color-border);
+  border-radius: 5px;
+  gap: 7px;
+  cursor: pointer;
+}
+.admin-membership-panel > label {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 18px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 650;
+}
+.admin-membership-panel input[type="number"],
+.admin-membership-panel input[type="datetime-local"] {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.admin-membership-panel-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 24px;
+}
+.admin-membership-primary,
+.admin-membership-danger {
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 5px;
+  font: inherit;
+  cursor: pointer;
+}
+.admin-membership-primary {
+  border: 1px solid var(--color-brand-600);
+  background: var(--color-brand-600);
+  color: #fff;
+}
+.admin-membership-danger {
+  border: 1px solid var(--color-danger, #b43f35);
+  background: transparent;
+  color: var(--color-danger, #b43f35);
+}
+@media (max-width: 800px) {
+  /* 窄屏隐藏低频列（开始时间/到期时间），保证表格紧凑。 */
+  .admin-membership-table th:nth-child(4),
+  .admin-membership-table td:nth-child(4),
+  .admin-membership-table th:nth-child(5),
+  .admin-membership-table td:nth-child(5) {
+    display: none;
+  }
+}
+@media (max-width: 700px) {
+  .admin-memberships-page {
+    padding: 24px 0 80px;
+  }
+  .admin-membership-heading {
+    align-items: start;
+    flex-direction: column;
+  }
+  .admin-memberships-page .admin-membership-heading h1 {
+    font-size: 32px;
+  }
+  .admin-memberships-page .admin-membership-toolbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    max-width: none;
+  }
+  .admin-membership-filter-field:first-child {
+    grid-column: 1 / -1;
+  }
+  .admin-membership-filter-field--state {
+    grid-column: 1 / -1;
+  }
+  .admin-membership-panel {
+    padding: 20px;
+  }
+}

@@ -6,6 +6,7 @@ import {
   ConflictException,
   Inject,
   Injectable,
+  NotFoundException,
   UnprocessableEntityException,
 } from "@nestjs/common";
 import { createHash } from "node:crypto";
@@ -40,6 +41,12 @@ export interface MembershipRow {
   timezone: string;
   last_action: "grant" | "renew" | "revoke";
   created_at: Date;
+  free_daily_limit_minutes: number;
+}
+
+/** Admin read projection: MembershipProjection + per-user free daily limit for direct display. */
+export interface AdminMembershipReadProjection extends MembershipProjection {
+  dailyLimitMinutes: number;
 }
 
 export interface DailyUsageSummary {
@@ -47,6 +54,26 @@ export interface DailyUsageSummary {
   limitMinutes: number;
   resetDay: string; // YYYY-MM-DD local-day boundary
   membershipStatus: "member" | "free";
+}
+
+export interface MembershipScheduleInput {
+  mode?: "duration" | "until" | "indefinite" | undefined;
+  durationDays?: number | undefined;
+  expiresAt?: string | null | undefined;
+}
+
+const ADMIN_MEMBERSHIP_DEFAULT_LIMIT = 50;
+const ADMIN_MEMBERSHIP_MAX_LIMIT = 50;
+const MEMBERSHIP_CURSOR_VERSION = "motro.admin.membership.v1";
+
+type MembershipListState = "free" | "member" | "expired";
+
+interface MembershipCursor {
+  v: string;
+  sortAt: string;
+  userId: string;
+  q: string;
+  state: MembershipListState | "";
 }
 
 @Injectable()
@@ -57,6 +84,7 @@ export class MembershipService {
   private async loadMembership(userId: string): Promise<MembershipRow | null> {
     const r = await this.pool.query<MembershipRow>(
       `SELECT user_id, plan, status, started_at, expires_at, timezone, last_action, created_at
+              , free_daily_limit_minutes
        FROM memberships WHERE user_id = $1`,
       [userId],
     );
@@ -97,10 +125,205 @@ export class MembershipService {
   /**
    * Admin: read a user's membership projection (admin-only via RolesGuard).
    * Same server-computed source as /me/membership; returns raw expiresAt so the
-   * admin UI can distinguish 已过期 (member with past expiry) from 免费.
+   * admin UI can distinguish 已过期 (member with past expiry) from 免费, plus the
+   * user's per-day free budget for direct display in the management table.
    */
-  async getMembershipForUser(userId: string, now = new Date()): Promise<MembershipProjection> {
-    return this.getMembershipProjection(userId, now);
+  async getMembershipForUser(
+    userId: string,
+    now = new Date(),
+  ): Promise<AdminMembershipReadProjection> {
+    const row = await this.loadMembership(userId);
+    const projection = await this.getMembershipProjection(userId, now);
+    return {
+      ...projection,
+      dailyLimitMinutes: row?.free_daily_limit_minutes ?? FREE_DAILY_LIMIT_MINUTES,
+    };
+  }
+
+  private encodeMembershipCursor(cursor: Omit<MembershipCursor, "v">): string {
+    return Buffer.from(
+      JSON.stringify({ v: MEMBERSHIP_CURSOR_VERSION, ...cursor }),
+      "utf8",
+    ).toString("base64url");
+  }
+
+  private decodeMembershipCursor(value: string | undefined): MembershipCursor | null {
+    if (!value) return null;
+    try {
+      const parsed = JSON.parse(
+        Buffer.from(value, "base64url").toString("utf8"),
+      ) as MembershipCursor;
+      if (
+        parsed.v !== MEMBERSHIP_CURSOR_VERSION ||
+        !parsed.sortAt ||
+        !parsed.userId ||
+        typeof parsed.q !== "string" ||
+        !["", "free", "member", "expired"].includes(parsed.state)
+      ) {
+        throw new Error("invalid cursor");
+      }
+      return parsed;
+    } catch {
+      throw new UnprocessableEntityException("游标无效，请重新加载列表");
+    }
+  }
+
+  private escapeLikePattern(value: string): string {
+    return value.replace(/[\\%_]/g, (character) => `\\${character}`);
+  }
+
+  /** Admin table projection. One parameterized aggregate query avoids N+1 membership reads. */
+  async listMemberships(options: {
+    q?: string;
+    state?: MembershipListState;
+    cursor?: string;
+    limit?: number;
+  }): Promise<{
+    items: Array<{
+      userId: string;
+      username: string;
+      displayName: string;
+      role: "learner" | "admin";
+      accountStatus: "active" | "disabled";
+      state: MembershipListState;
+      plan: "free" | "member";
+      startedAt: string | null;
+      expiresAt: string | null;
+      lastAction: "grant" | "renew" | "revoke" | null;
+      dailyLimitMinutes: number;
+    }>;
+    nextCursor: string | null;
+    hasMore: boolean;
+  }> {
+    const limit = Math.min(
+      Math.max(options.limit ?? ADMIN_MEMBERSHIP_DEFAULT_LIMIT, 1),
+      ADMIN_MEMBERSHIP_MAX_LIMIT,
+    );
+    const q = (options.q ?? "").trim();
+    const state = options.state ?? "";
+    const cursor = this.decodeMembershipCursor(options.cursor);
+    if (cursor && (cursor.q !== q || cursor.state !== state)) {
+      throw new UnprocessableEntityException("筛选条件已变化，请从第一页开始");
+    }
+
+    const values: unknown[] = [];
+    const where: string[] = [];
+    const add = (value: unknown) => {
+      values.push(value);
+      return `$${values.length}`;
+    };
+    if (q) {
+      const qParam = add(`%${this.escapeLikePattern(q)}%`);
+      where.push(
+        `(u.username ILIKE ${qParam} ESCAPE '\\' OR u.display_name ILIKE ${qParam} ESCAPE '\\')`,
+      );
+    }
+    const stateExpression = `CASE
+      WHEN m.user_id IS NULL OR m.plan = 'free' THEN 'free'
+      WHEN m.status = 'active' AND (m.expires_at IS NULL OR m.expires_at > now()) THEN 'member'
+      ELSE 'expired'
+    END`;
+    if (state) where.push(`${stateExpression} = ${add(state)}`);
+    if (cursor) {
+      const sortAtParam = add(cursor.sortAt);
+      const userIdParam = add(cursor.userId);
+      where.push(`(COALESCE(m.updated_at, u.created_at) < ${sortAtParam}
+        OR (COALESCE(m.updated_at, u.created_at) = ${sortAtParam} AND u.id > ${userIdParam}))`);
+    }
+    const limitParam = add(limit + 1);
+    const result = await this.pool.query<{
+      user_id: string;
+      username: string;
+      display_name: string;
+      role: "learner" | "admin";
+      account_status: "active" | "disabled";
+      state: MembershipListState;
+      plan: "free" | "member";
+      started_at: Date | null;
+      expires_at: Date | null;
+      last_action: "grant" | "renew" | "revoke" | null;
+      sort_at: Date;
+      free_daily_limit_minutes: number;
+    }>(
+      `SELECT u.id AS user_id, u.username, u.display_name, u.role,
+              u.status AS account_status, ${stateExpression} AS state,
+              COALESCE(m.plan, 'free') AS plan, m.started_at, m.expires_at,
+              m.last_action, COALESCE(m.free_daily_limit_minutes, 15) AS free_daily_limit_minutes,
+              COALESCE(m.updated_at, u.created_at) AS sort_at
+         FROM users u
+         LEFT JOIN memberships m ON m.user_id = u.id
+        ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+        ORDER BY COALESCE(m.updated_at, u.created_at) DESC, u.id ASC
+        LIMIT ${limitParam}`,
+      values,
+    );
+    const hasMore = result.rows.length > limit;
+    const rows = hasMore ? result.rows.slice(0, limit) : result.rows;
+    const items = rows.map((row) => ({
+      userId: row.user_id,
+      username: row.username,
+      displayName: row.display_name,
+      role: row.role,
+      accountStatus: row.account_status,
+      state: row.state,
+      plan: row.plan,
+      startedAt: row.started_at?.toISOString() ?? null,
+      expiresAt: row.expires_at?.toISOString() ?? null,
+      lastAction: row.last_action,
+      dailyLimitMinutes: Number(row.free_daily_limit_minutes),
+    }));
+    const last = rows.at(-1);
+    return {
+      items,
+      hasMore,
+      nextCursor:
+        hasMore && last
+          ? this.encodeMembershipCursor({
+              sortAt: last.sort_at.toISOString(),
+              userId: last.user_id,
+              q,
+              state,
+            })
+          : null,
+    };
+  }
+
+  private resolveSchedule(
+    input: MembershipScheduleInput,
+    now: Date,
+    currentExpiresAt?: Date | null,
+  ): string | null {
+    // Ticket 20 accepted an explicit expiresAt (including a past timestamp) so
+    // existing automation can deliberately create an expired membership. Keep
+    // that compatibility path; new `mode: until` requests are fail-closed.
+    if (input.mode === undefined && input.expiresAt !== undefined) {
+      return input.expiresAt === null ? null : new Date(input.expiresAt).toISOString();
+    }
+    const mode =
+      input.mode ??
+      (input.expiresAt === null || input.expiresAt === undefined ? "indefinite" : "until");
+    if (mode === "indefinite") return null;
+    if (mode === "duration") {
+      if (
+        !Number.isInteger(input.durationDays) ||
+        input.durationDays! < 1 ||
+        input.durationDays! > 3650
+      ) {
+        throw new UnprocessableEntityException("会员时长必须是 1 至 3650 天");
+      }
+      const base =
+        currentExpiresAt && currentExpiresAt.getTime() > now.getTime() ? currentExpiresAt : now;
+      return new Date(base.getTime() + input.durationDays! * 86_400_000).toISOString();
+    }
+    if (!input.expiresAt) throw new UnprocessableEntityException("请提供会员到期时间");
+    const expiresAt = new Date(input.expiresAt);
+    if (Number.isNaN(expiresAt.getTime()) || expiresAt.getTime() <= now.getTime()) {
+      throw new UnprocessableEntityException("会员到期时间必须晚于当前时间");
+    }
+    if (currentExpiresAt && currentExpiresAt.getTime() > expiresAt.getTime()) {
+      throw new UnprocessableEntityException("续期到期时间不能早于当前有效到期时间");
+    }
+    return expiresAt.toISOString();
   }
 
   /**
@@ -123,7 +346,9 @@ export class MembershipService {
       now,
     );
     const limitMinutes =
-      entitlement.kind === "member" ? Number.POSITIVE_INFINITY : FREE_DAILY_LIMIT_MINUTES;
+      entitlement.kind === "member"
+        ? Number.POSITIVE_INFINITY
+        : (memberships?.free_daily_limit_minutes ?? FREE_DAILY_LIMIT_MINUTES);
 
     let usedMinutes = 0;
     if (Number.isFinite(limitMinutes)) {
@@ -193,12 +418,13 @@ export class MembershipService {
   async grantMembership(
     actor: UserRecord,
     userId: string,
-    input: { plan: "member"; expiresAt: string | null },
+    input: { plan: "member" } & MembershipScheduleInput,
     requestId: string,
   ): Promise<MembershipProjection> {
     const now = new Date();
     const timezone = await this.loadUserTimezone(userId);
     const start = now.toISOString();
+    const expiresAt = this.resolveSchedule(input, now);
 
     await this.pool.query(
       `INSERT INTO memberships (user_id, plan, status, started_at, expires_at, timezone, last_action)
@@ -212,13 +438,13 @@ export class MembershipService {
          last_action = 'grant',
          updated_at = now()
       `,
-      [userId, start, input.expiresAt, timezone],
+      [userId, start, expiresAt, timezone],
     );
 
     await this.pool.query(
       `INSERT INTO membership_audit (user_id, actor_id, action, plan, started_at, expired_at, request_id)
        VALUES ($1, $2, 'grant', 'member', $3, $4, $5)`,
-      [userId, actor.id, start, input.expiresAt, requestId],
+      [userId, actor.id, start, expiresAt, requestId],
     );
 
     return this.getMembershipProjection(userId, now);
@@ -228,19 +454,24 @@ export class MembershipService {
   async renewMembership(
     actor: UserRecord,
     userId: string,
-    expiresAt: string | null,
+    input: MembershipScheduleInput,
     requestId: string,
   ): Promise<MembershipProjection> {
     const now = new Date();
-    const r = await this.pool.query(
-      `UPDATE memberships
-         SET plan = 'member', status = 'active', expires_at = $2, last_action = 'renew', updated_at = now()
-       WHERE user_id = $1 RETURNING user_id`,
-      [userId, expiresAt],
+    const existing = await this.pool.query<{ expires_at: Date | null }>(
+      `SELECT expires_at FROM memberships WHERE user_id = $1`,
+      [userId],
     );
-    if ((r.rowCount ?? 0) === 0) {
+    if (existing.rowCount === 0) {
       throw new UnprocessableEntityException("该用户尚无会员记录，无法续期（请先授予）");
     }
+    const expiresAt = this.resolveSchedule(input, now, existing.rows[0]?.expires_at);
+    await this.pool.query(
+      `UPDATE memberships
+         SET plan = 'member', status = 'active', expires_at = $2, last_action = 'renew', updated_at = now()
+       WHERE user_id = $1`,
+      [userId, expiresAt],
+    );
     await this.insertAudit(
       userId,
       actor.id,
@@ -268,6 +499,64 @@ export class MembershipService {
     );
     await this.insertAudit(userId, actor.id, "revoke", "free", now.toISOString(), null, requestId);
     return { plan: "free", status: "free", expiresAt: null };
+  }
+
+  /** Admin: set the per-user non-member daily limit. Zero disables free study. */
+  async setDailyLimit(
+    actor: UserRecord,
+    userId: string,
+    minutes: number,
+    requestId: string,
+  ): Promise<{ dailyLimitMinutes: number }> {
+    if (!Number.isInteger(minutes) || minutes < 0 || minutes > 1440) {
+      throw new UnprocessableEntityException("每日时长必须是 0 至 1440 分钟");
+    }
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      // 1) Ensure target user exists (fail-fast with a clear 404, not an FK error).
+      const userCheck = await client.query<{ id: string; timezone: string }>(
+        `SELECT id, timezone FROM users WHERE id = $1`,
+        [userId],
+      );
+      const targetUser = userCheck.rows[0];
+      if (!targetUser) {
+        throw new NotFoundException("用户不存在");
+      }
+      const timezone = targetUser.timezone;
+
+      // 2) Upsert the membership projection (creates a free/active row for users
+      //    that never had a membership; updates daily limit for existing rows).
+      const now = new Date();
+      await client.query(
+        `INSERT INTO memberships
+           (user_id, plan, status, started_at, expires_at, timezone, last_action, free_daily_limit_minutes)
+         VALUES ($1, 'free', 'active', $2, NULL, $3, 'revoke', $4)
+         ON CONFLICT (user_id) DO UPDATE SET
+           free_daily_limit_minutes = EXCLUDED.free_daily_limit_minutes,
+           updated_at = now()`,
+        [userId, now.toISOString(), timezone, minutes],
+      );
+
+      // 3) Append an immutable audit fact capturing the current plan + expiry snapshot
+      //    from the membership row we just wrote (or updated).
+      await client.query(
+        `INSERT INTO membership_audit
+           (user_id, actor_id, action, plan, started_at, expired_at, daily_limit_minutes, request_id)
+         SELECT user_id, $2, 'daily_limit', plan, $3, expires_at, $4, $5
+           FROM memberships WHERE user_id = $1`,
+        [userId, actor.id, now.toISOString(), minutes, requestId],
+      );
+
+      await client.query("COMMIT");
+      return { dailyLimitMinutes: minutes };
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   private async insertAudit(
@@ -328,7 +617,7 @@ export class MembershipService {
   async grantMembershipIdempotent(
     actor: UserRecord,
     userId: string,
-    input: { plan: "member"; expiresAt: string | null },
+    input: { plan: "member" } & MembershipScheduleInput,
     requestId: string,
     idempotencyKey?: string,
   ): Promise<MembershipProjection> {
@@ -352,20 +641,16 @@ export class MembershipService {
   async renewMembershipIdempotent(
     actor: UserRecord,
     userId: string,
-    expiresAt: string | null,
+    input: MembershipScheduleInput,
     requestId: string,
     idempotencyKey?: string,
   ): Promise<MembershipProjection> {
     if (!idempotencyKey) throw new BadRequestException("缺少 Idempotency-Key 头");
     const scope = `admin:membership:renew:${actor.id}:${userId}`;
-    const claimed = await this.claimIdempotency(
-      scope,
-      idempotencyKey,
-      this.requestHashOf({ expiresAt }),
-    );
+    const claimed = await this.claimIdempotency(scope, idempotencyKey, this.requestHashOf(input));
     if (claimed !== "claimed") return claimed as MembershipProjection;
     try {
-      const result = await this.renewMembership(actor, userId, expiresAt, requestId);
+      const result = await this.renewMembership(actor, userId, input, requestId);
       await this.completeIdempotency(scope, idempotencyKey, result);
       return result;
     } catch (err) {
@@ -394,6 +679,31 @@ export class MembershipService {
     try {
       await this.revokeMembership(actor, userId, requestId);
       await this.completeIdempotency(scope, idempotencyKey, { ok: true });
+    } catch (err) {
+      await this.pool.query(`DELETE FROM idempotency_keys WHERE scope = $1 AND key = $2`, [
+        scope,
+        idempotencyKey,
+      ]);
+      throw err;
+    }
+  }
+
+  async setDailyLimitIdempotent(
+    actor: UserRecord,
+    userId: string,
+    minutes: number,
+    requestId: string,
+    idempotencyKey?: string,
+  ): Promise<{ dailyLimitMinutes: number }> {
+    if (!idempotencyKey) throw new BadRequestException("缺少 Idempotency-Key 头");
+    const scope = `admin:membership:daily-limit:${actor.id}:${userId}`;
+    const payload = { userId, minutes };
+    const claimed = await this.claimIdempotency(scope, idempotencyKey, this.requestHashOf(payload));
+    if (claimed !== "claimed") return claimed as { dailyLimitMinutes: number };
+    try {
+      const result = await this.setDailyLimit(actor, userId, minutes, requestId);
+      await this.completeIdempotency(scope, idempotencyKey, result);
+      return result;
     } catch (err) {
       await this.pool.query(`DELETE FROM idempotency_keys WHERE scope = $1 AND key = $2`, [
         scope,

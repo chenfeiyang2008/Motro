@@ -784,7 +784,36 @@
     "/api/v1/admin/courses": {
       "get": {
         "operationId": "CourseController_list",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "每页条目数，默认 50，最大 50",
+            "schema": {
+              "default": 50,
+              "type": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "不透明分页游标（由上一页返回），首页不传",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "按课程标题或 slug 搜索",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
@@ -1758,6 +1787,33 @@
         ]
       }
     },
+    "/api/v1/admin/overview": {
+      "get": {
+        "operationId": "AdminOverviewController_get",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminOverviewDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "管理员首页概览（规模指标与待处理摘要）",
+        "tags": [
+          "admin overview"
+        ]
+      }
+    },
     "/api/v1/study/cards/summary": {
       "get": {
         "operationId": "StudyController_summary",
@@ -2111,6 +2167,103 @@
         ]
       }
     },
+    "/api/v1/me/daily-usage": {
+      "get": {
+        "operationId": "MembershipController_dailyUsage",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyUsageSummaryDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "当前账号今日学习时长摘要（服务端事实）",
+        "tags": [
+          "membership"
+        ]
+      }
+    },
+    "/api/v1/admin/memberships": {
+      "get": {
+        "operationId": "AdminMembershipController_list",
+        "parameters": [
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "搜索用户名或显示名",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "free",
+                "member",
+                "expired"
+              ]
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "不透明 keyset 游标",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 50,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMembershipListDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "会员管理列表（脱敏聚合投影 + 游标分页）",
+        "tags": [
+          "admin membership"
+        ]
+      }
+    },
     "/api/v1/admin/memberships/{userId}": {
       "get": {
         "operationId": "AdminMembershipController_readMembership",
@@ -2294,6 +2447,60 @@
           }
         ],
         "summary": "撤销会员 → 立即按 free 限制（幂等 + 审计）",
+        "tags": [
+          "admin membership"
+        ]
+      }
+    },
+    "/api/v1/admin/memberships/{userId}/daily-limit": {
+      "patch": {
+        "operationId": "AdminMembershipController_setDailyLimit",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetDailyLimitDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDailyLimitResultDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "设置该用户的非会员每日学习时长（幂等 + 审计）",
         "tags": [
           "admin membership"
         ]
@@ -4569,10 +4776,21 @@
             "items": {
               "$ref": "#/components/schemas/CourseListItemDto"
             }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true,
+            "description": "下一页不透明游标；最后一页为 null"
+          },
+          "hasMore": {
+            "type": "boolean",
+            "description": "是否还有后续页"
           }
         },
         "required": [
-          "items"
+          "items",
+          "nextCursor",
+          "hasMore"
         ]
       },
       "CreateCourseDto": {
@@ -5489,6 +5707,254 @@
         },
         "required": [
           "courseId"
+        ]
+      },
+      "AdminOverviewMetricDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "total"
+        ]
+      },
+      "AdminOverviewMetricsDto": {
+        "type": "object",
+        "properties": {
+          "users": {
+            "$ref": "#/components/schemas/AdminOverviewMetricDto"
+          },
+          "members": {
+            "$ref": "#/components/schemas/AdminOverviewMetricDto"
+          },
+          "activeLexiconEntries": {
+            "$ref": "#/components/schemas/AdminOverviewMetricDto"
+          },
+          "courses": {
+            "$ref": "#/components/schemas/AdminOverviewMetricDto"
+          },
+          "publishedCourses": {
+            "$ref": "#/components/schemas/AdminOverviewMetricDto"
+          }
+        },
+        "required": [
+          "users",
+          "members",
+          "activeLexiconEntries",
+          "courses",
+          "publishedCourses"
+        ]
+      },
+      "AdminOverviewReviewItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "status",
+          "createdAt"
+        ]
+      },
+      "AdminOverviewReviewQueueDto": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "number"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminOverviewReviewItemDto"
+            }
+          }
+        },
+        "required": [
+          "count",
+          "items"
+        ]
+      },
+      "AdminOverviewImportItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "status",
+          "updatedAt"
+        ]
+      },
+      "AdminOverviewImportQueueDto": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "number"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminOverviewImportItemDto"
+            }
+          }
+        },
+        "required": [
+          "count",
+          "items"
+        ]
+      },
+      "AdminOverviewOperationItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "errorCode": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "status",
+          "updatedAt"
+        ]
+      },
+      "AdminOverviewOperationQueueDto": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "number"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminOverviewOperationItemDto"
+            }
+          }
+        },
+        "required": [
+          "count",
+          "items"
+        ]
+      },
+      "AdminOverviewCourseItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "status",
+          "updatedAt"
+        ]
+      },
+      "AdminOverviewCourseQueueDto": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "number"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminOverviewCourseItemDto"
+            }
+          }
+        },
+        "required": [
+          "count",
+          "items"
+        ]
+      },
+      "AdminOverviewQueuesDto": {
+        "type": "object",
+        "properties": {
+          "reviews": {
+            "$ref": "#/components/schemas/AdminOverviewReviewQueueDto"
+          },
+          "imports": {
+            "$ref": "#/components/schemas/AdminOverviewImportQueueDto"
+          },
+          "operations": {
+            "$ref": "#/components/schemas/AdminOverviewOperationQueueDto"
+          },
+          "publishing": {
+            "$ref": "#/components/schemas/AdminOverviewCourseQueueDto"
+          }
+        },
+        "required": [
+          "reviews",
+          "imports",
+          "operations",
+          "publishing"
+        ]
+      },
+      "AdminOverviewDto": {
+        "type": "object",
+        "properties": {
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/AdminOverviewMetricsDto"
+          },
+          "queues": {
+            "$ref": "#/components/schemas/AdminOverviewQueuesDto"
+          }
+        },
+        "required": [
+          "generatedAt",
+          "metrics",
+          "queues"
         ]
       },
       "LearningCardSummaryCountsDto": {
@@ -6731,6 +7197,145 @@
           "status"
         ]
       },
+      "DailyUsageSummaryDto": {
+        "type": "object",
+        "properties": {
+          "usedMinutes": {
+            "type": "number",
+            "description": "今日已计入学习时长（分钟）"
+          },
+          "limitMinutes": {
+            "type": "number",
+            "description": "每日上限；会员为 null",
+            "nullable": true
+          },
+          "remainingMinutes": {
+            "type": "number",
+            "description": "今日剩余时长；会员为 null",
+            "nullable": true
+          },
+          "resetDay": {
+            "type": "string",
+            "description": "按用户时区计算的本地日期"
+          },
+          "membershipStatus": {
+            "type": "string",
+            "enum": [
+              "member",
+              "free"
+            ]
+          }
+        },
+        "required": [
+          "usedMinutes",
+          "limitMinutes",
+          "remainingMinutes",
+          "resetDay",
+          "membershipStatus"
+        ]
+      },
+      "AdminMembershipListItemDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "learner",
+              "admin"
+            ]
+          },
+          "accountStatus": {
+            "type": "string",
+            "enum": [
+              "active",
+              "disabled"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "free",
+              "member",
+              "expired"
+            ]
+          },
+          "plan": {
+            "type": "string",
+            "enum": [
+              "free",
+              "member"
+            ]
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "lastAction": {
+            "type": "string",
+            "enum": [
+              "grant",
+              "renew",
+              "revoke"
+            ],
+            "nullable": true
+          },
+          "dailyLimitMinutes": {
+            "type": "number",
+            "description": "非会员每日学习时长（分钟）"
+          }
+        },
+        "required": [
+          "userId",
+          "username",
+          "displayName",
+          "role",
+          "accountStatus",
+          "state",
+          "plan",
+          "startedAt",
+          "expiresAt",
+          "lastAction",
+          "dailyLimitMinutes"
+        ]
+      },
+      "AdminMembershipListDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminMembershipListItemDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor",
+          "hasMore"
+        ]
+      },
       "AdminMembershipReadDto": {
         "type": "object",
         "properties": {
@@ -6754,28 +7359,46 @@
             "type": "string",
             "description": "过期时间（ISO；null=不限）",
             "nullable": true
+          },
+          "dailyLimitMinutes": {
+            "type": "number",
+            "description": "非会员每日学习时长（分钟）"
           }
         },
         "required": [
           "plan",
-          "status"
+          "status",
+          "dailyLimitMinutes"
         ]
       },
       "GrantMembershipDto": {
         "type": "object",
         "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "duration",
+              "until",
+              "indefinite"
+            ]
+          },
+          "durationDays": {
+            "type": "number",
+            "description": "时长天数（1-3650）",
+            "minimum": 1,
+            "maximum": 3650
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
           "plan": {
             "type": "string",
             "enum": [
-              "member",
-              "free"
+              "member"
             ],
             "default": "member"
-          },
-          "expiresAt": {
-            "type": "object",
-            "description": "过期时间（ISO8601；null=不限）",
-            "nullable": true
           }
         },
         "required": [
@@ -6796,12 +7419,52 @@
       "RenewMembershipDto": {
         "type": "object",
         "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "duration",
+              "until",
+              "indefinite"
+            ]
+          },
+          "durationDays": {
+            "type": "number",
+            "description": "时长天数（1-3650）",
+            "minimum": 1,
+            "maximum": 3650
+          },
           "expiresAt": {
-            "type": "object",
-            "description": "新的过期时间（ISO8601；null=不限）",
+            "type": "string",
+            "format": "date-time",
             "nullable": true
           }
         }
+      },
+      "SetDailyLimitDto": {
+        "type": "object",
+        "properties": {
+          "minutes": {
+            "type": "number",
+            "description": "非会员每日学习时长（分钟，0-1440）",
+            "minimum": 0,
+            "maximum": 1440
+          }
+        },
+        "required": [
+          "minutes"
+        ]
+      },
+      "AdminDailyLimitResultDto": {
+        "type": "object",
+        "properties": {
+          "dailyLimitMinutes": {
+            "type": "number",
+            "description": "保存后的非会员每日学习时长（分钟）"
+          }
+        },
+        "required": [
+          "dailyLimitMinutes"
+        ]
       },
       "XpSummaryEntryDto": {
         "type": "object",
@@ -7054,6 +7717,13 @@
           "meaning": {
             "type": "string",
             "description": "冻结的中文释义（学习面）"
+          },
+          "choices": {
+            "description": "选择题冻结的选项；拼写题为空数组",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -7061,7 +7731,8 @@
           "direction",
           "questionType",
           "englishSpelling",
-          "meaning"
+          "meaning",
+          "choices"
         ]
       },
       "ChallengeCurrentDto": {

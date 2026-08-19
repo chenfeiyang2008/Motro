@@ -80,6 +80,13 @@ export interface ApiResult<T> {
   error?: ApiError;
 }
 
+export function createIdempotencyKey(): string {
+  return (
+    globalThis.crypto?.randomUUID?.() ??
+    `motro-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  );
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<ApiResult<T>> {
   const headers: Record<string, string> = {
     ...(init?.headers as Record<string, string> | undefined),
@@ -158,8 +165,23 @@ export function getLexicalEntry(id: string): Promise<ApiResult<LexicalEntryDetai
 
 // ---- 管理员：课程草稿与单元 ----
 
-export function listCourses(): Promise<ApiResult<{ items: CourseListItem[] }>> {
-  return apiFetch<{ items: CourseListItem[] }>("/api/v1/admin/courses", { method: "GET" });
+export interface ListCoursesOptions {
+  limit?: number;
+  cursor?: string | null;
+  q?: string;
+}
+
+export type AdminCourseList = components["schemas"]["CourseListResponseDto"];
+
+export function listCourses(opts: ListCoursesOptions = {}): Promise<ApiResult<AdminCourseList>> {
+  const search = new URLSearchParams();
+  if (opts.limit !== undefined) search.set("limit", String(opts.limit));
+  if (opts.cursor) search.set("cursor", opts.cursor);
+  if (opts.q?.trim()) search.set("q", opts.q.trim());
+  const qs = search.toString();
+  return apiFetch<AdminCourseList>(`/api/v1/admin/courses${qs.length > 0 ? `?${qs}` : ""}`, {
+    method: "GET",
+  });
 }
 
 export function createCourse(payload: CreateCoursePayload): Promise<ApiResult<CreateCourseResult>> {
@@ -539,6 +561,18 @@ export type AdminUserStatus = AdminUser["status"];
 export type AdminUserList = components["schemas"]["AdminUserListDto"];
 export type AdminUserCreateResult = components["schemas"]["AdminCreateUserResultDto"];
 
+export type AdminOverview = components["schemas"]["AdminOverviewDto"];
+export type AdminOverviewItem =
+  | components["schemas"]["AdminOverviewReviewItemDto"]
+  | components["schemas"]["AdminOverviewImportItemDto"]
+  | components["schemas"]["AdminOverviewOperationItemDto"]
+  | components["schemas"]["AdminOverviewCourseItemDto"];
+
+/** 管理端首页只读概览：统计与待处理摘要均来自服务端聚合。 */
+export function getAdminOverview(): Promise<ApiResult<AdminOverview>> {
+  return apiFetch<AdminOverview>("/api/v1/admin/overview", { method: "GET" });
+}
+
 export interface CreateAdminUserPayload {
   username: string;
   displayName: string;
@@ -745,6 +779,33 @@ export function resetAdminUserPassword(
 // status 为服务端计算的【有效】状态（member=active 且未过期；free=无/过期/未知）；
 // expiresAt 为原始过期时间（null=不限），供 UI 额外判断“已过期”。
 export type AdminMembershipRead = components["schemas"]["AdminMembershipReadDto"];
+export type AdminMembershipList = components["schemas"]["AdminMembershipListDto"];
+export type AdminDailyLimitResult = components["schemas"]["AdminDailyLimitResultDto"];
+export type DailyUsageSummary = components["schemas"]["DailyUsageSummaryDto"];
+export type MembershipSchedulePayload = {
+  mode?: "duration" | "until" | "indefinite" | undefined;
+  durationDays?: number | undefined;
+  expiresAt?: string | null | undefined;
+};
+
+export function listAdminMemberships(
+  options: {
+    q?: string;
+    state?: "free" | "member" | "expired";
+    cursor?: string;
+    limit?: number;
+  } = {},
+): Promise<ApiResult<AdminMembershipList>> {
+  const params = new URLSearchParams();
+  if (options.q) params.set("q", options.q);
+  if (options.state) params.set("state", options.state);
+  if (options.cursor) params.set("cursor", options.cursor);
+  params.set("limit", String(options.limit ?? 50));
+  return apiFetch<AdminMembershipList>(`/api/v1/admin/memberships?${params.toString()}`, {
+    method: "GET",
+    cache: "no-store",
+  });
+}
 
 /** 管理员：读取指定用户的会员投影（只读）。 */
 export function getAdminUserMembership(userId: string): Promise<ApiResult<AdminMembershipRead>> {
@@ -756,7 +817,7 @@ export function getAdminUserMembership(userId: string): Promise<ApiResult<AdminM
 /** 管理员：授予/覆盖会员（Idempotency-Key 由调用方生成并复用；重放返回冻结首响应）。 */
 export function grantAdminUserMembership(
   userId: string,
-  payload: { plan: "member"; expiresAt: string | null },
+  payload: { plan: "member" } & MembershipSchedulePayload,
   idempotencyKey: string,
 ): Promise<ApiResult<AdminMembershipRead>> {
   return apiFetch<AdminMembershipRead>(
@@ -772,7 +833,7 @@ export function grantAdminUserMembership(
 /** 管理员：续期会员（Idempotency-Key 由调用方生成并复用）。 */
 export function renewAdminUserMembership(
   userId: string,
-  expiresAt: string | null,
+  schedule: MembershipSchedulePayload | string | null,
   idempotencyKey: string,
 ): Promise<ApiResult<AdminMembershipRead>> {
   return apiFetch<AdminMembershipRead>(
@@ -780,9 +841,19 @@ export function renewAdminUserMembership(
     {
       method: "POST",
       headers: { "idempotency-key": idempotencyKey },
-      body: JSON.stringify({ expiresAt }),
+      body: JSON.stringify(
+        typeof schedule === "string" || schedule === null ? { expiresAt: schedule } : schedule,
+      ),
     },
   );
+}
+
+/** 学习端：读取服务端计算的今日学习时长摘要。 */
+export function getDailyUsage(): Promise<ApiResult<DailyUsageSummary>> {
+  return apiFetch<DailyUsageSummary>("/api/v1/me/daily-usage", {
+    method: "GET",
+    cache: "no-store",
+  });
 }
 
 /** 管理员：撤销会员 → 立即按 free 限制（Idempotency-Key 由调用方生成并复用）。 */
@@ -793,6 +864,22 @@ export function revokeAdminUserMembership(
   return apiFetch<{ ok: boolean }>(
     `/api/v1/admin/memberships/${encodeURIComponent(userId)}/revoke`,
     { method: "POST", headers: { "idempotency-key": idempotencyKey } },
+  );
+}
+
+/** 管理员：设置用户的非会员每日学习时长（分钟，幂等）。 */
+export function setAdminUserDailyLimit(
+  userId: string,
+  minutes: number,
+  idempotencyKey: string,
+): Promise<ApiResult<AdminDailyLimitResult>> {
+  return apiFetch<AdminDailyLimitResult>(
+    `/api/v1/admin/memberships/${encodeURIComponent(userId)}/daily-limit`,
+    {
+      method: "PATCH",
+      headers: { "idempotency-key": idempotencyKey },
+      body: JSON.stringify({ minutes }),
+    },
   );
 }
 
