@@ -25,6 +25,9 @@ export default function AdminImportsPage() {
   const [items, setItems] = useState<ImportBatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [createdFromFilter, setCreatedFromFilter] = useState("");
+  const [createdToFilter, setCreatedToFilter] = useState("");
 
   // 上传表单状态。
   const fileRef = useRef<HTMLInputElement>(null);
@@ -50,14 +53,19 @@ export default function AdminImportsPage() {
   const loadList = useCallback(async () => {
     setLoading(true);
     setListError("");
-    const res = await listImportBatches();
+    const res = await listImportBatches({
+      status: statusFilter || undefined,
+      createdFrom: createdFromFilter || undefined,
+      createdTo: createdToFilter || undefined,
+      limit: 50,
+    });
     setLoading(false);
     if (!res.ok || !res.data) {
       setListError(res.error?.message ?? "加载批次失败，请重试");
       return;
     }
     setItems(res.data.items);
-  }, []);
+  }, [statusFilter, createdFromFilter, createdToFilter]);
 
   useEffect(() => {
     void loadList();
@@ -178,6 +186,42 @@ export default function AdminImportsPage() {
 
       <div className="import-list-panel">
         <h2>批次</h2>
+        <div className="operation-filter">
+          <div className="xp-field">
+            <label htmlFor="imp-status">状态</label>
+            <select
+              id="imp-status"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="">全部</option>
+              <option value="committed">已提交</option>
+              <option value="validated">已校验</option>
+              <option value="failed">校验失败</option>
+            </select>
+          </div>
+          <div className="xp-field">
+            <label htmlFor="imp-from">创建时间从</label>
+            <input
+              id="imp-from"
+              type="datetime-local"
+              value={createdFromFilter}
+              onChange={(e) => setCreatedFromFilter(e.target.value)}
+            />
+          </div>
+          <div className="xp-field">
+            <label htmlFor="imp-to">到</label>
+            <input
+              id="imp-to"
+              type="datetime-local"
+              value={createdToFilter}
+              onChange={(e) => setCreatedToFilter(e.target.value)}
+            />
+          </div>
+          <button type="button" className="secondary" onClick={() => void loadList()}>
+            筛选
+          </button>
+        </div>
         {loading && <p role="status">正在加载批次…</p>}
         {!loading && listError !== "" && (
           <p role="alert">

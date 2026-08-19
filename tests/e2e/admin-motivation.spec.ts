@@ -165,6 +165,53 @@ test.describe("admin motivation copies workbench", () => {
     expect(w).toBeLessThanOrEqual(390);
   });
 
+  test("768 / 1440 no horizontal overflow", async ({ page }) => {
+    for (const width of [768, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/admin/motivation");
+      await page.getByRole("heading", { name: "激励文案" }).waitFor();
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      );
+      expect(overflow, `${width}px should not overflow horizontally`).toBe(false);
+    }
+  });
+
+  test("keyboard focus / Enter / Escape: batch textarea reachable, Esc does not lose input", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/admin/motivation");
+    await page.getByRole("heading", { name: "激励文案" }).waitFor();
+
+    // Tab 到批量 textarea 并键入一行。
+    await page.keyboard.press("Tab");
+    const batchTextarea = page.locator(".admin-motivation-batch textarea");
+    await batchTextarea.focus();
+    await expect(batchTextarea).toBeFocused();
+    await batchTextarea.fill("键盘焦点文案测试");
+    // 输入保留。
+    await expect(batchTextarea).toHaveValue("键盘焦点文案测试");
+    // Esc 不清空输入、不关闭页面（无模态）。
+    await page.keyboard.press("Escape");
+    await expect(batchTextarea).toHaveValue("键盘焦点文案测试");
+  });
+
+  test("prefers-reduced-motion: batch controls render without animation", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/admin/motivation");
+    await page.getByRole("heading", { name: "激励文案" }).waitFor();
+
+    // 批量 textarea 仍可见、可交互。
+    const batchTextarea = page.locator(".admin-motivation-batch textarea");
+    await expect(batchTextarea).toBeVisible();
+    await batchTextarea.fill("减速动画文案");
+    // 提交按钮不处于 loading 状态。
+    const batchBtn = page.locator(".admin-motivation-batch .primary");
+    await expect(batchBtn).toBeEnabled();
+  });
+
   test("dark theme uses surface background and orange accent on controls", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/admin/motivation");

@@ -5,6 +5,7 @@ import type { Pool } from "pg";
 import { POOL } from "../../../auth/database.provider.js";
 import type {
   ImportBatchDetailDto,
+  ImportBatchListDto,
   ImportCommitResultDto,
   ImportRowDto,
   StoredFileMetaDto,
@@ -68,15 +69,73 @@ interface RowRow {
 export class ImportBatchRepository {
   constructor(@Inject(POOL) private readonly pool: Pool) {}
 
-  /** 管理员共享列表（全部批次元数据，倒序）。 */
-  async listAll(limit = 100): Promise<ImportBatchDetailDto[]> {
+  /** 管理员共享列表（支持 status/时间范围筛选 + keyset 分页）。 */
+  async listAll(
+    opts: {
+      status?: string;
+      createdFrom?: string;
+      createdTo?: string;
+      cursor?: string;
+      limit?: number;
+    } = {},
+  ): Promise<ImportBatchListDto> {
+    const limit = Math.min(Math.max(opts.limit ?? 50, 1), 100);
+    const search: {
+      status?: string;
+      createdFrom?: string;
+      createdTo?: string;
+      cursor?: string;
+      limit?: number;
+    } = {};
+    if (opts.status !== undefined && opts.status !== "") search.status = opts.status;
+    if (opts.createdFrom !== undefined && opts.createdFrom !== "")
+      search.createdFrom = opts.createdFrom;
+    if (opts.createdTo !== undefined && opts.createdTo !== "") search.createdTo = opts.createdTo;
+    if (opts.cursor !== undefined && opts.cursor !== "") search.cursor = opts.cursor;
+    if (opts.limit !== undefined) search.limit = opts.limit;
+    const params: unknown[] = [];
+    const where: string[] = [];
+    if (search.status) {
+      params.push(search.status);
+      where.push(`b.status = $${params.length}`);
+    }
+    if (search.createdFrom) {
+      params.push(search.createdFrom);
+      where.push(`b.created_at >= $${params.length}::timestamptz`);
+    }
+    if (search.createdTo) {
+      params.push(search.createdTo);
+      where.push(`b.created_at <= $${params.length}::timestamptz`);
+    }
+    if (search.cursor) {
+      const key = decodeImportBatchCursor(search.cursor);
+      params.push(key.createdAt, key.id);
+      const last = params.length;
+      where.push(`(b.created_at, b.id) < ($${last - 1}, $${last})`);
+    }
+    params.push(limit + 1);
     const result = await this.pool.query<BatchDetailRow>(
       `${DETAIL_SELECT}
+       ${where.length > 0 ? `WHERE ${where.join(" AND ")}` : ""}
        ORDER BY b.created_at DESC, b.id ASC
-       LIMIT $1`,
-      [limit],
+       LIMIT $${params.length}`,
+      params,
     );
-    return result.rows.map(toDetailDto);
+    const rows = result.rows;
+    const hasMore = rows.length > limit;
+    const pageRows = hasMore ? rows.slice(0, limit) : rows;
+    const last = pageRows[pageRows.length - 1];
+    const out: { items: ImportBatchDetailDto[]; nextCursor?: string; hasMore: boolean } = {
+      items: pageRows.map(toDetailDto),
+      hasMore,
+    };
+    if (hasMore && last) {
+      out.nextCursor = encodeImportBatchCursor({
+        createdAt: new Date(last.created_at).toISOString(),
+        id: last.id,
+      });
+    }
+    return out;
   }
 
   /** 批次详情（含映射/校验事实与文件元数据）。不存在 → 404。 */
@@ -163,6 +222,7 @@ export class ImportBatchRepository {
     mappingVersion: number | null,
     cursor: number | null,
     limit: number,
+    status?: string,
   ): Promise<{ items: RowRow[]; nextCursor: number | null; hasMore: boolean }> {
     const baseLimit = Math.max(1, Math.min(limit, 100));
     // 多取一条判断 hasMore。
@@ -173,6 +233,10 @@ export class ImportBatchRepository {
     if (cursor !== null) {
       where += " AND r.ordinal > $3";
       params.push(cursor);
+    }
+    if (status !== undefined && status !== "") {
+      where += ` AND r.status = $${params.length + 1}`;
+      params.push(status);
     }
     const result = await this.pool.query<RowRow>(
       `SELECT r.id, r.ordinal, r.mapping_version, r.raw_summary, r.normalized_spelling,
@@ -283,4 +347,31 @@ export function toRowDto(row: RowRow): ImportRowDto {
     ...(committed && row.commit_committed_by ? { committedBy: row.commit_committed_by } : {}),
   };
   return dto;
+}
+
+function encodeImportBatchCursor(key: { createdAt: string; id: string }): string {
+  return Buffer.from(JSON.stringify(key), "utf8").toString("base64url");
+}
+
+function decodeImportBatchCursor(cursor: string): { createdAt: string; id: string } {
+  let parsed: { createdAt?: string; id?: string };
+  try {
+    parsed = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")) as {
+      createdAt?: string;
+      id?: string;
+    };
+  } catch {
+    throw new InvalidCursorError("游标无效");
+  }
+  if (typeof parsed.createdAt !== "string" || typeof parsed.id !== "string") {
+    throw new InvalidCursorError("游标非法");
+  }
+  return { createdAt: parsed.createdAt, id: parsed.id };
+}
+
+export class InvalidCursorError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidCursorError";
+  }
 }

@@ -92,6 +92,36 @@ export class ListLexicalEntriesQuery {
   limit?: number;
 }
 
+// ---- 编辑（PATCH）与状态变更 ----
+// 严格白名单：仅允许编辑词条元数据；来源事实（revision/page identity、content hash）
+// 与规范化拼写 / canonicalSpelling 不可通过编辑改动。
+
+export class UpdateLexicalEntryDto {
+  @ApiPropertyOptional({ enum: [...PART_OF_SPEECH_VALUES], description: "词性" })
+  @IsOptional()
+  @IsIn([...PART_OF_SPEECH_VALUES])
+  partOfSpeech?: string;
+
+  @ApiPropertyOptional({ description: "发音标注（传 null 清除）" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  pronunciation?: string;
+
+  @ApiPropertyOptional({ type: [SenseDto], description: "结构化释义（整体替换）" })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SenseDto)
+  senses?: SenseDto[];
+
+  @ApiPropertyOptional({ description: "来源说明（新增一条 manual 来源，append-only）" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  sourceNote?: string;
+}
+
 // ---- 响应（OpenAPI 形状） ----
 
 export class LexicalEntrySummaryDto {

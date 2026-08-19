@@ -8,6 +8,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { MotroLogo } from "../../components/motro-logo";
+import { LearnerRankBadge } from "../../components/learner-rank-badge";
 import { LiquidDock } from "./liquid-dock";
 
 const NAV_ITEMS = [
@@ -15,6 +16,7 @@ const NAV_ITEMS = [
   { href: "/courses", label: "课程", icon: "courses" },
   { href: "/xp", label: "经验", icon: "xp" },
   { href: "/leaderboard", label: "排行榜", icon: "leaderboard" },
+  { href: "/profile", label: "个人资料", icon: "profile" },
 ];
 
 const NAV_ICON: Record<(typeof NAV_ITEMS)[number]["icon"], React.ReactNode> = {
@@ -44,12 +46,21 @@ const NAV_ICON: Record<(typeof NAV_ITEMS)[number]["icon"], React.ReactNode> = {
       <rect x="14.5" y="11" width="6" height="9" />
     </svg>
   ),
+  profile: (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M4.5 20c.8-3.3 3.3-5 7.5-5s6.7 1.7 7.5 5" />
+    </svg>
+  ),
 };
 
 export default function LearnerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "";
   // /study/<id> 正好一层段时是专注学习页；/study/<id>/result 是结果页（显示导航）。
   const isFocusedSession = /^\/study\/[^/]+$/.test(pathname);
+  // 周挑战答题页 /challenge 与结果页 /challenge/result：专注布局，隐藏 Dock/侧栏。
+  const isChallengeFocused = /^\/challenge(\/result)?(\/)?$/.test(pathname);
+  const isFocused = isFocusedSession || isChallengeFocused;
 
   const chrome = (
     <div className="learner-chrome">
@@ -59,6 +70,9 @@ export default function LearnerLayout({ children }: { children: React.ReactNode 
             <MotroLogo compact />
           </span>
           <span className="learner-brand-name">Motro</span>
+        </Link>
+        <Link className="learner-topbar-profile" href="/profile">
+          个人
         </Link>
       </div>
       <LiquidDock pathname={pathname} />
@@ -82,13 +96,16 @@ export default function LearnerLayout({ children }: { children: React.ReactNode 
             );
           })}
         </div>
+        <div className="learner-identity">
+          <LearnerRankBadge />
+        </div>
       </nav>
     </div>
   );
 
   return (
-    <div className={`learner-layout${isFocusedSession ? " learner-layout--focused" : ""}`}>
-      {!isFocusedSession && chrome}
+    <div className={`learner-layout${isFocused ? " learner-layout--focused" : ""}`}>
+      {!isFocused && chrome}
       <div className="learner-content">{children}</div>
     </div>
   );

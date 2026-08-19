@@ -1,5 +1,5 @@
 // 密码策略（纯领域规则，无副作用）。
-export const PASSWORD_MIN_LENGTH = 10;
+export const PASSWORD_MIN_LENGTH = 6;
 export const PASSWORD_MAX_LENGTH = 128;
 
 export function validateNewPassword(password: string): string[] {

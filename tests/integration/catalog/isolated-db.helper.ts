@@ -28,6 +28,7 @@ import { ImportModule } from "../../../apps/api/src/modules/admin/imports/import
 import { OperationsModule } from "../../../apps/api/src/modules/operations/operations.module.js";
 import { GameModule } from "../../../apps/api/src/modules/game/game.module.js";
 import { MotivationModule } from "../../../apps/api/src/modules/motivation/motivation.module.js";
+import { MembershipModule } from "../../../apps/api/src/modules/membership/membership.module.js";
 import { DbHealthService } from "../../../apps/api/src/health/db-health.service.js";
 
 type App = Awaited<ReturnType<typeof createApp>>;
@@ -46,6 +47,7 @@ export async function closeAppDbPools(app: App, extraPools: Pool[] = []): Promis
     OperationsModule,
     GameModule,
     MotivationModule,
+    MembershipModule,
   ]) {
     try {
       pools.add(app.select(module).get<Pool>(POOL, { strict: true }));

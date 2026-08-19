@@ -6,6 +6,7 @@ import {
   Get,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -29,6 +30,7 @@ import {
   LexicalEntryDetailDto,
   LexicalEntryListResponseDto,
   ListLexicalEntriesQuery,
+  UpdateLexicalEntryDto,
 } from "./dto.js";
 import { LexicalEntryService } from "./lexical-entry.service.js";
 
@@ -107,5 +109,33 @@ export class LexicalEntryController {
   @ApiOkResponse({ type: LexicalEntryDetailDto })
   get(@Param("id") id: string) {
     return this.service.getDetail(id);
+  }
+
+  @Patch(":id")
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "编辑词条元数据（白名单；来源事实不可变）" })
+  @ApiOkResponse({ type: LexicalEntryDetailDto })
+  async update(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
+    @Body() body: UpdateLexicalEntryDto,
+  ) {
+    return this.service.update(req.user, id, body, req.id);
+  }
+
+  @Post(":id/archive")
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "归档词条（正被草稿引用时 fail-closed 422）" })
+  @ApiOkResponse({ type: LexicalEntryDetailDto })
+  async archive(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
+    return this.service.archive(req.user, id, req.id);
+  }
+
+  @Post(":id/activate")
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "重新激活归档词条" })
+  @ApiOkResponse({ type: LexicalEntryDetailDto })
+  async activate(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
+    return this.service.activate(req.user, id, req.id);
   }
 }

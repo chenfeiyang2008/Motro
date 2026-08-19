@@ -55,6 +55,13 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           );
           return valid.length > 0 ? valid : undefined;
         }
+        // Domain/service guards sometimes throw one structured field error
+        // directly. Preserve its stable code in the public envelope instead
+        // of silently dropping it and returning a generic 422.
+        const direct = body as { path?: unknown; code?: unknown };
+        if (typeof direct.path === "string" && typeof direct.code === "string") {
+          return [{ path: direct.path, code: direct.code }];
+        }
       }
     }
     return undefined;

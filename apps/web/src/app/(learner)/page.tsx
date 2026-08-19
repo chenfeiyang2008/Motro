@@ -12,6 +12,8 @@ import {
   getActiveStudySession,
   getStudyProgress,
   getStudyToday,
+  getHomeMotivation,
+  type HomeMotivationCopy,
   listCatalogCourses,
   type StudyProgress,
   type StudySessionDetail,
@@ -29,6 +31,13 @@ export default function LearnerDashboardPage() {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState("");
   const [activeSession, setActiveSession] = useState<StudySessionDetail | null>(null);
+  const [motivation, setMotivation] = useState<HomeMotivationCopy | null>(null);
+
+  useEffect(() => {
+    void getHomeMotivation().then((res) => {
+      if (res.ok && res.data?.message) setMotivation(res.data.message);
+    });
+  }, []);
 
   async function load(): Promise<void> {
     setState({ phase: "loading" });
@@ -111,6 +120,12 @@ export default function LearnerDashboardPage() {
     <section className="learner-dashboard">
       <h1>学习仪表盘</h1>
       <p className="dash-sub">看看今天有哪些内容，然后在课程之间专注推进。</p>
+      {motivation && (
+        <p className="dashboard-motivation" data-category={motivation.category}>
+          <span>{motivation.text}</span>
+          {motivation.attribution && <small>— {motivation.attribution}</small>}
+        </p>
+      )}
 
       {state.phase === "loading" && (
         <div className="dash-panel">

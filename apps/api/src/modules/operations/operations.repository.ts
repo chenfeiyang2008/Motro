@@ -51,10 +51,12 @@ const LIST_LIMIT = 20;
 export class OperationRepository {
   constructor(@Inject(POOL) private readonly pool: Pool) {}
 
-  /** 游标分页 + 安全 status/type 过滤。cursor 编码为 (created_at, id) 复合键（base64url）。 */
+  /** 游标分页 + 安全 status/type/errorCode 过滤。cursor 编码为 (created_at, id) 复合键（base64url）。 */
   async list(opts: {
     status?: string;
     operationType?: string;
+    targetType?: string;
+    errorCode?: string;
     cursor?: string;
     limit?: number;
   }): Promise<OperationListResponseDto> {
@@ -70,6 +72,14 @@ export class OperationRepository {
     if (opts.operationType) {
       conditions.push(`operation_type = $${paramIdx++}`);
       params.push(opts.operationType);
+    }
+    if (opts.targetType) {
+      conditions.push(`target_type = $${paramIdx++}`);
+      params.push(opts.targetType);
+    }
+    if (opts.errorCode) {
+      conditions.push(`last_error_code = $${paramIdx++}`);
+      params.push(opts.errorCode);
     }
 
     let cursorTime: string | undefined;
@@ -107,6 +117,7 @@ export class OperationRepository {
 
     return {
       items: pageRows.map((r) => toSummary(r)),
+      hasMore,
       ...(nextCursor !== null ? { nextCursor } : {}),
     };
   }

@@ -145,7 +145,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** 列出账号 */
+        /** 列出账号（支持搜索、角色、状态筛选 + keyset 分页） */
         get: operations["AdminUsersController_list"];
         put?: never;
         /** 创建受邀账号，返回一次性密码（仅此一次） */
@@ -167,6 +167,25 @@ export interface paths {
         get: operations["AdminUsersController_get"];
         put?: never;
         post?: never;
+        /** 删除无业务关联账号（有历史事实时必须停用） */
+        delete: operations["AdminUsersController_remove"];
+        options?: never;
+        head?: never;
+        /** 编辑账号显示资料（幂等，需 Idempotency-Key） */
+        patch: operations["AdminUsersController_update"];
+        trace?: never;
+    };
+    "/api/v1/admin/users/{id}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 重新启用已停用账号 */
+        post: operations["AdminUsersController_enable"];
         delete?: never;
         options?: never;
         head?: never;
@@ -236,6 +255,41 @@ export interface paths {
         get: operations["LexicalEntryController_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** 编辑词条元数据（白名单；来源事实不可变） */
+        patch: operations["LexicalEntryController_update"];
+        trace?: never;
+    };
+    "/api/v1/admin/lexical-entries/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 归档词条（正被草稿引用时 fail-closed 422） */
+        post: operations["LexicalEntryController_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/lexical-entries/{id}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 重新激活归档词条 */
+        post: operations["LexicalEntryController_activate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -640,6 +694,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/membership": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 当前账号会员投影（服务端计算，无敏感字段） */
+        get: operations["MembershipController_myMembership"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/memberships/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 读取指定用户的会员投影（只读；与 /me/membership 同一服务端计算源） */
+        get: operations["AdminMembershipController_readMembership"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/memberships/{userId}/grant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 授予/覆盖会员（幂等 + 审计） */
+        post: operations["AdminMembershipController_grant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/memberships/{userId}/renew": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 续期会员（幂等 + 审计） */
+        post: operations["AdminMembershipController_renew"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/memberships/{userId}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 撤销会员 → 立即按 free 限制（幂等 + 审计） */
+        post: operations["AdminMembershipController_revoke"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/xp": {
         parameters: {
             query?: never;
@@ -742,6 +881,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/xp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 管理员 XP 账本（只读；用户/kind 筛选 + keyset 分页） */
+        get: operations["AdminXpController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/xp/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 用户 XP 汇总（含总额与 correction/void 计数，供选择器） */
+        get: operations["AdminXpController_userSummaries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/xp/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** append-only 作废一笔 XP entry（插入负向 void 条目；原事实不 UPDATE/DELETE） */
+        post: operations["AdminXpController_void"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/xp/correct": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** append-only 补正一笔 XP entry（插入 correction 条目；金额可为正或负） */
+        post: operations["AdminXpController_correct"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/operations": {
         parameters: {
             query?: never;
@@ -749,7 +956,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** 列出后台操作（游标分页；可安全按 status/type 过滤） */
+        /** 列出后台操作（游标分页；可安全按 status/type/targetType/errorCode 过滤） */
         get: operations["OperationsController_list"];
         put?: never;
         post?: never;
@@ -800,7 +1007,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** 导入批次列表（管理员共享；元数据，不含磁盘路径/存储键） */
+        /** 导入批次列表（支持 status/时间筛选 + keyset 分页） */
         get: operations["ImportController_list"];
         put?: never;
         /** 管理员上传原始文件并创建导入批次（multipart；Idempotency-Key 幂等；本票不解析文件内容） */
@@ -853,7 +1060,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** 分页读取批次行结果（按 ordinal 升序；游标分页）。默认当前映射版本；可传 mappingVersion 读取历史映射版本的行事实 */
+        /** 分页读取批次行结果（按 ordinal 升序；游标分页）。默认当前映射版本；可传 mappingVersion 读取历史映射版本的行事实，status 筛选行校验分类 */
         get: operations["ImportController_rows"];
         put?: never;
         post?: never;
@@ -904,7 +1111,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** 列出来源完整、等待审核的草稿队列 */
+        /** 列出来源完整、等待审核的草稿队列（支持筛选与 keyset 分页） */
         get: operations["ReviewsController_list"];
         put?: never;
         post?: never;
@@ -982,6 +1189,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/home/motivation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 学习端首页随机激励文案（仅启用内容） */
+        get: operations["MotivationController_learner"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/motivation-copies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 管理员激励文案列表 */
+        get: operations["MotivationController_list"];
+        put?: never;
+        /** 创建激励文案 */
+        post: operations["MotivationController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/motivation-copies/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 批量创建激励文案（最多 100 条） */
+        post: operations["MotivationController_createBatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/motivation-copies/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** 编辑、启用或停用激励文案 */
+        patch: operations["MotivationController_update"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1043,6 +1319,25 @@ export interface components {
         };
         AdminUserListDto: {
             items: components["schemas"]["AdminUserDto"][];
+            /** @description 下一页游标；null 表示无更多 */
+            nextCursor?: string;
+            /** @description 是否还有更多 */
+            hasMore?: boolean;
+        };
+        UpdateUserDto: {
+            /** @description 显示名 */
+            displayName?: string;
+            /**
+             * @description 角色
+             * @enum {string}
+             */
+            role?: "learner" | "admin";
+            /** @description IANA 时区 */
+            timezone?: string;
+            /** @description 每日学习预算（分钟） */
+            dailyBudgetMinutes?: number;
+            /** @description 是否必须修改密码 */
+            mustChangePassword?: boolean;
         };
         AdminOkDto: {
             /** @description 操作成功 */
@@ -1155,6 +1450,19 @@ export interface components {
         };
         DuplicateErrorEnvelopeDto: {
             error: components["schemas"]["DuplicateWarningErrorDto"];
+        };
+        UpdateLexicalEntryDto: {
+            /**
+             * @description 词性
+             * @enum {string}
+             */
+            partOfSpeech?: "noun" | "verb" | "adjective" | "adverb" | "pronoun" | "preposition" | "conjunction" | "interjection" | "determiner" | "article" | "numeral" | "particle" | "phrase" | "abbreviation" | "prefix" | "suffix";
+            /** @description 发音标注（传 null 清除） */
+            pronunciation?: string;
+            /** @description 结构化释义（整体替换） */
+            senses?: components["schemas"]["SenseDto"][];
+            /** @description 来源说明（新增一条 manual 来源，append-only） */
+            sourceNote?: string;
         };
         CourseListItemDto: {
             id: string;
@@ -1950,6 +2258,50 @@ export interface components {
             /** @description 当前课程完成度 */
             currentCourseCompletion: components["schemas"]["CourseCompletionDto"];
         };
+        MembershipStatusDto: {
+            /**
+             * @description 有效会员方案（服务端计算）
+             * @enum {string}
+             */
+            plan: "member" | "free";
+            /**
+             * @description 有效会员状态：member=active 且未过期；free=无会员/过期/未知（fail-closed）
+             * @enum {string}
+             */
+            status: "member" | "free";
+            /** @description 过期时间（ISO；null=不限） */
+            expiresAt?: string | null;
+        };
+        AdminMembershipReadDto: {
+            /**
+             * @description 有效会员方案（服务端计算）
+             * @enum {string}
+             */
+            plan: "member" | "free";
+            /**
+             * @description 有效会员状态：member=active 且未过期；free=无会员/过期/未知（fail-closed）
+             * @enum {string}
+             */
+            status: "member" | "free";
+            /** @description 过期时间（ISO；null=不限） */
+            expiresAt?: string | null;
+        };
+        GrantMembershipDto: {
+            /**
+             * @default member
+             * @enum {string}
+             */
+            plan: "member" | "free";
+            /** @description 过期时间（ISO8601；null=不限） */
+            expiresAt?: Record<string, never> | null;
+        };
+        AdminMembershipResultDto: {
+            membership: components["schemas"]["MembershipStatusDto"];
+        };
+        RenewMembershipDto: {
+            /** @description 新的过期时间（ISO8601；null=不限） */
+            expiresAt?: Record<string, never> | null;
+        };
         XpSummaryEntryDto: {
             /** @description XP 事实金额（correction/void 可为负） */
             amount: number;
@@ -1967,6 +2319,22 @@ export interface components {
             entries: components["schemas"]["XpSummaryEntryDto"][];
             /** @description 当前规则版本 */
             ruleVersion: number;
+            /** @description 当前永久段位 */
+            level: number;
+            /** @description 当前段位头衔 */
+            title: string;
+            /** @description 当前段位稳定键 */
+            titleKey: string;
+            /** @description 当前段位门槛 XP */
+            levelThreshold: number;
+            /** @description 下一段位；最高段位为 null */
+            nextLevel: number | null;
+            /** @description 下一段位门槛；最高段位为 null */
+            nextLevelThreshold: number | null;
+            /** @description 当前段位内进度 XP */
+            progressXp: number;
+            /** @description 当前段位内进度百分比 */
+            progressPercent: number;
             /** @description 计算截止时刻 */
             asOf: string;
         };
@@ -2056,6 +2424,70 @@ export interface components {
             /** @description 作答内容（选择=选项文字；拼写=英文拼写） */
             answer: string;
         };
+        AdminXpEntryDto: {
+            /** @description XP entry ID */
+            id: string;
+            /** @description 用户 ID */
+            userId: string;
+            /** @description 用户名 */
+            username: string;
+            /** @description 关联的 review event ID */
+            reviewEventId: string;
+            /** @description 规则版本 */
+            ruleVersion: number;
+            /** @description XP 金额（correction/void 为负） */
+            amount: number;
+            /** @description reason：initial_review / due_review / correction / void */
+            reason: string;
+            /** @description 关联的目标 XP entry ID（correction/void 时存在） */
+            referencesXpEntryId: string;
+            /** @description 来源事件 ID */
+            sourceEventId: string;
+            /** @description 获得时间 */
+            earnedAt: string;
+            /** @description 记录创建时间 */
+            createdAt: string;
+        };
+        AdminXpListDto: {
+            items: components["schemas"]["AdminXpEntryDto"][];
+            /** @description 下一页游标；null 表示无更多 */
+            nextCursor: string;
+            /** @description 是否还有更多 */
+            hasMore: boolean;
+        };
+        AdminXpUserSummaryDto: {
+            /** @description 用户 ID */
+            userId: string;
+            /** @description 用户名 */
+            username: string;
+            /** @description 显示名 */
+            displayName: string;
+            /** @description 累计获奖 XP（不含 correction/void） */
+            grossXp: number;
+            /** @description 净 XP（含 correction/void 调整） */
+            netXp: number;
+            /** @description correction/void 调整合计 */
+            adjustmentXp: number;
+            /** @description XP entry 总数 */
+            entryCount: number;
+        };
+        AdminXpUserSummaryListDto: {
+            items: components["schemas"]["AdminXpUserSummaryDto"][];
+        };
+        AdminXpVoidDto: {
+            /** @description 目标 XP entry ID（必须是正向获奖 entry） */
+            targetEntryId: string;
+            /** @description 作废理由 */
+            reason: string;
+        };
+        AdminXpCorrectionDto: {
+            /** @description 目标 XP entry ID（必须是正向获奖 entry） */
+            targetEntryId: string;
+            /** @description 补正金额（正数=增加，负数=减少） */
+            amount: number;
+            /** @description 补正理由 */
+            reason: string;
+        };
         OperationSummaryDto: {
             /** @description operation ID */
             id: string;
@@ -2097,6 +2529,8 @@ export interface components {
             items: components["schemas"]["OperationSummaryDto"][];
             /** @description 下一页游标；null 表示无更多 */
             nextCursor?: string;
+            /** @description 是否还有更多 */
+            hasMore: boolean;
         };
         OperationAttemptSummaryDto: {
             /** @description attempt ID */
@@ -2303,6 +2737,10 @@ export interface components {
         ImportBatchListDto: {
             /** @description 批次列表（按创建时间倒序） */
             items: components["schemas"]["ImportBatchDetailDto"][];
+            /** @description 下一页游标；null 表示无更多 */
+            nextCursor?: string;
+            /** @description 是否还有更多 */
+            hasMore: boolean;
         };
         UpdateImportBatchDto: {
             /** @description 映射（spellingField/sheet） */
@@ -2363,6 +2801,15 @@ export interface components {
             licenseUrl: string;
             attribution: string;
         };
+        ManualActionInfoDto: {
+            /**
+             * @description manual_action 分类
+             * @enum {string}
+             */
+            cls: "resolvable" | "non_resolvable";
+            /** @description 触发错误码（非敏感） */
+            errorCode: string | null;
+        };
         ReviewDraftListItemDto: {
             draftId: string;
             spelling: string;
@@ -2371,9 +2818,15 @@ export interface components {
             decisionType?: string;
             reviewVersion?: string;
             source: components["schemas"]["ReviewSourceProjectionDto"];
+            /** @description manual_action 分类信息（仅 manual_action 草稿） */
+            manualAction?: components["schemas"]["ManualActionInfoDto"];
         };
         ReviewDraftListDto: {
             items: components["schemas"]["ReviewDraftListItemDto"][];
+            /** @description 下一页游标 */
+            nextCursor?: string;
+            /** @description 是否还有更多 */
+            hasMore: boolean;
         };
         ReviewDecisionDto: {
             id: string;
@@ -2397,6 +2850,8 @@ export interface components {
             reviewVersion: string;
             source: components["schemas"]["ReviewSourceProjectionDto"];
             decision?: components["schemas"]["ReviewDecisionDto"];
+            /** @description manual_action 分类信息 */
+            manualAction?: components["schemas"]["ManualActionInfoDto"];
         };
         ReviewDecisionRequestDto: {
             /** @enum {string} */
@@ -2411,6 +2866,56 @@ export interface components {
         ReviewDecisionResponseDto: {
             decision: components["schemas"]["ReviewDecisionDto"];
             isIdempotentReplay: boolean;
+        };
+        MotivationCopyDto: {
+            id: string;
+            text: string;
+            /** @enum {string} */
+            category: "poetry_pun" | "english_joke" | "learning_wit" | "encouragement";
+            attribution?: Record<string, never> | null;
+        };
+        MotivationResponseDto: {
+            message: components["schemas"]["MotivationCopyDto"] | null;
+        };
+        AdminMotivationCopyDto: {
+            id: string;
+            text: string;
+            /** @enum {string} */
+            category: "poetry_pun" | "english_joke" | "learning_wit" | "encouragement";
+            attribution?: Record<string, never> | null;
+            isEnabled: boolean;
+            createdAt: string;
+            updatedAt: string;
+        };
+        AdminMotivationListDto: {
+            items: components["schemas"]["AdminMotivationCopyDto"][];
+            nextCursor?: Record<string, never> | null;
+            hasMore: boolean;
+        };
+        CreateMotivationCopyDto: {
+            text: string;
+            /** @enum {string} */
+            category: "poetry_pun" | "english_joke" | "learning_wit" | "encouragement";
+            attribution?: Record<string, never> | null;
+        };
+        BatchCreateMotivationCopyDto: {
+            items: components["schemas"]["CreateMotivationCopyDto"][];
+        };
+        BatchCreateMotivationResultDto: {
+            items: components["schemas"]["AdminMotivationCopyDto"][];
+            /** @description 实际新增条数 */
+            createdCount: number;
+            /** @description 因重复而跳过的条数 */
+            skippedCount: number;
+            /** @description 被跳过的重复文案 */
+            skippedTexts: string[];
+        };
+        UpdateMotivationCopyDto: {
+            text?: string;
+            /** @enum {string} */
+            category?: "poetry_pun" | "english_joke" | "learning_wit" | "encouragement";
+            attribution?: Record<string, never> | null;
+            isEnabled?: boolean;
         };
     };
     responses: never;
@@ -2569,7 +3074,18 @@ export interface operations {
     };
     AdminUsersController_list: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description 搜索用户名或显示名 */
+                q?: string;
+                /** @description 角色筛选：learner/admin */
+                role?: string;
+                /** @description 状态筛选：active/disabled */
+                status?: string;
+                /** @description keyset 分页游标 */
+                cursor?: string;
+                /** @description 每页数量（1-100，默认 50） */
+                limit?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -2612,6 +3128,76 @@ export interface operations {
         };
     };
     AdminUsersController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserDto"];
+                };
+            };
+        };
+    };
+    AdminUsersController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 删除成功（OK） */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOkDto"];
+                };
+            };
+        };
+    };
+    AdminUsersController_update: {
+        parameters: {
+            query?: never;
+            header: {
+                "idempotency-key": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateUserDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserDto"];
+                };
+            };
+        };
+    };
+    AdminUsersController_enable: {
         parameters: {
             query?: never;
             header?: never;
@@ -2736,6 +3322,73 @@ export interface operations {
         };
     };
     LexicalEntryController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LexicalEntryDetailDto"];
+                };
+            };
+        };
+    };
+    LexicalEntryController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLexicalEntryDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LexicalEntryDetailDto"];
+                };
+            };
+        };
+    };
+    LexicalEntryController_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LexicalEntryDetailDto"];
+                };
+            };
+        };
+    };
+    LexicalEntryController_activate: {
         parameters: {
             query?: never;
             header?: never;
@@ -3544,6 +4197,123 @@ export interface operations {
             };
         };
     };
+    MembershipController_myMembership: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipStatusDto"];
+                };
+            };
+        };
+    };
+    AdminMembershipController_readMembership: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMembershipReadDto"];
+                };
+            };
+        };
+    };
+    AdminMembershipController_grant: {
+        parameters: {
+            query?: never;
+            header: {
+                "idempotency-key": string;
+            };
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantMembershipDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMembershipResultDto"];
+                };
+            };
+        };
+    };
+    AdminMembershipController_renew: {
+        parameters: {
+            query?: never;
+            header: {
+                "idempotency-key": string;
+            };
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenewMembershipDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMembershipResultDto"];
+                };
+            };
+        };
+    };
+    AdminMembershipController_revoke: {
+        parameters: {
+            query?: never;
+            header: {
+                "idempotency-key": string;
+            };
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOkDto"];
+                };
+            };
+        };
+    };
     GameController_meXp: {
         parameters: {
             query?: never;
@@ -3678,6 +4448,106 @@ export interface operations {
             };
         };
     };
+    AdminXpController_list: {
+        parameters: {
+            query?: {
+                /** @description 按用户 UUID 筛选 */
+                userId?: string;
+                /** @description entry kind：initial_review/due_review/correction/void */
+                kind?: string;
+                /** @description keyset 分页游标 */
+                cursor?: string;
+                /** @description 每页数量（1-100，默认 50） */
+                limit?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminXpListDto"];
+                };
+            };
+        };
+    };
+    AdminXpController_userSummaries: {
+        parameters: {
+            query?: {
+                /** @description 搜索用户名/显示名 */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminXpUserSummaryListDto"];
+                };
+            };
+        };
+    };
+    AdminXpController_void: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminXpVoidDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminXpEntryDto"];
+                };
+            };
+        };
+    };
+    AdminXpController_correct: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminXpCorrectionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminXpEntryDto"];
+                };
+            };
+        };
+    };
     OperationsController_list: {
         parameters: {
             query?: {
@@ -3685,6 +4555,10 @@ export interface operations {
                 status?: string;
                 /** @description 操作类型过滤 */
                 operationType?: string;
+                /** @description 目标类型过滤 */
+                targetType?: string;
+                /** @description 最近错误码过滤 */
+                errorCode?: string;
                 /** @description 分页游标 */
                 cursor?: string;
                 /** @description 每页数量（1–50，默认 20） */
@@ -3769,7 +4643,18 @@ export interface operations {
     };
     ImportController_list: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description 批次状态筛选 */
+                status?: string;
+                /** @description 创建时间起点（ISO 8601） */
+                createdFrom?: string;
+                /** @description 创建时间终点（ISO 8601） */
+                createdTo?: string;
+                /** @description keyset 分页游标 */
+                cursor?: string;
+                /** @description 每页数量（1-100，默认 50） */
+                limit?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -3988,6 +4873,7 @@ export interface operations {
                 cursor: string;
                 limit: string;
                 mappingVersion: string;
+                status: string;
             };
             header?: never;
             path: {
@@ -4014,7 +4900,7 @@ export interface operations {
                     "application/json": components["schemas"]["ImportErrorEnvelopeDto"];
                 };
             };
-            /** @description 非法游标/limit/mappingVersion */
+            /** @description 非法游标/limit/mappingVersion/status */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -4102,7 +4988,16 @@ export interface operations {
     };
     ReviewsController_list: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description 按状态过滤（draft_ready/manual_action） */
+                status?: string;
+                /** @description manual_action 分类过滤：resolvable/non_resolvable */
+                manualAction?: string;
+                /** @description keyset 分页游标 */
+                cursor?: string;
+                /** @description 每页数量（1-100，默认 50） */
+                limit?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4206,6 +5101,120 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    MotivationController_learner: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MotivationResponseDto"];
+                };
+            };
+        };
+    };
+    MotivationController_list: {
+        parameters: {
+            query?: {
+                status?: "enabled" | "disabled";
+                category?: string;
+                cursor?: string;
+                limit?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMotivationListDto"];
+                };
+            };
+        };
+    };
+    MotivationController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMotivationCopyDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMotivationCopyDto"];
+                };
+            };
+        };
+    };
+    MotivationController_createBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchCreateMotivationCopyDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchCreateMotivationResultDto"];
+                };
+            };
+        };
+    };
+    MotivationController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMotivationCopyDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMotivationCopyDto"];
+                };
             };
         };
     };

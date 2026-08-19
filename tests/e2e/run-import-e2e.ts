@@ -110,6 +110,7 @@ async function main(): Promise<void> {
           "test",
           "tests/e2e/admin-imports.spec.ts",
           "tests/e2e/admin-operations.spec.ts",
+          "tests/e2e/membership-admin-ui.e2e.spec.ts",
           "--project=chromium",
           "--project=webkit",
         ],

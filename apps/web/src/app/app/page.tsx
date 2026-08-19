@@ -9,12 +9,14 @@ import LearnerDashboardPage from "../(learner)/page";
 import LearnerLayout from "../(learner)/layout";
 import AdminHomePage from "../admin/page";
 import AdminLayout from "../admin/layout";
+import { AccountMenu } from "@/components/account-menu";
 
 export default function ProtectedAppPage() {
   const router = useRouter();
   const [user, setUser] = useState<PublicUser | null>(null);
   const [checked, setChecked] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,16 +41,30 @@ export default function ProtectedAppPage() {
 
   async function onLogout() {
     setBusy(true);
-    await logout();
+    setLogoutError(null);
+    const res = await logout();
+    setBusy(false);
+    if (!res.ok) {
+      setLogoutError(res.message ?? "退出失败，请重试。");
+      return;
+    }
     router.replace("/login");
   }
 
   if (!checked) return <p>正在检查登录状态…</p>;
 
-  if (user?.role === "admin") {
+  if (!user) return null;
+
+  if (user.role === "admin") {
     return (
       <AdminLayout>
         <AdminHomePage />
+        <AccountMenu user={user} onLogout={onLogout} busy={busy} />
+        {logoutError && (
+          <p className="app-logout-error" role="alert">
+            {logoutError}
+          </p>
+        )}
         <button type="button" className="primary app-logout" onClick={onLogout} disabled={busy}>
           {busy ? "登出中…" : "登出"}
         </button>
@@ -59,6 +75,12 @@ export default function ProtectedAppPage() {
   return (
     <LearnerLayout>
       <LearnerDashboardPage />
+      <AccountMenu user={user} onLogout={onLogout} busy={busy} />
+      {logoutError && (
+        <p className="app-logout-error" role="alert">
+          {logoutError}
+        </p>
+      )}
       <button type="button" className="primary app-logout" onClick={onLogout} disabled={busy}>
         {busy ? "登出中…" : "登出"}
       </button>

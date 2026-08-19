@@ -191,18 +191,20 @@ export function LiquidDock({ pathname }: { pathname: string }) {
         <div className="liquid-dock__content">
           <span className="liquid-dock__active-indicator" aria-hidden="true" />
           {DOCK_ITEMS.map((item, index) => {
-            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const routeActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const visualActive = visualActiveIndex === index;
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                aria-current={active ? "page" : undefined}
+                aria-current={routeActive ? "page" : undefined}
+                data-dock-active={visualActive ? "true" : undefined}
                 onClick={(event) => {
                   event.preventDefault();
                   requestNavigation(item.href, index);
                 }}
               >
-                <DockIcon name={item.icon} active={active} />
+                <DockIcon name={item.icon} active={visualActive} />
                 <span>{item.label}</span>
               </Link>
             );

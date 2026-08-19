@@ -1624,6 +1624,8 @@ export class CourseService {
       );
       if (input.reviewDecisionId) {
         // Path B：校验 review_decision 存在、为接受态、且与当前词条目一致（P1-2 fail-closed）。
+        // final P1 还校验完整的 source/lexical identity 绑定：
+        //   commit_row、page/revision、content_hash、以及 decision 未被其他 item 占用。
         const rd = await client.query<{
           decision_type: string;
           draft_id: string;
@@ -1632,8 +1634,16 @@ export class CourseService {
           snapshot_english_spelling: string;
           source_fact_status: string | null;
           source_fact_normalized_spelling: string | null;
+          source_fact_content_hash: string | null;
+          source_fact_commit_row_id: string | null;
+          draft_import_batch_commit_row_id: string | null;
+          snapshot_page_id: string | null;
+          snapshot_revision_id: string | null;
+          source_page_id: string | null;
+          source_revision_id: string | null;
           entry_canonical_spelling: string | null;
           entry_normalized_spelling: string | null;
+          bound_to_another_item: boolean;
         }>(
           `SELECT rd.decision_type AS decision_type, rd.draft_id AS draft_id,
                   ed.lexical_entry_id AS draft_lexical_entry_id,
@@ -1641,8 +1651,19 @@ export class CourseService {
                   s.english_spelling AS snapshot_english_spelling,
                   sf.status AS source_fact_status,
                   sf.normalized_spelling AS source_fact_normalized_spelling,
+                  sf.content_hash AS source_fact_content_hash,
+                  sf.commit_row_id AS source_fact_commit_row_id,
+                  ed.import_batch_commit_row_id AS draft_import_batch_commit_row_id,
+                  s.source_page_id AS snapshot_page_id,
+                  s.source_revision_id AS snapshot_revision_id,
+                  sf.page_id AS source_page_id,
+                  sf.revision_id AS source_revision_id,
                   e.canonical_spelling AS entry_canonical_spelling,
-                  e.normalized_spelling AS entry_normalized_spelling
+                  e.normalized_spelling AS entry_normalized_spelling,
+                  EXISTS (
+                    SELECT 1 FROM draft_course_items other
+                    WHERE other.review_decision_id = rd.id AND other.id IS NOT NULL
+                  ) AS bound_to_another_item
              FROM review_decisions rd
              JOIN enrichment_drafts ed ON ed.id = rd.draft_id
              LEFT JOIN review_decision_snapshots s ON s.decision_id = rd.id
@@ -1715,6 +1736,52 @@ export class CourseService {
             path: "reviewDecisionId",
             code: "normalized_spelling_mismatch",
             message: "该审核决定的来源事实拼写与词条不一致，不可绑定",
+          });
+        }
+        // final P1: source fact commit_row_id must match the draft's import_batch_commit_row_id.
+        if (
+          rdRow.source_fact_commit_row_id === null ||
+          rdRow.draft_import_batch_commit_row_id === null ||
+          rdRow.source_fact_commit_row_id !== rdRow.draft_import_batch_commit_row_id
+        ) {
+          throw new UnprocessableEntityException({
+            path: "reviewDecisionId",
+            code: "commit_row_mismatch",
+            message: "该审核决定的来源事实 commit row 与草稿不一致，不可绑定",
+          });
+        }
+        // final P1: snapshot page/revision identity must match the source fact's page/revision.
+        if (
+          rdRow.snapshot_page_id === null ||
+          rdRow.snapshot_revision_id === null ||
+          rdRow.source_page_id === null ||
+          rdRow.source_revision_id === null ||
+          rdRow.snapshot_page_id !== rdRow.source_page_id ||
+          rdRow.snapshot_revision_id !== rdRow.source_revision_id
+        ) {
+          throw new UnprocessableEntityException({
+            path: "reviewDecisionId",
+            code: "revision_page_mismatch",
+            message: "该审核决定的 revision/page 身份与来源事实不一致，不可绑定",
+          });
+        }
+        // final P1: source fact must carry a non-empty content_hash (64-hex).
+        if (
+          rdRow.source_fact_content_hash === null ||
+          rdRow.source_fact_content_hash.length !== 64
+        ) {
+          throw new UnprocessableEntityException({
+            path: "reviewDecisionId",
+            code: "source_fact_hash_missing",
+            message: "该审核决定的来源事实缺少 content_hash，不可绑定",
+          });
+        }
+        // final P1: this review decision must not already be bound to another course item.
+        if (rdRow.bound_to_another_item) {
+          throw new UnprocessableEntityException({
+            path: "reviewDecisionId",
+            code: "conflicting_decision",
+            message: "该审核决定已被其他课程词项占用，不可重复绑定",
           });
         }
       }

@@ -304,6 +304,38 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")("auth inte
     expect(relogin.statusCode).toBe(401);
   });
 
+  it("管理员可删除无业务关联账号，但不能删除自己", async () => {
+    const { username } = await createLearner("delete-unused");
+    const pool = createPool({ ...config, max: 1 });
+    let targetId: string;
+    let adminId: string;
+    try {
+      const target = await pool.query<{ id: string }>("SELECT id FROM users WHERE username = $1", [
+        username,
+      ]);
+      const adminRow = await pool.query<{ id: string }>(
+        "SELECT id FROM users WHERE username = 'itest-admin'",
+      );
+      expect(target.rows[0]).toBeTruthy();
+      expect(adminRow.rows[0]).toBeTruthy();
+      targetId = target.rows[0]!.id;
+      adminId = adminRow.rows[0]!.id;
+    } finally {
+      await pool.end();
+    }
+
+    const deleted = await admin.req("DELETE", `/api/v1/admin/users/${targetId}`, {});
+    expect(deleted.statusCode).toBe(200);
+    const missing = await admin.req("GET", `/api/v1/admin/users/${targetId}`, {});
+    expect(missing.statusCode).toBe(404);
+
+    const self = await admin.req("DELETE", `/api/v1/admin/users/${adminId}`, {});
+    expect(self.statusCode).toBe(409);
+    expect(String((self.json() as { error: { message: string } }).error.message)).toContain(
+      "不能删除自己的账号",
+    );
+  });
+
   it("管理端列表返回完整安全投影且不泄露敏感字段；管理员不能停用自己（409）", async () => {
     // admin 自己的 id（itest-admin 由 beforeAll 插入）。
     const pool = createPool({ ...config, max: 1 });

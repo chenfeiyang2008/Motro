@@ -1,6 +1,6 @@
 // 认证 DTO。校验失败由全局 ValidationPipe 转为 422 + fieldErrors。
-import { ApiProperty } from "@nestjs/swagger";
-import { IsIn, IsInt, IsOptional, IsString, Max, Min, MinLength } from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Max, Min, MinLength } from "class-validator";
 
 export class LoginDto {
   @ApiProperty({ description: "登录用户名" })
@@ -21,7 +21,7 @@ export class ChangePasswordDto {
 
   @ApiProperty({ description: "新密码" })
   @IsString()
-  @MinLength(10)
+  @MinLength(6)
   newPassword!: string;
 }
 
@@ -91,6 +91,43 @@ export class AdminUserDto {
 export class AdminUserListDto {
   @ApiProperty({ type: [AdminUserDto] })
   items!: AdminUserDto[];
+
+  @ApiProperty({ description: "下一页游标；null 表示无更多", required: false })
+  nextCursor?: string;
+
+  @ApiProperty({ description: "是否还有更多", required: false })
+  hasMore?: boolean;
+}
+
+export class UpdateUserDto {
+  @ApiPropertyOptional({ description: "显示名" })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  displayName?: string;
+
+  @ApiPropertyOptional({ enum: ["learner", "admin"], description: "角色" })
+  @IsOptional()
+  @IsIn(["learner", "admin"])
+  role?: "learner" | "admin";
+
+  @ApiPropertyOptional({ description: "IANA 时区" })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  timezone?: string;
+
+  @ApiPropertyOptional({ description: "每日学习预算（分钟）", minimum: 1, maximum: 120 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(120)
+  dailyBudgetMinutes?: number;
+
+  @ApiPropertyOptional({ description: "是否必须修改密码" })
+  @IsOptional()
+  @IsBoolean()
+  mustChangePassword?: boolean;
 }
 
 export class AdminOkDto {

@@ -347,7 +347,7 @@ describe("worker operations foundation", () => {
       expect(versions.rows.map((r) => r.version)).toContain(32);
       expect(versions.rows.map((r) => r.version)).toContain(33);
       const max = Math.max(...versions.rows.map((r) => r.version));
-      expect(max).toBe(37);
+      expect(max).toBe(42);
       const sch = await pool.query<{ n: string }>(
         `SELECT count(*)::text AS n FROM information_schema.schemata WHERE schema_name = 'graphile_worker'`,
       );

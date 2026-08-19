@@ -2,12 +2,15 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from "@nestjs/common";
@@ -16,6 +19,7 @@ import {
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiQuery,
   ApiTags,
 } from "@nestjs/swagger";
 import { AuthService, type PublicUser } from "./auth.service.js";
@@ -25,6 +29,7 @@ import {
   AdminUserDto,
   AdminUserListDto,
   CreateUserDto,
+  UpdateUserDto,
 } from "./dto.js";
 import { Roles, RolesGuard } from "./roles.guard.js";
 import { SessionGuard, type AuthenticatedRequest } from "./session.guard.js";
@@ -61,11 +66,66 @@ export class AdminUsersController {
 
   @Get()
   @ApiBearerAuth()
-  @ApiOperation({ summary: "列出账号" })
+  @ApiOperation({ summary: "列出账号（支持搜索、角色、状态筛选 + keyset 分页）" })
   @ApiOkResponse({ type: AdminUserListDto })
-  async list(): Promise<{ items: PublicUser[] }> {
-    const items = await this.authService.listUsers();
-    return { items };
+  @ApiQuery({ name: "q", required: false, description: "搜索用户名或显示名" })
+  @ApiQuery({ name: "role", required: false, description: "角色筛选：learner/admin" })
+  @ApiQuery({ name: "status", required: false, description: "状态筛选：active/disabled" })
+  @ApiQuery({ name: "cursor", required: false, description: "keyset 分页游标" })
+  @ApiQuery({ name: "limit", required: false, description: "每页数量（1-100，默认 50）" })
+  async list(
+    @Query("q") q?: string,
+    @Query("role") role?: "learner" | "admin",
+    @Query("status") status?: "active" | "disabled",
+    @Query("cursor") cursor?: string,
+    @Query("limit") limit?: string,
+  ): Promise<{ items: PublicUser[]; nextCursor: string | null; hasMore: boolean }> {
+    const parsedLimit = limit ? Math.min(Math.max(Number(limit) || 50, 1), 100) : undefined;
+    const opts: {
+      q?: string;
+      role?: "learner" | "admin";
+      status?: "active" | "disabled";
+      cursor?: string;
+      limit?: number;
+    } = {};
+    if (q !== undefined && q !== "") opts.q = q;
+    if (role !== undefined) opts.role = role;
+    if (status !== undefined) opts.status = status;
+    if (cursor !== undefined && cursor !== "") opts.cursor = cursor;
+    if (parsedLimit !== undefined) opts.limit = parsedLimit;
+    return this.authService.listUsers(opts);
+  }
+
+  @Patch(":id")
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "编辑账号显示资料（幂等，需 Idempotency-Key）" })
+  @ApiOkResponse({ type: AdminUserDto })
+  async update(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
+    @Body() body: UpdateUserDto,
+    @Headers("idempotency-key") idempotencyKey?: string,
+  ): Promise<PublicUser> {
+    return this.authService.updateUser(req.user, id, body, req.id, idempotencyKey);
+  }
+
+  @Post(":id/enable")
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "重新启用已停用账号" })
+  @ApiOkResponse({ type: AdminUserDto })
+  async enable(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
+    return this.authService.enableUser(req.user, id, req.id);
+  }
+
+  @Delete(":id")
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "删除无业务关联账号（有历史事实时必须停用）" })
+  @ApiOkResponse({ type: AdminOkDto, description: "删除成功（OK）" })
+  async remove(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
+    await this.authService.deleteUser(req.user, id, req.id);
+    return { ok: true };
   }
 
   @Get(":id")

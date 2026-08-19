@@ -48,10 +48,10 @@ echo "ready=$ready"
 echo "$ready" | grep -q '"db":"ok"' || fail "DB 未就绪"
 echo "$ready" | grep -q '"graphileWorker":"ok"' || fail "graphile_worker schema 未就绪"
 
-step "3/6 校验迁移版本（schema_migrations 最高 == 部署目标 0036）"
+step "3/6 校验迁移版本（schema_migrations 最高 == 部署目标 0042）"
 max_mig=$("${COMPOSE[@]}" exec -T db psql -U "${POSTGRES_USER:-motro}" -d "${POSTGRES_DB:-motro}" \
   -tAc "SELECT max(version) FROM schema_migrations" 2>/dev/null || echo "")
-[ "${max_mig:-0}" -ge 36 ] || fail "迁移最高版本 ${max_mig:-0} < 36"
+[ "${max_mig:-0}" -ge 42 ] || fail "迁移最高版本 ${max_mig:-0} < 42"
 
 step "4/6 worker 进程存活"
 "${COMPOSE[@]}" ps worker | grep -qi "Up" || fail "worker 未运行"

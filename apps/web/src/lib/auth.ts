@@ -1,5 +1,11 @@
 // 客户端认证 API 边界：同源 /api/v1（Web 代理到 API），只通过版本化契约访问。
 
+export interface MembershipInfo {
+  plan: "member" | "free";
+  status: "member" | "free";
+  expiresAt: string | null;
+}
+
 export interface PublicUser {
   id: string;
   username: string;
@@ -8,6 +14,7 @@ export interface PublicUser {
   timezone: string;
   dailyBudgetMinutes: number;
   mustChangePassword: boolean;
+  membership?: MembershipInfo;
 }
 
 export interface ApiErrorEnvelope {
@@ -82,6 +89,15 @@ export async function fetchMe(): Promise<{
   return { ok: res.ok, user: res.data as PublicUser | undefined, status: res.status };
 }
 
+export async function fetchMeMembership(): Promise<{
+  ok: boolean;
+  membership: MembershipInfo | undefined;
+  status: number;
+}> {
+  const res = await apiFetch<MembershipInfo>("/api/v1/me/membership", { method: "GET" });
+  return { ok: res.ok, membership: res.data as MembershipInfo | undefined, status: res.status };
+}
+
 export async function changePassword(
   currentPassword: string,
   newPassword: string,
@@ -93,6 +109,11 @@ export async function changePassword(
   return { ok: res.ok, status: res.status, message: res.error?.error?.message };
 }
 
-export async function logout(): Promise<void> {
-  await apiFetch<{ ok: boolean }>("/api/v1/auth/logout", { method: "POST" }).catch(() => undefined);
+export async function logout(): Promise<{
+  ok: boolean;
+  status: number;
+  message: string | undefined;
+}> {
+  const res = await apiFetch<{ ok: boolean }>("/api/v1/auth/logout", { method: "POST" });
+  return { ok: res.ok, status: res.status, message: res.error?.error?.message };
 }

@@ -6,6 +6,7 @@ import {
   Injectable,
   NotFoundException,
   UnauthorizedException,
+  UnprocessableEntityException,
 } from "@nestjs/common";
 import { createHash, randomBytes } from "node:crypto";
 import { validateNewPassword } from "@motro/domain";
@@ -239,6 +240,84 @@ export class AuthService {
     );
   }
 
+  /** 管理员：删除没有业务事实关联的账号；有历史数据时必须停用而非级联抹除。 */
+  async deleteUser(actor: UserRecord, userId: string, requestId: string): Promise<void> {
+    if (actor.id === userId) {
+      throw new ConflictException("不能删除自己的账号");
+    }
+
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const found = await client.query<UserRecord>(
+        `SELECT id, username, display_name, role, status, timezone, daily_budget_minutes,
+                password_hash, password_version, must_change_password, otp_consumed,
+                created_at, updated_at
+         FROM users WHERE id = $1 FOR UPDATE`,
+        [userId],
+      );
+      const user = found.rows[0];
+      if (!user) throw new NotFoundException("用户不存在");
+
+      // 不依赖各表的 ON DELETE 行为：即使某张学习表配置了 CASCADE，
+      // 只要已有任何外键事实，就禁止物理删除，避免抹掉学习历史。
+      const references = await client.query<{
+        schema_name: string;
+        table_name: string;
+        column_name: string;
+      }>(
+        `SELECT ns.nspname AS schema_name, cls.relname AS table_name, att.attname AS column_name
+         FROM pg_constraint con
+         JOIN pg_class cls ON cls.oid = con.conrelid
+         JOIN pg_namespace ns ON ns.oid = cls.relnamespace
+         JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = con.conkey[1]
+         WHERE con.contype = 'f'
+           AND con.confrelid = 'public.users'::regclass
+           AND array_length(con.conkey, 1) = 1
+           AND ns.nspname NOT IN ('pg_catalog', 'information_schema')`,
+      );
+      const quoteIdentifier = (value: string): string => `"${value.replaceAll('"', '""')}"`;
+      for (const reference of references.rows) {
+        const dependency = await client.query(
+          `SELECT 1 FROM ${quoteIdentifier(reference.schema_name)}.${quoteIdentifier(reference.table_name)}
+           WHERE ${quoteIdentifier(reference.column_name)} = $1 LIMIT 1`,
+          [userId],
+        );
+        if ((dependency.rowCount ?? 0) > 0) {
+          throw new ConflictException("该账号已有业务或审计数据，不能物理删除，请改用停用");
+        }
+      }
+
+      try {
+        await client.query("DELETE FROM users WHERE id = $1", [userId]);
+      } catch (err) {
+        // PostgreSQL 23503 means a learning, audit, membership or other business
+        // fact still references this account. Never cascade-delete those facts.
+        if (
+          typeof err === "object" &&
+          err !== null &&
+          "code" in err &&
+          (err as { code?: unknown }).code === "23503"
+        ) {
+          throw new ConflictException("该账号已有业务或审计数据，不能物理删除，请改用停用");
+        }
+        throw err;
+      }
+
+      await client.query(
+        `INSERT INTO audit_events (actor_id, action, target_type, target_id, before_summary, request_id)
+         VALUES ($1, 'admin.user.delete', 'user', $2, $3::jsonb, $4)`,
+        [actor.id, userId, JSON.stringify({ user: toPublicUser(user) }), requestId],
+      );
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
   /** 管理员：重置一次性密码并撤销全部会话。幂等。 */
   async resetPassword(
     actor: UserRecord,
@@ -268,12 +347,161 @@ export class AuthService {
     };
   }
 
-  async listUsers(): Promise<PublicUser[]> {
+  /** 管理员：列出账号，支持 q/role/status 过滤 + keyset 分页。 */
+  async listUsers(opts: {
+    q?: string;
+    role?: "learner" | "admin";
+    status?: "active" | "disabled";
+    cursor?: string;
+    limit?: number;
+  }): Promise<{ items: PublicUser[]; nextCursor: string | null; hasMore: boolean }> {
+    const limit = Math.min(Math.max(opts.limit ?? 50, 1), 100);
+    const params: unknown[] = [];
+    const where: string[] = [];
+
+    const q = (opts.q ?? "").trim();
+    if (q.length > 0) {
+      const escaped = q.replace(/[\\%_]/g, (m) => `\\${m}`);
+      params.push(`%${escaped}%`);
+      const idx = params.length;
+      where.push(`(username ILIKE $${idx} ESCAPE '\\' OR display_name ILIKE $${idx} ESCAPE '\\')`);
+    }
+    if (opts.role) {
+      params.push(opts.role);
+      where.push(`role = $${params.length}`);
+    }
+    if (opts.status) {
+      params.push(opts.status);
+      where.push(`status = $${params.length}`);
+    }
+    if (opts.cursor) {
+      const key = decodeUserCursor(opts.cursor);
+      params.push(key.createdAt, key.id);
+      const last = params.length;
+      where.push(`(created_at, id) > ($${last - 1}, $${last})`);
+    }
+
+    params.push(limit + 1);
+    const sql = `
+      SELECT id, username, display_name, role, status, timezone, daily_budget_minutes,
+             password_hash, password_version, must_change_password, otp_consumed, created_at, updated_at
+      FROM users
+      ${where.length > 0 ? `WHERE ${where.join(" AND ")}` : ""}
+      ORDER BY created_at ASC, id ASC
+      LIMIT $${params.length}
+    `;
+    const result = await this.pool.query<UserRecord>(sql, params);
+    const rows = result.rows;
+    const hasMore = rows.length > limit;
+    const pageRows = hasMore ? rows.slice(0, limit) : rows;
+    const last = pageRows[pageRows.length - 1];
+    return {
+      items: pageRows.map(toPublicUser),
+      nextCursor:
+        hasMore && last
+          ? encodeUserCursor({ createdAt: new Date(last.created_at).toISOString(), id: last.id })
+          : null,
+      hasMore,
+    };
+  }
+
+  /** 管理员：编辑允许的账号字段（白名单 DTO）。审计 + 幂等。 */
+  async updateUser(
+    actor: UserRecord,
+    userId: string,
+    patch: {
+      displayName?: string;
+      role?: "learner" | "admin";
+      timezone?: string;
+      dailyBudgetMinutes?: number;
+      mustChangePassword?: boolean;
+    },
+    requestId: string,
+    idempotencyKey?: string,
+  ): Promise<PublicUser> {
+    if (!idempotencyKey) throw new BadRequestException("缺少 Idempotency-Key 头");
+    const scope = `admin:update-user:${actor.id}:${userId}`;
+    const requestHash = createHash("sha256").update(JSON.stringify(patch)).digest("hex");
+    const claimed = await this.claimIdempotency(scope, idempotencyKey, requestHash);
+    if (claimed !== "claimed") return claimed as PublicUser;
+
+    const user = await this.getUser(userId);
+    const before = { ...toPublicUser(user) };
+    // 管理者不能把自己改成非管理员（防止最后一个管理员自我降权）。
+    if (userId === actor.id && patch.role === "learner" && user.role === "admin") {
+      throw new ConflictException("不能把自己的角色降为学习者");
+    }
+
+    const sets: string[] = [];
+    const params: unknown[] = [];
+    const next = { ...user };
+    if (patch.displayName !== undefined) {
+      params.push(patch.displayName.trim());
+      sets.push(`display_name = $${params.length}`);
+      next.display_name = patch.displayName.trim();
+    }
+    if (patch.role !== undefined) {
+      params.push(patch.role);
+      sets.push(`role = $${params.length}`);
+      next.role = patch.role;
+    }
+    if (patch.timezone !== undefined) {
+      params.push(patch.timezone.trim());
+      sets.push(`timezone = $${params.length}`);
+      next.timezone = patch.timezone.trim();
+    }
+    if (patch.dailyBudgetMinutes !== undefined) {
+      params.push(patch.dailyBudgetMinutes);
+      sets.push(`daily_budget_minutes = $${params.length}`);
+      next.daily_budget_minutes = patch.dailyBudgetMinutes;
+    }
+    if (patch.mustChangePassword !== undefined) {
+      params.push(patch.mustChangePassword);
+      sets.push(`must_change_password = $${params.length}`);
+      next.must_change_password = patch.mustChangePassword;
+    }
+    if (sets.length === 0) {
+      throw new UnprocessableEntityException({ message: "没有可更新的字段", fieldErrors: [] });
+    }
+    params.push(userId);
+    sets.push(`updated_at = now()`);
     const result = await this.pool.query<UserRecord>(
-      `SELECT id, username, display_name, role, status, timezone, daily_budget_minutes, password_hash, password_version, must_change_password, otp_consumed, created_at, updated_at
-       FROM users ORDER BY created_at ASC LIMIT 100`,
+      `UPDATE users SET ${sets.join(", ")} WHERE id = $${params.length} RETURNING id, username, display_name, role, status, timezone, daily_budget_minutes, password_hash, password_version, must_change_password, otp_consumed, created_at, updated_at`,
+      params,
     );
-    return result.rows.map(toPublicUser);
+    const updated = result.rows[0];
+    if (!updated) throw new NotFoundException("用户不存在");
+    await this.audit(
+      actor.id,
+      "admin.user.update",
+      "user",
+      userId,
+      { before: stripPublic(before) },
+      { after: stripPublic(toPublicUser(updated)) },
+      requestId,
+    );
+    await this.completeIdempotency(scope, idempotencyKey, toPublicUser(updated));
+    return toPublicUser(updated);
+  }
+
+  /** 管理员：重新启用已停用账号。审计。 */
+  async enableUser(actor: UserRecord, userId: string, requestId: string): Promise<PublicUser> {
+    const result = await this.pool.query<UserRecord>(
+      `UPDATE users SET status = 'active', updated_at = now() WHERE id = $1 AND status = 'disabled' RETURNING id, username, display_name, role, status, timezone, daily_budget_minutes, password_hash, password_version, must_change_password, otp_consumed, created_at, updated_at`,
+      [userId],
+    );
+    const user = result.rows[0];
+    if (!user) throw new NotFoundException("用户不存在或未停用");
+    await this.audit(
+      actor.id,
+      "admin.user.enable",
+      "user",
+      userId,
+      undefined,
+      { username: user.username },
+      requestId,
+    );
+    return toPublicUser(user);
   }
 
   async getUserPublic(userId: string): Promise<PublicUser> {
@@ -402,4 +630,31 @@ export class AuthService {
       ],
     );
   }
+}
+
+// ---- 用户分页游标 ----
+
+function encodeUserCursor(key: { createdAt: string; id: string }): string {
+  return Buffer.from(JSON.stringify(key), "utf8").toString("base64url");
+}
+
+function decodeUserCursor(cursor: string): { createdAt: string; id: string } {
+  let parsed: { createdAt?: string; id?: string };
+  try {
+    parsed = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")) as {
+      createdAt?: string;
+      id?: string;
+    };
+  } catch {
+    throw new UnprocessableEntityException({ message: "游标无效" });
+  }
+  if (typeof parsed.createdAt !== "string" || typeof parsed.id !== "string") {
+    throw new UnprocessableEntityException({ message: "游标缺少必需字段" });
+  }
+  return { createdAt: parsed.createdAt, id: parsed.id };
+}
+
+/** 返回 PublicUser 的纯数据副本（不含密码/token/OTP），用于审计 before/after。 */
+function stripPublic(u: PublicUser): Record<string, unknown> {
+  return { ...u };
 }

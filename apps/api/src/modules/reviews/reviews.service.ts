@@ -208,12 +208,94 @@ function projectionVersionOf(
   });
 }
 
+/** 计算 manual_action 分类信息（非敏感；仅对物理 manual_action 草稿输出）。 */
+function manualActionInfo(
+  row:
+    | (ReviewableRow & { decision_type: string | null; handling_fact_exists: boolean })
+    | ReviewableRow,
+): { manualAction?: { cls: "resolvable" | "non_resolvable"; errorCode: string | null } } {
+  if (row.draft_status !== "manual_action") return {};
+  const cls = manualActionClass(row.draft_error_code);
+  return {
+    manualAction: {
+      cls: cls === "non_resolvable" ? "non_resolvable" : "resolvable",
+      errorCode: row.draft_error_code ?? null,
+    },
+  };
+}
+
+function encodeReviewCursor(key: { createdAt: string; id: string }): string {
+  return Buffer.from(JSON.stringify(key), "utf8").toString("base64url");
+}
+
+function decodeReviewCursor(cursor: string): { createdAt: string; id: string } {
+  let parsed: { createdAt?: string; id?: string };
+  try {
+    parsed = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")) as {
+      createdAt?: string;
+      id?: string;
+    };
+  } catch {
+    throw new UnprocessableEntityException({ message: "游标无效" });
+  }
+  if (typeof parsed.createdAt !== "string" || typeof parsed.id !== "string") {
+    throw new UnprocessableEntityException({ message: "游标非法" });
+  }
+  return { createdAt: parsed.createdAt, id: parsed.id };
+}
+
 @Injectable()
 export class ReviewsService {
   constructor(@Inject(POOL) private readonly pool: Pool) {}
 
   /** 待审队列：有效审核投影（draft_ready 带含义，或 可解除 manual_action 已人工处理），来源完整。 */
-  async list(): Promise<ReviewDraftListDto> {
+  async list(opts: {
+    status?: string;
+    manualAction?: "resolvable" | "non_resolvable";
+    cursor?: string;
+    limit?: number;
+  }): Promise<ReviewDraftListDto> {
+    const limit = Math.min(Math.max(opts.limit ?? 50, 1), 100);
+    const params: unknown[] = [];
+    const where: string[] = [
+      `f.revision_timestamp IS NOT NULL`,
+      `NULLIF(f.source_url, '') IS NOT NULL`,
+      `NULLIF(f.license_name, '') IS NOT NULL`,
+      `NULLIF(f.license_url, '') IS NOT NULL`,
+      `NULLIF(f.attribution, '') IS NOT NULL`,
+      `( ${EFFECTIVE_REVIEWABLE_SQL} )`,
+    ];
+
+    if (opts.status) {
+      if (opts.status !== "draft_ready" && opts.status !== "manual_action") {
+        throw new UnprocessableEntityException({ message: "status 非法" });
+      }
+      // 有效审核投影中 manual_action 以 draft_ready 语义展示；物理 manual_action 才可筛选。
+      if (opts.status === "manual_action") {
+        where.push(`d.status = 'manual_action'`);
+      } else {
+        where.push(`d.status = 'draft_ready'`);
+      }
+    }
+    if (opts.manualAction) {
+      if (opts.manualAction === "resolvable") {
+        where.push(
+          `d.status = 'manual_action' AND d.error_code IN ('DRAFT_BUDGET_EXCEEDED','WIKI_AMBIGUOUS')`,
+        );
+      } else {
+        where.push(
+          `d.status = 'manual_action' AND d.error_code NOT IN ('DRAFT_BUDGET_EXCEEDED','WIKI_AMBIGUOUS')`,
+        );
+      }
+    }
+    if (opts.cursor) {
+      const key = decodeReviewCursor(opts.cursor);
+      params.push(key.createdAt, key.id);
+      const last = params.length;
+      where.push(`(d.created_at, d.id) < ($${last - 1}, $${last})`);
+    }
+    params.push(limit + 1);
+
     const result = await this.pool.query<
       ReviewableRow & { decision_type: string | null; handling_fact_exists: boolean }
     >(
@@ -236,16 +318,17 @@ export class ReviewsService {
          ON f.source_fact_identity = d.wiktionary_source_fact_id AND f.status = 'fetched'
         AND f.content_hash IS NOT NULL
        LEFT JOIN review_decisions dec ON dec.draft_id = d.id
-       WHERE f.revision_timestamp IS NOT NULL
-         AND NULLIF(f.source_url, '') IS NOT NULL
-         AND NULLIF(f.license_name, '') IS NOT NULL
-         AND NULLIF(f.license_url, '') IS NOT NULL
-         AND NULLIF(f.attribution, '') IS NOT NULL
-         AND ( ${EFFECTIVE_REVIEWABLE_SQL} )
-       ORDER BY d.created_at DESC, d.id DESC LIMIT 100`,
+       WHERE ${where.join(" AND ")}
+       ORDER BY d.created_at DESC, d.id DESC
+       LIMIT $${params.length}`,
+      params,
     );
-    return {
-      items: result.rows.map((row) => ({
+    const rows = result.rows;
+    const hasMore = rows.length > limit;
+    const pageRows = hasMore ? rows.slice(0, limit) : rows;
+    const last = pageRows[pageRows.length - 1];
+    const out: ReviewDraftListDto = {
+      items: pageRows.map((row) => ({
         draftId: row.draft_id,
         spelling: row.spelling,
         status: row.draft_status,
@@ -253,8 +336,17 @@ export class ReviewsService {
         ...(row.decision_type ? { decisionType: row.decision_type } : {}),
         reviewVersion: projectionVersionOf(row, row.handling_fact_exists),
         source: sourceOf(row),
+        ...manualActionInfo(row),
       })),
+      hasMore,
     };
+    if (hasMore && last) {
+      out.nextCursor = encodeReviewCursor({
+        createdAt: new Date(last.draft_created_at).toISOString(),
+        id: last.draft_id,
+      });
+    }
+    return out;
   }
 
   /**
@@ -294,6 +386,7 @@ export class ReviewsService {
       reviewVersion: projectionVersionOf(row, row.handling_fact_exists),
       source: sourceOf(row),
       ...(decisionResult.rows[0] ? { decision: toDecision(decisionResult.rows[0]) } : {}),
+      ...manualActionInfo(row),
     };
   }
 
@@ -323,6 +416,7 @@ export class ReviewsService {
         decisionType: row.decision_type,
         source: sourceOf(row),
       })),
+      hasMore: false,
     };
   }
 

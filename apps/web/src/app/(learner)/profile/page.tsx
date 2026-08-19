@@ -1,0 +1,100 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { getMeXp, type MeXp } from "@/lib/api";
+import { fetchMe, fetchMeMembership, type MembershipInfo, type PublicUser } from "@/lib/auth";
+import { formatRankLabel, projectRankDisplay } from "@/lib/rank-display";
+
+export default function ProfilePage() {
+  const router = useRouter();
+  const [user, setUser] = useState<PublicUser | null>(null);
+  const [rank, setRank] = useState<MeXp | null>(null);
+  const [membership, setMembership] = useState<MembershipInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all([fetchMe(), getMeXp().catch(() => null), fetchMeMembership()]).then(
+      ([me, xp, member]) => {
+        if (cancelled) return;
+        if (me.status === 401 || xp?.status === 401 || member.status === 401) {
+          router.replace("/login");
+          return;
+        }
+        if (me.user) setUser(me.user);
+        if (xp?.data) setRank(xp.data);
+        if (member.ok && member.membership) setMembership(member.membership);
+        setLoading(false);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  if (loading) {
+    return (
+      <section className="profile-page" aria-busy="true">
+        <div className="profile-skeleton" />
+      </section>
+    );
+  }
+
+  const rankDisplay = projectRankDisplay(rank);
+  const membershipLabel = membership?.status === "member" ? "会员" : "免费方案";
+
+  return (
+    <section className="profile-page">
+      <header className="profile-heading">
+        <span className="xp-kicker">ACCOUNT</span>
+        <h1>个人资料</h1>
+      </header>
+      <div className="profile-grid">
+        <div className="profile-identity">
+          <span className="profile-avatar" aria-hidden="true">
+            {user?.displayName?.slice(0, 1) ?? "M"}
+          </span>
+          <div>
+            <h2>{user?.displayName ?? "Motro 学习者"}</h2>
+            <p>@{user?.username ?? "—"}</p>
+          </div>
+        </div>
+        <dl className="profile-facts">
+          <div>
+            <dt>用户 ID</dt>
+            <dd>{user?.id ?? "—"}</dd>
+          </div>
+          <div>
+            <dt>账户身份</dt>
+            <dd>
+              <span className="profile-badge">{user?.role === "admin" ? "管理员" : "学习者"}</span>
+            </dd>
+          </div>
+          <div>
+            <dt>会员身份</dt>
+            <dd>
+              <span
+                className={`profile-badge${membership?.status === "member" ? " profile-badge--member" : " profile-badge--muted"}`}
+              >
+                {membershipLabel}
+              </span>
+            </dd>
+          </div>
+          <div>
+            <dt>学习段位</dt>
+            <dd>
+              <span className="profile-badge profile-badge--rank">
+                {formatRankLabel(rankDisplay)}
+              </span>
+            </dd>
+          </div>
+        </dl>
+      </div>
+      <Link href="/xp" className="profile-link">
+        查看个人经验 →
+      </Link>
+    </section>
+  );
+}

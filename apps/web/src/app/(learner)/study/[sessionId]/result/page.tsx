@@ -3,14 +3,14 @@
 // 结果页：安静总结刚结束的这一次会话并离开。
 // - 数据来自正常完成流程写入的 sessionStorage 展示快照（仅本会话已接受事件的展示缓存，
 //   不是学习进度真相）。无快照（刷新/直接访问）则诚实显示“本次已完成”与“返回首页”，不伪造统计。
-// - 不展示 XP、等级、排行榜、streak。下一次复习由系统按记忆状态安排。
+// - 只展示服务端确认的本次 XP 与当前段位；不展示 streak/CEFR 等未实现指标。
 // - 登录态优先：401 → /login，403 → /change-password；未登录不得停留在此页。
 //   网络失败 → 诚实的可重试状态（不伪装统计，也不把错误当“已完成”）。
 // - 只有明确仍有可学习任务时才提供次要链接“继续学习”。
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getStudyToday } from "@/lib/api";
+import { getMeXp, getStudyToday, type MeXp } from "@/lib/api";
 import {
   clearResultSnapshot,
   completionSummary,
@@ -21,7 +21,12 @@ import {
 
 type LoadState =
   | { phase: "loading" }
-  | { phase: "ready"; snapshot: SessionResultSnapshot | null; hasRemainingWork: boolean }
+  | {
+      phase: "ready";
+      snapshot: SessionResultSnapshot | null;
+      hasRemainingWork: boolean;
+      rank: Pick<MeXp, "level" | "title"> | null;
+    }
   | { phase: "network-error" };
 
 export default function ResultPage() {
@@ -40,7 +45,7 @@ export default function ResultPage() {
     const readSnapshot = readResultSnapshot();
     const snapshot = readSnapshot && readSnapshot.sessionId === sessionId ? readSnapshot : null;
     let hasRemainingWork = false;
-    const todayRes = await getStudyToday();
+    const [todayRes, xpRes] = await Promise.all([getStudyToday(), getMeXp().catch(() => null)]);
     // P1-3：登录态权威来自 API。
     if (todayRes.status === 401) {
       router.replace("/login");
@@ -61,7 +66,12 @@ export default function ResultPage() {
     if (todayRes.data && !todayRes.data.noWork) {
       hasRemainingWork = true;
     }
-    setState({ phase: "ready", snapshot, hasRemainingWork });
+    setState({
+      phase: "ready",
+      snapshot,
+      hasRemainingWork,
+      rank: xpRes?.ok && xpRes.data ? { level: xpRes.data.level, title: xpRes.data.title } : null,
+    });
   }, [sessionId, router]);
 
   useEffect(() => {
@@ -188,6 +198,19 @@ export default function ResultPage() {
               <strong className="result-xp-amount">{0}</strong>
               <span className="result-xp-unit">XP</span>
               <p className="result-xp-note">本次没有计入个人经验的合格评价。</p>
+            </div>
+          )}
+          {state.rank && (
+            <div
+              className="result-rank"
+              aria-label={`当前段位 Lv.${state.rank.level} ${state.rank.title}`}
+            >
+              <span className="result-rank-label">
+                {xpState.variant === "earned" ? "段位进度已更新" : "当前段位"}
+              </span>
+              <strong>
+                Lv.{state.rank.level} · {state.rank.title}
+              </strong>
             </div>
           )}
         </div>

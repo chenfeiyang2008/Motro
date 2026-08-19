@@ -779,6 +779,7 @@ export class ImportService {
     cursor: number | null,
     limit: number,
     mappingVersion?: number,
+    status?: string,
   ): Promise<ImportRowListDto> {
     // 不存在批次 → 404（getDetail 抛 NotFoundException）。
     const detail = await this.repository.getDetail(batchId);
@@ -790,6 +791,7 @@ export class ImportService {
       targetVersion,
       cursor,
       limit,
+      status,
     );
     return {
       items: items.map((r) => toRowDto(r)),

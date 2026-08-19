@@ -11,7 +11,13 @@ import {
 import { createHash } from "node:crypto";
 import type { Pool } from "pg";
 import { POOL } from "../../auth/database.provider.js";
-import { getWeeklyChallengeWindow, isChallengeWeekKey, sumXp } from "@motro/domain";
+import {
+  MOTIVATION_RULE_VERSION,
+  getWeeklyChallengeWindow,
+  isChallengeWeekKey,
+  rankProgressForXp,
+  reachedRanksForXp,
+} from "@motro/domain";
 import {
   LeaderboardQueryDto,
   type MeXpDto,
@@ -21,7 +27,7 @@ import {
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
-const RULE_VERSION = 1;
+const RULE_VERSION = MOTIVATION_RULE_VERSION;
 
 interface AggRow {
   user_id: string;
@@ -38,28 +44,74 @@ export class GameService {
 
   /** Personal XP ledger: sum + detail.  Only the current user's rows. */
   async getMeXp(userId: string): Promise<MeXpDto> {
-    const r = await this.pool.query<{
-      amount: number;
-      reason: string;
-      rule_version: number;
-      earned_at: Date;
-    }>(
-      `SELECT amount, reason, rule_version, earned_at
-       FROM xp_entries WHERE user_id = $1 ORDER BY earned_at DESC, created_at DESC LIMIT 200`,
-      [userId],
-    );
+    const [r, totalResult] = await Promise.all([
+      this.pool.query<{
+        amount: number;
+        reason: string;
+        rule_version: number;
+        earned_at: Date;
+      }>(
+        `SELECT amount, reason, rule_version, earned_at
+         FROM xp_entries WHERE user_id = $1 ORDER BY earned_at DESC, created_at DESC LIMIT 200`,
+        [userId],
+      ),
+      this.pool.query<{ total: string }>(
+        `SELECT COALESCE(SUM(amount), 0)::text AS total FROM xp_entries WHERE user_id = $1`,
+        [userId],
+      ),
+    ]);
     const entries = r.rows.map((row) => ({
       amount: Number(row.amount),
       reason: row.reason,
       ruleVersion: Number(row.rule_version),
       earnedAt: row.earned_at.toISOString(),
     }));
+    const totalXp = Number(totalResult.rows[0]?.total ?? 0);
+    const permanentLevel = await this.ensureLevelAwards(userId, totalXp);
+    const rank = rankProgressForXp(totalXp, permanentLevel);
     return {
-      totalXp: sumXp(r.rows.map((row) => ({ amount: Number(row.amount) }))),
+      totalXp,
       entries,
       ruleVersion: RULE_VERSION,
+      level: rank.level,
+      title: rank.title,
+      titleKey: rank.titleKey,
+      levelThreshold: rank.threshold,
+      nextLevel: rank.nextLevel,
+      nextLevelThreshold: rank.nextThreshold,
+      progressXp: rank.progressXp,
+      progressPercent: rank.progressPercent,
       asOf: new Date().toISOString(),
     };
+  }
+
+  /** Backfill legacy users and return the highest permanently awarded level. */
+  private async ensureLevelAwards(userId: string, totalXp: number): Promise<number> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const reached = reachedRanksForXp(totalXp);
+      for (const rank of reached) {
+        await client.query(
+          `INSERT INTO level_awards
+             (user_id, level, title_key, rule_version, qualified_xp, reason, awarded_at)
+           VALUES ($1, $2, $3, $4, $5, $6, now())
+           ON CONFLICT (user_id, level) DO NOTHING`,
+          [userId, rank.level, rank.titleKey, RULE_VERSION, rank.threshold, "legacy_backfill"],
+        );
+      }
+      const max = await client.query<{ level: number }>(
+        `SELECT COALESCE(MAX(level), 1)::int AS level FROM level_awards WHERE user_id = $1`,
+        [userId],
+      );
+      await client.query("COMMIT");
+      return Number(max.rows[0]?.level ?? 1);
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   /** Rebuildable personal learning summary from immutable facts. */

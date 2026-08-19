@@ -174,13 +174,13 @@ test.describe("learner dashboard & theme", () => {
       await page.getByRole("button", { name: "切换到暗色主题" }).click();
       await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
       const bg = await page.evaluate("getComputedStyle(document.body).backgroundColor");
-      // 暗色页面背景 #050912（深蓝灰，非 #000 纯黑）；与 globals.css 的蓝色语义 token 一致。
-      expect(bg).toBe("rgb(5, 9, 18)");
-      // 面板背景也切换为深蓝灰。
+      // 暗色页面背景 #171310（深暖墨，非 #000 纯黑）；与 globals.css 暗色 token 一致。
+      expect(bg).toBe("rgb(23, 19, 16)");
+      // 面板背景亦为暗色 token。
       const surface = await page.evaluate(
         "getComputedStyle(document.body).getPropertyValue('--color-bg-surface').trim()",
       );
-      expect(surface).toBe("#0d1724");
+      expect(surface).toBe("#211a16");
     });
 
     test("刷新后主题保持（localStorage 持久化）", async ({ page }) => {

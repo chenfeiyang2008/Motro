@@ -15,12 +15,14 @@ import {
   deriveUnitUnlocked,
   directionStable,
   isEligibleForXp,
+  MOTIVATION_RULE_VERSION,
   itemInitialCompleted,
   PLAN_RULE_VERSION,
   scheduleNextLearningCard,
   validateCardDirection,
   XP_PER_ELIGIBLE_REVIEW_EVENT,
   xpAmountForEligible,
+  reachedRanksForXp,
   type CardDirection,
   type NextScheduleCard,
   type PlanCardCandidate,
@@ -30,6 +32,7 @@ import {
 import { createHash } from "node:crypto";
 import type { Pool } from "pg";
 import { POOL } from "../../auth/database.provider.js";
+import { MembershipService } from "../membership/membership.service.js";
 import type {
   LearningCardListItemDto,
   LearningCardListDto,
@@ -277,7 +280,10 @@ interface ReviewResponsePayload {
 
 @Injectable()
 export class StudyService {
-  constructor(@Inject(POOL) private readonly pool: Pool) {}
+  constructor(
+    @Inject(POOL) private readonly pool: Pool,
+    private readonly membershipService: MembershipService,
+  ) {}
 
   /** 主课程学习卡摘要：幂等补齐主课程 current release 的双向卡后统计计数。 */
   async getCardSummary(userId: string): Promise<LearningCardSummaryDto> {
@@ -562,6 +568,8 @@ export class StudyService {
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
+
+      await this.membershipService.assertCanAccrue(userId);
 
       const row = await client.query<{
         item_id: string;
@@ -1073,6 +1081,15 @@ export class StudyService {
         reviewedAt: now.toISOString(),
       });
 
+      await this.membershipService.recordAccruedMinutes(
+        client,
+        userId,
+        eventId,
+        input.clientEventId,
+        1,
+        now,
+      );
+
       await client.query("COMMIT");
 
       return {
@@ -1137,6 +1154,27 @@ export class StudyService {
         input.reviewedAt,
       ],
     );
+
+    const total = await client.query<{ total: string }>(
+      `SELECT COALESCE(SUM(amount), 0)::text AS total FROM xp_entries WHERE user_id = $1`,
+      [input.userId],
+    );
+    for (const rank of reachedRanksForXp(Number(total.rows[0]?.total ?? 0))) {
+      await client.query(
+        `INSERT INTO level_awards
+           (user_id, level, title_key, rule_version, qualified_xp, reason, awarded_at)
+         VALUES ($1, $2, $3, $4, $5, 'xp_progression', $6)
+         ON CONFLICT (user_id, level) DO NOTHING`,
+        [
+          input.userId,
+          rank.level,
+          rank.titleKey,
+          MOTIVATION_RULE_VERSION,
+          rank.threshold,
+          input.reviewedAt,
+        ],
+      );
+    }
   }
 
   // ---- 内部 ----

@@ -59,15 +59,21 @@ export class OperationsController {
 
   @Get()
   @ApiBearerAuth()
-  @ApiOperation({ summary: "列出后台操作（游标分页；可安全按 status/type 过滤）" })
+  @ApiOperation({
+    summary: "列出后台操作（游标分页；可安全按 status/type/targetType/errorCode 过滤）",
+  })
   @ApiQuery({ name: "status", required: false, description: "状态过滤（queued/running/…）" })
   @ApiQuery({ name: "operationType", required: false, description: "操作类型过滤" })
+  @ApiQuery({ name: "targetType", required: false, description: "目标类型过滤" })
+  @ApiQuery({ name: "errorCode", required: false, description: "最近错误码过滤" })
   @ApiQuery({ name: "cursor", required: false, description: "分页游标" })
   @ApiQuery({ name: "limit", required: false, description: "每页数量（1–50，默认 20）" })
   @ApiResponse({ status: 200, type: OperationListResponseDto })
   async list(
     @Query("status") status?: string,
     @Query("operationType") operationType?: string,
+    @Query("targetType") targetType?: string,
+    @Query("errorCode") errorCode?: string,
     @Query("cursor") cursor?: string,
     @Query("limit") limit?: string,
   ): Promise<OperationListResponseDto> {
@@ -87,11 +93,15 @@ export class OperationsController {
     const listOpts: {
       status?: string;
       operationType?: string;
+      targetType?: string;
+      errorCode?: string;
       cursor?: string;
       limit?: number;
     } = {};
     if (status !== undefined) listOpts.status = status;
     if (operationType !== undefined) listOpts.operationType = operationType;
+    if (targetType !== undefined) listOpts.targetType = targetType;
+    if (errorCode !== undefined) listOpts.errorCode = errorCode;
     if (cursor !== undefined) listOpts.cursor = cursor;
     if (parsedLimit !== undefined) listOpts.limit = parsedLimit;
     return this.service.list(listOpts);

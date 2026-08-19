@@ -509,6 +509,7 @@ export default function AdminImportBatchDetailPage() {
   const [rowsCursor, setRowsCursor] = useState<string | null>(null);
   const [rowsHasMore, setRowsHasMore] = useState(false);
   const [rowsLoading, setRowsLoading] = useState(false);
+  const [rowStatusFilter, setRowStatusFilter] = useState("");
 
   const reload = useCallback(async (): Promise<void> => {
     const res = await getImportBatch(batchId);
@@ -572,12 +573,19 @@ export default function AdminImportBatchDetailPage() {
     await reload();
   }
 
-  async function loadMoreRows(): Promise<void> {
+  async function loadMoreRows(reset = false): Promise<void> {
     setRowsLoading(true);
-    const res = await listImportRows(batchId, rowsCursor, 50);
+    const res = await listImportRows(
+      batchId,
+      reset ? null : rowsCursor,
+      50,
+      undefined,
+      rowStatusFilter || undefined,
+    );
     setRowsLoading(false);
     if (!res.ok || !res.data) return;
-    setRows((prev) => [...prev, ...res.data!.items]);
+    if (reset) setRows(res.data.items);
+    else setRows((prev) => [...prev, ...res.data!.items]);
     setRowsCursor(res.data.nextCursor ?? null);
     setRowsHasMore(res.data.hasMore);
   }
@@ -588,14 +596,14 @@ export default function AdminImportBatchDetailPage() {
     await reload();
   }
 
-  // Auto-load rows on first validated state.
+  // Auto-load rows on first validated state or when the row status filter changes.
   const currentValidationStatus =
     state.phase === "ready" ? state.batch.validationStatus : undefined;
   useEffect(() => {
-    if (currentValidationStatus === "validated" && rows.length === 0) {
-      void loadMoreRows();
+    if (currentValidationStatus === "validated") {
+      void loadMoreRows(true);
     }
-  }, [currentValidationStatus, rows.length]);
+  }, [currentValidationStatus, rowStatusFilter]);
 
   // ---- render ----
 
@@ -746,13 +754,31 @@ export default function AdminImportBatchDetailPage() {
 
       {/* Row table (validated only) */}
       {isValidated && (
-        <RowTable
-          rows={rows}
-          loading={rowsLoading}
-          nextCursor={rowsCursor}
-          hasMore={rowsHasMore}
-          onLoadMore={() => void loadMoreRows()}
-        />
+        <>
+          <div className="operation-filter">
+            <div className="xp-field">
+              <label htmlFor="row-status">行状态筛选</label>
+              <select
+                id="row-status"
+                value={rowStatusFilter}
+                onChange={(e) => setRowStatusFilter(e.target.value)}
+              >
+                <option value="">全部</option>
+                <option value="candidate">有效候选</option>
+                <option value="invalid">无效</option>
+                <option value="duplicate_in_file">文件内重复</option>
+                <option value="existing_entry">已有词条</option>
+              </select>
+            </div>
+          </div>
+          <RowTable
+            rows={rows}
+            loading={rowsLoading}
+            nextCursor={rowsCursor}
+            hasMore={rowsHasMore}
+            onLoadMore={() => void loadMoreRows(false)}
+          />
+        </>
       )}
 
       <div className="import-actions">

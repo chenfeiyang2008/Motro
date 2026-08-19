@@ -220,7 +220,53 @@
       },
       "get": {
         "operationId": "AdminUsersController_list",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "搜索用户名或显示名",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "role",
+            "required": false,
+            "in": "query",
+            "description": "角色筛选：learner/admin",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "状态筛选：active/disabled",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "keyset 分页游标",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "每页数量（1-100，默认 50）",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
@@ -238,13 +284,99 @@
             "bearer": []
           }
         ],
-        "summary": "列出账号",
+        "summary": "列出账号（支持搜索、角色、状态筛选 + keyset 分页）",
         "tags": [
           "admin users"
         ]
       }
     },
     "/api/v1/admin/users/{id}": {
+      "patch": {
+        "operationId": "AdminUsersController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "编辑账号显示资料（幂等，需 Idempotency-Key）",
+        "tags": [
+          "admin users"
+        ]
+      },
+      "delete": {
+        "operationId": "AdminUsersController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "删除成功（OK）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminOkDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "删除无业务关联账号（有历史事实时必须停用）",
+        "tags": [
+          "admin users"
+        ]
+      },
       "get": {
         "operationId": "AdminUsersController_get",
         "parameters": [
@@ -275,6 +407,42 @@
           }
         ],
         "summary": "查看账号安全字段",
+        "tags": [
+          "admin users"
+        ]
+      }
+    },
+    "/api/v1/admin/users/{id}/enable": {
+      "post": {
+        "operationId": "AdminUsersController_enable",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "重新启用已停用账号",
         "tags": [
           "admin users"
         ]
@@ -492,6 +660,122 @@
           }
         ],
         "summary": "词条事实与来源摘要",
+        "tags": [
+          "admin lexical entries"
+        ]
+      },
+      "patch": {
+        "operationId": "LexicalEntryController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLexicalEntryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LexicalEntryDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "编辑词条元数据（白名单；来源事实不可变）",
+        "tags": [
+          "admin lexical entries"
+        ]
+      }
+    },
+    "/api/v1/admin/lexical-entries/{id}/archive": {
+      "post": {
+        "operationId": "LexicalEntryController_archive",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LexicalEntryDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "归档词条（正被草稿引用时 fail-closed 422）",
+        "tags": [
+          "admin lexical entries"
+        ]
+      }
+    },
+    "/api/v1/admin/lexical-entries/{id}/activate": {
+      "post": {
+        "operationId": "LexicalEntryController_activate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LexicalEntryDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "重新激活归档词条",
         "tags": [
           "admin lexical entries"
         ]
@@ -1800,6 +2084,221 @@
         ]
       }
     },
+    "/api/v1/me/membership": {
+      "get": {
+        "operationId": "MembershipController_myMembership",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembershipStatusDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "当前账号会员投影（服务端计算，无敏感字段）",
+        "tags": [
+          "membership"
+        ]
+      }
+    },
+    "/api/v1/admin/memberships/{userId}": {
+      "get": {
+        "operationId": "AdminMembershipController_readMembership",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMembershipReadDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "读取指定用户的会员投影（只读；与 /me/membership 同一服务端计算源）",
+        "tags": [
+          "admin membership"
+        ]
+      }
+    },
+    "/api/v1/admin/memberships/{userId}/grant": {
+      "post": {
+        "operationId": "AdminMembershipController_grant",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantMembershipDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMembershipResultDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "授予/覆盖会员（幂等 + 审计）",
+        "tags": [
+          "admin membership"
+        ]
+      }
+    },
+    "/api/v1/admin/memberships/{userId}/renew": {
+      "post": {
+        "operationId": "AdminMembershipController_renew",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenewMembershipDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMembershipResultDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "续期会员（幂等 + 审计）",
+        "tags": [
+          "admin membership"
+        ]
+      }
+    },
+    "/api/v1/admin/memberships/{userId}/revoke": {
+      "post": {
+        "operationId": "AdminMembershipController_revoke",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminOkDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "撤销会员 → 立即按 free 限制（幂等 + 审计）",
+        "tags": [
+          "admin membership"
+        ]
+      }
+    },
     "/api/v1/me/xp": {
       "get": {
         "operationId": "GameController_meXp",
@@ -2037,6 +2536,199 @@
         ]
       }
     },
+    "/api/v1/admin/xp": {
+      "get": {
+        "operationId": "AdminXpController_list",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": false,
+            "in": "query",
+            "description": "按用户 UUID 筛选",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "required": false,
+            "in": "query",
+            "description": "entry kind：initial_review/due_review/correction/void",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "keyset 分页游标",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "每页数量（1-100，默认 50）",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminXpListDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "管理员 XP 账本（只读；用户/kind 筛选 + keyset 分页）",
+        "tags": [
+          "admin xp"
+        ]
+      }
+    },
+    "/api/v1/admin/xp/users": {
+      "get": {
+        "operationId": "AdminXpController_userSummaries",
+        "parameters": [
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "搜索用户名/显示名",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminXpUserSummaryListDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "用户 XP 汇总（含总额与 correction/void 计数，供选择器）",
+        "tags": [
+          "admin xp"
+        ]
+      }
+    },
+    "/api/v1/admin/xp/void": {
+      "post": {
+        "operationId": "AdminXpController_void",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminXpVoidDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminXpEntryDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "append-only 作废一笔 XP entry（插入负向 void 条目；原事实不 UPDATE/DELETE）",
+        "tags": [
+          "admin xp"
+        ]
+      }
+    },
+    "/api/v1/admin/xp/correct": {
+      "post": {
+        "operationId": "AdminXpController_correct",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminXpCorrectionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminXpEntryDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "append-only 补正一笔 XP entry（插入 correction 条目；金额可为正或负）",
+        "tags": [
+          "admin xp"
+        ]
+      }
+    },
     "/api/v1/admin/operations": {
       "get": {
         "operationId": "OperationsController_list",
@@ -2055,6 +2747,24 @@
             "required": false,
             "in": "query",
             "description": "操作类型过滤",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "targetType",
+            "required": false,
+            "in": "query",
+            "description": "目标类型过滤",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "errorCode",
+            "required": false,
+            "in": "query",
+            "description": "最近错误码过滤",
             "schema": {
               "type": "string"
             }
@@ -2095,7 +2805,7 @@
             "bearer": []
           }
         ],
-        "summary": "列出后台操作（游标分页；可安全按 status/type 过滤）",
+        "summary": "列出后台操作（游标分页；可安全按 status/type/targetType/errorCode 过滤）",
         "tags": [
           "admin operations"
         ]
@@ -2295,7 +3005,53 @@
       },
       "get": {
         "operationId": "ImportController_list",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "批次状态筛选",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "createdFrom",
+            "required": false,
+            "in": "query",
+            "description": "创建时间起点（ISO 8601）",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "createdTo",
+            "required": false,
+            "in": "query",
+            "description": "创建时间终点（ISO 8601）",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "keyset 分页游标",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "每页数量（1-100，默认 50）",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
@@ -2313,7 +3069,7 @@
             "bearer": []
           }
         ],
-        "summary": "导入批次列表（管理员共享；元数据，不含磁盘路径/存储键）",
+        "summary": "导入批次列表（支持 status/时间筛选 + keyset 分页）",
         "tags": [
           "admin imports"
         ]
@@ -2539,6 +3295,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -2563,7 +3327,7 @@
             }
           },
           "422": {
-            "description": "非法游标/limit/mappingVersion",
+            "description": "非法游标/limit/mappingVersion/status",
             "content": {
               "application/json": {
                 "schema": {
@@ -2578,7 +3342,7 @@
             "bearer": []
           }
         ],
-        "summary": "分页读取批次行结果（按 ordinal 升序；游标分页）。默认当前映射版本；可传 mappingVersion 读取历史映射版本的行事实",
+        "summary": "分页读取批次行结果（按 ordinal 升序；游标分页）。默认当前映射版本；可传 mappingVersion 读取历史映射版本的行事实，status 筛选行校验分类",
         "tags": [
           "admin imports"
         ]
@@ -2701,7 +3465,44 @@
     "/api/v1/admin/reviews": {
       "get": {
         "operationId": "ReviewsController_list",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "按状态过滤（draft_ready/manual_action）",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "manualAction",
+            "required": false,
+            "in": "query",
+            "description": "manual_action 分类过滤：resolvable/non_resolvable",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "keyset 分页游标",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "每页数量（1-100，默认 50）",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
@@ -2719,7 +3520,7 @@
             "bearer": []
           }
         ],
-        "summary": "列出来源完整、等待审核的草稿队列",
+        "summary": "列出来源完整、等待审核的草稿队列（支持筛选与 keyset 分页）",
         "tags": [
           "admin reviews"
         ]
@@ -2885,6 +3686,215 @@
         "summary": "人工处理可补全的 manual_action：生成不可变人工处理事实（append-only）",
         "tags": [
           "admin reviews"
+        ]
+      }
+    },
+    "/api/v1/home/motivation": {
+      "get": {
+        "operationId": "MotivationController_learner",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MotivationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "学习端首页随机激励文案（仅启用内容）",
+        "tags": [
+          "motivation"
+        ]
+      }
+    },
+    "/api/v1/admin/motivation-copies": {
+      "get": {
+        "operationId": "MotivationController_list",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "enabled",
+                "disabled"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMotivationListDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "管理员激励文案列表",
+        "tags": [
+          "motivation"
+        ]
+      },
+      "post": {
+        "operationId": "MotivationController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMotivationCopyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMotivationCopyDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "创建激励文案",
+        "tags": [
+          "motivation"
+        ]
+      }
+    },
+    "/api/v1/admin/motivation-copies/batch": {
+      "post": {
+        "operationId": "MotivationController_createBatch",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchCreateMotivationCopyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchCreateMotivationResultDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "批量创建激励文案（最多 100 条）",
+        "tags": [
+          "motivation"
+        ]
+      }
+    },
+    "/api/v1/admin/motivation-copies/{id}": {
+      "patch": {
+        "operationId": "MotivationController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMotivationCopyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMotivationCopyDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "编辑、启用或停用激励文案",
+        "tags": [
+          "motivation"
         ]
       }
     }
@@ -3056,11 +4066,50 @@
             "items": {
               "$ref": "#/components/schemas/AdminUserDto"
             }
+          },
+          "nextCursor": {
+            "type": "string",
+            "description": "下一页游标；null 表示无更多"
+          },
+          "hasMore": {
+            "type": "boolean",
+            "description": "是否还有更多"
           }
         },
         "required": [
           "items"
         ]
+      },
+      "UpdateUserDto": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "description": "显示名"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "learner",
+              "admin"
+            ],
+            "description": "角色"
+          },
+          "timezone": {
+            "type": "string",
+            "description": "IANA 时区"
+          },
+          "dailyBudgetMinutes": {
+            "type": "number",
+            "description": "每日学习预算（分钟）",
+            "minimum": 1,
+            "maximum": 120
+          },
+          "mustChangePassword": {
+            "type": "boolean",
+            "description": "是否必须修改密码"
+          }
+        }
       },
       "AdminOkDto": {
         "type": "object",
@@ -3411,6 +4460,48 @@
         "required": [
           "error"
         ]
+      },
+      "UpdateLexicalEntryDto": {
+        "type": "object",
+        "properties": {
+          "partOfSpeech": {
+            "type": "string",
+            "enum": [
+              "noun",
+              "verb",
+              "adjective",
+              "adverb",
+              "pronoun",
+              "preposition",
+              "conjunction",
+              "interjection",
+              "determiner",
+              "article",
+              "numeral",
+              "particle",
+              "phrase",
+              "abbreviation",
+              "prefix",
+              "suffix"
+            ],
+            "description": "词性"
+          },
+          "pronunciation": {
+            "type": "string",
+            "description": "发音标注（传 null 清除）"
+          },
+          "senses": {
+            "description": "结构化释义（整体替换）",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SenseDto"
+            }
+          },
+          "sourceNote": {
+            "type": "string",
+            "description": "来源说明（新增一条 manual 来源，append-only）"
+          }
+        }
       },
       "CourseListItemDto": {
         "type": "object",
@@ -5610,6 +6701,108 @@
           "currentCourseCompletion"
         ]
       },
+      "MembershipStatusDto": {
+        "type": "object",
+        "properties": {
+          "plan": {
+            "type": "string",
+            "enum": [
+              "member",
+              "free"
+            ],
+            "description": "有效会员方案（服务端计算）"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "member",
+              "free"
+            ],
+            "description": "有效会员状态：member=active 且未过期；free=无会员/过期/未知（fail-closed）"
+          },
+          "expiresAt": {
+            "type": "string",
+            "description": "过期时间（ISO；null=不限）",
+            "nullable": true
+          }
+        },
+        "required": [
+          "plan",
+          "status"
+        ]
+      },
+      "AdminMembershipReadDto": {
+        "type": "object",
+        "properties": {
+          "plan": {
+            "type": "string",
+            "enum": [
+              "member",
+              "free"
+            ],
+            "description": "有效会员方案（服务端计算）"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "member",
+              "free"
+            ],
+            "description": "有效会员状态：member=active 且未过期；free=无会员/过期/未知（fail-closed）"
+          },
+          "expiresAt": {
+            "type": "string",
+            "description": "过期时间（ISO；null=不限）",
+            "nullable": true
+          }
+        },
+        "required": [
+          "plan",
+          "status"
+        ]
+      },
+      "GrantMembershipDto": {
+        "type": "object",
+        "properties": {
+          "plan": {
+            "type": "string",
+            "enum": [
+              "member",
+              "free"
+            ],
+            "default": "member"
+          },
+          "expiresAt": {
+            "type": "object",
+            "description": "过期时间（ISO8601；null=不限）",
+            "nullable": true
+          }
+        },
+        "required": [
+          "plan"
+        ]
+      },
+      "AdminMembershipResultDto": {
+        "type": "object",
+        "properties": {
+          "membership": {
+            "$ref": "#/components/schemas/MembershipStatusDto"
+          }
+        },
+        "required": [
+          "membership"
+        ]
+      },
+      "RenewMembershipDto": {
+        "type": "object",
+        "properties": {
+          "expiresAt": {
+            "type": "object",
+            "description": "新的过期时间（ISO8601；null=不限）",
+            "nullable": true
+          }
+        }
+      },
       "XpSummaryEntryDto": {
         "type": "object",
         "properties": {
@@ -5655,6 +6848,40 @@
             "type": "number",
             "description": "当前规则版本"
           },
+          "level": {
+            "type": "number",
+            "description": "当前永久段位"
+          },
+          "title": {
+            "type": "string",
+            "description": "当前段位头衔"
+          },
+          "titleKey": {
+            "type": "string",
+            "description": "当前段位稳定键"
+          },
+          "levelThreshold": {
+            "type": "number",
+            "description": "当前段位门槛 XP"
+          },
+          "nextLevel": {
+            "type": "number",
+            "nullable": true,
+            "description": "下一段位；最高段位为 null"
+          },
+          "nextLevelThreshold": {
+            "type": "number",
+            "nullable": true,
+            "description": "下一段位门槛；最高段位为 null"
+          },
+          "progressXp": {
+            "type": "number",
+            "description": "当前段位内进度 XP"
+          },
+          "progressPercent": {
+            "type": "number",
+            "description": "当前段位内进度百分比"
+          },
           "asOf": {
             "type": "string",
             "description": "计算截止时刻"
@@ -5664,6 +6891,14 @@
           "totalXp",
           "entries",
           "ruleVersion",
+          "level",
+          "title",
+          "titleKey",
+          "levelThreshold",
+          "nextLevel",
+          "nextLevelThreshold",
+          "progressXp",
+          "progressPercent",
           "asOf"
         ]
       },
@@ -5898,6 +7133,187 @@
           "answer"
         ]
       },
+      "AdminXpEntryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "XP entry ID"
+          },
+          "userId": {
+            "type": "string",
+            "description": "用户 ID"
+          },
+          "username": {
+            "type": "string",
+            "description": "用户名"
+          },
+          "reviewEventId": {
+            "type": "string",
+            "description": "关联的 review event ID"
+          },
+          "ruleVersion": {
+            "type": "number",
+            "description": "规则版本"
+          },
+          "amount": {
+            "type": "number",
+            "description": "XP 金额（correction/void 为负）"
+          },
+          "reason": {
+            "type": "string",
+            "description": "reason：initial_review / due_review / correction / void"
+          },
+          "referencesXpEntryId": {
+            "type": "string",
+            "description": "关联的目标 XP entry ID（correction/void 时存在）"
+          },
+          "sourceEventId": {
+            "type": "string",
+            "description": "来源事件 ID"
+          },
+          "earnedAt": {
+            "type": "string",
+            "description": "获得时间"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "记录创建时间"
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "username",
+          "reviewEventId",
+          "ruleVersion",
+          "amount",
+          "reason",
+          "referencesXpEntryId",
+          "sourceEventId",
+          "earnedAt",
+          "createdAt"
+        ]
+      },
+      "AdminXpListDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminXpEntryDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "description": "下一页游标；null 表示无更多"
+          },
+          "hasMore": {
+            "type": "boolean",
+            "description": "是否还有更多"
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor",
+          "hasMore"
+        ]
+      },
+      "AdminXpUserSummaryDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "description": "用户 ID"
+          },
+          "username": {
+            "type": "string",
+            "description": "用户名"
+          },
+          "displayName": {
+            "type": "string",
+            "description": "显示名"
+          },
+          "grossXp": {
+            "type": "number",
+            "description": "累计获奖 XP（不含 correction/void）"
+          },
+          "netXp": {
+            "type": "number",
+            "description": "净 XP（含 correction/void 调整）"
+          },
+          "adjustmentXp": {
+            "type": "number",
+            "description": "correction/void 调整合计"
+          },
+          "entryCount": {
+            "type": "number",
+            "description": "XP entry 总数"
+          }
+        },
+        "required": [
+          "userId",
+          "username",
+          "displayName",
+          "grossXp",
+          "netXp",
+          "adjustmentXp",
+          "entryCount"
+        ]
+      },
+      "AdminXpUserSummaryListDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminXpUserSummaryDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "AdminXpVoidDto": {
+        "type": "object",
+        "properties": {
+          "targetEntryId": {
+            "type": "string",
+            "description": "目标 XP entry ID（必须是正向获奖 entry）"
+          },
+          "reason": {
+            "type": "string",
+            "description": "作废理由"
+          }
+        },
+        "required": [
+          "targetEntryId",
+          "reason"
+        ]
+      },
+      "AdminXpCorrectionDto": {
+        "type": "object",
+        "properties": {
+          "targetEntryId": {
+            "type": "string",
+            "description": "目标 XP entry ID（必须是正向获奖 entry）"
+          },
+          "amount": {
+            "type": "number",
+            "description": "补正金额（正数=增加，负数=减少）"
+          },
+          "reason": {
+            "type": "string",
+            "description": "补正理由"
+          }
+        },
+        "required": [
+          "targetEntryId",
+          "amount",
+          "reason"
+        ]
+      },
       "OperationSummaryDto": {
         "type": "object",
         "properties": {
@@ -5999,10 +7415,15 @@
           "nextCursor": {
             "type": "string",
             "description": "下一页游标；null 表示无更多"
+          },
+          "hasMore": {
+            "type": "boolean",
+            "description": "是否还有更多"
           }
         },
         "required": [
-          "items"
+          "items",
+          "hasMore"
         ]
       },
       "OperationAttemptSummaryDto": {
@@ -6574,10 +7995,19 @@
             "items": {
               "$ref": "#/components/schemas/ImportBatchDetailDto"
             }
+          },
+          "nextCursor": {
+            "type": "string",
+            "description": "下一页游标；null 表示无更多"
+          },
+          "hasMore": {
+            "type": "boolean",
+            "description": "是否还有更多"
           }
         },
         "required": [
-          "items"
+          "items",
+          "hasMore"
         ]
       },
       "UpdateImportBatchDto": {
@@ -6749,6 +8179,28 @@
           "attribution"
         ]
       },
+      "ManualActionInfoDto": {
+        "type": "object",
+        "properties": {
+          "cls": {
+            "type": "string",
+            "enum": [
+              "resolvable",
+              "non_resolvable"
+            ],
+            "description": "manual_action 分类"
+          },
+          "errorCode": {
+            "type": "string",
+            "nullable": true,
+            "description": "触发错误码（非敏感）"
+          }
+        },
+        "required": [
+          "cls",
+          "errorCode"
+        ]
+      },
       "ReviewDraftListItemDto": {
         "type": "object",
         "properties": {
@@ -6772,6 +8224,14 @@
           },
           "source": {
             "$ref": "#/components/schemas/ReviewSourceProjectionDto"
+          },
+          "manualAction": {
+            "description": "manual_action 分类信息（仅 manual_action 草稿）",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ManualActionInfoDto"
+              }
+            ]
           }
         },
         "required": [
@@ -6790,10 +8250,19 @@
             "items": {
               "$ref": "#/components/schemas/ReviewDraftListItemDto"
             }
+          },
+          "nextCursor": {
+            "type": "string",
+            "description": "下一页游标"
+          },
+          "hasMore": {
+            "type": "boolean",
+            "description": "是否还有更多"
           }
         },
         "required": [
-          "items"
+          "items",
+          "hasMore"
         ]
       },
       "ReviewDecisionDto": {
@@ -6870,6 +8339,14 @@
           },
           "decision": {
             "$ref": "#/components/schemas/ReviewDecisionDto"
+          },
+          "manualAction": {
+            "description": "manual_action 分类信息",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ManualActionInfoDto"
+              }
+            ]
           }
         },
         "required": [
@@ -6924,6 +8401,216 @@
           "decision",
           "isIdempotentReplay"
         ]
+      },
+      "MotivationCopyDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "poetry_pun",
+              "english_joke",
+              "learning_wit",
+              "encouragement"
+            ]
+          },
+          "attribution": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "category"
+        ]
+      },
+      "MotivationResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MotivationCopyDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "AdminMotivationCopyDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "poetry_pun",
+              "english_joke",
+              "learning_wit",
+              "encouragement"
+            ]
+          },
+          "attribution": {
+            "type": "object",
+            "nullable": true
+          },
+          "isEnabled": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "category",
+          "isEnabled",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "AdminMotivationListDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminMotivationCopyDto"
+            }
+          },
+          "nextCursor": {
+            "type": "object",
+            "nullable": true
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "hasMore"
+        ]
+      },
+      "CreateMotivationCopyDto": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 180
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "poetry_pun",
+              "english_joke",
+              "learning_wit",
+              "encouragement"
+            ]
+          },
+          "attribution": {
+            "type": "object",
+            "maxLength": 80,
+            "nullable": true
+          }
+        },
+        "required": [
+          "text",
+          "category"
+        ]
+      },
+      "BatchCreateMotivationCopyDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "minItems": 1,
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateMotivationCopyDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "BatchCreateMotivationResultDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminMotivationCopyDto"
+            }
+          },
+          "createdCount": {
+            "type": "number",
+            "description": "实际新增条数"
+          },
+          "skippedCount": {
+            "type": "number",
+            "description": "因重复而跳过的条数"
+          },
+          "skippedTexts": {
+            "description": "被跳过的重复文案",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "items",
+          "createdCount",
+          "skippedCount",
+          "skippedTexts"
+        ]
+      },
+      "UpdateMotivationCopyDto": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 180
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "poetry_pun",
+              "english_joke",
+              "learning_wit",
+              "encouragement"
+            ]
+          },
+          "attribution": {
+            "type": "object",
+            "maxLength": 80,
+            "nullable": true
+          },
+          "isEnabled": {
+            "type": "boolean"
+          }
+        }
       }
     }
   }

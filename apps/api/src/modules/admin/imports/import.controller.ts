@@ -25,6 +25,7 @@ import {
   ApiConsumes,
   ApiHeader,
   ApiOperation,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from "@nestjs/swagger";
@@ -228,10 +229,34 @@ export class ImportController {
 
   @Get()
   @ApiBearerAuth()
-  @ApiOperation({ summary: "导入批次列表（管理员共享；元数据，不含磁盘路径/存储键）" })
+  @ApiOperation({ summary: "导入批次列表（支持 status/时间筛选 + keyset 分页）" })
+  @ApiQuery({ name: "status", required: false, description: "批次状态筛选" })
+  @ApiQuery({ name: "createdFrom", required: false, description: "创建时间起点（ISO 8601）" })
+  @ApiQuery({ name: "createdTo", required: false, description: "创建时间终点（ISO 8601）" })
+  @ApiQuery({ name: "cursor", required: false, description: "keyset 分页游标" })
+  @ApiQuery({ name: "limit", required: false, description: "每页数量（1-100，默认 50）" })
   @ApiResponse({ status: 200, type: ImportBatchListDto })
-  async list(): Promise<ImportBatchListDto> {
-    return { items: await this.repository.listAll() };
+  async list(
+    @Query("status") status?: string,
+    @Query("createdFrom") createdFrom?: string,
+    @Query("createdTo") createdTo?: string,
+    @Query("cursor") cursor?: string,
+    @Query("limit") limit?: string,
+  ): Promise<ImportBatchListDto> {
+    const parsedLimit = limit ? Math.min(Math.max(Number(limit) || 50, 1), 100) : undefined;
+    const opts: {
+      status?: string;
+      createdFrom?: string;
+      createdTo?: string;
+      cursor?: string;
+      limit?: number;
+    } = {};
+    if (status !== undefined && status !== "") opts.status = status;
+    if (createdFrom !== undefined && createdFrom !== "") opts.createdFrom = createdFrom;
+    if (createdTo !== undefined && createdTo !== "") opts.createdTo = createdTo;
+    if (cursor !== undefined && cursor !== "") opts.cursor = cursor;
+    if (parsedLimit !== undefined) opts.limit = parsedLimit;
+    return this.repository.listAll(opts);
   }
 
   @Get(":id")
@@ -382,13 +407,13 @@ export class ImportController {
   @ApiBearerAuth()
   @ApiOperation({
     summary:
-      "分页读取批次行结果（按 ordinal 升序；游标分页）。默认当前映射版本；可传 mappingVersion 读取历史映射版本的行事实",
+      "分页读取批次行结果（按 ordinal 升序；游标分页）。默认当前映射版本；可传 mappingVersion 读取历史映射版本的行事实，status 筛选行校验分类",
   })
   @ApiResponse({ status: 200, type: ImportRowListDto })
   @ApiResponse({ status: 404, description: "批次不存在", type: ImportErrorEnvelopeDto })
   @ApiResponse({
     status: 422,
-    description: "非法游标/limit/mappingVersion",
+    description: "非法游标/limit/mappingVersion/status",
     type: ImportErrorEnvelopeDto,
   })
   async rows(
@@ -396,6 +421,7 @@ export class ImportController {
     @Query("cursor") cursor?: string,
     @Query("limit") limit?: string,
     @Query("mappingVersion") mappingVersion?: string,
+    @Query("status") status?: string,
   ): Promise<ImportRowListDto> {
     let parsedCursor: number | null = null;
     if (cursor !== undefined && cursor.trim() !== "") {
@@ -419,7 +445,22 @@ export class ImportController {
         throw new UnprocessableEntityException("非法 mappingVersion");
       }
     }
-    return this.importService.listRows(id, parsedCursor, parsedLimit, parsedMappingVersion);
+    // status 筛选（候选分类），非法值 → 422。
+    let parsedStatus: string | undefined;
+    if (status !== undefined && status.trim() !== "") {
+      const allowed = ["candidate", "invalid", "duplicate_in_file", "existing_entry", "stale"];
+      if (!allowed.includes(status.trim())) {
+        throw new UnprocessableEntityException("非法 status");
+      }
+      parsedStatus = status.trim();
+    }
+    return this.importService.listRows(
+      id,
+      parsedCursor,
+      parsedLimit,
+      parsedMappingVersion,
+      parsedStatus,
+    );
   }
 
   @Post(":id/commit")

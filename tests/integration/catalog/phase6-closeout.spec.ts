@@ -319,12 +319,12 @@ describe("phase 6 learning core closeout", () => {
       const applied = await migrate(isoConfig, MIGRATIONS_DIR);
       expect(applied.map((m) => m.version)).toEqual([
         1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
-        26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37,
+        26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42,
       ]);
       const recorded = await listAppliedMigrations(isoConfig);
       expect(recorded.map((m) => m.version)).toEqual([
         1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
-        26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37,
+        26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42,
       ]);
 
       const verify = createPool({ ...isoConfig, max: 1 });
@@ -427,13 +427,14 @@ describe("phase 6 learning core closeout", () => {
       paths: Record<string, unknown>;
     };
     const paths = Object.keys(doc.paths);
+    // 说明：/api/v1/challenge（周挑战测验）已由 Ticket 14 交付，不再视为阶段外；
+    //       /api/v1/xp 从未存在（个人 XP 在 /api/v1/me/xp），此处仍断言不存在。
     const forbidden = [
       "/api/v1/xp",
-      "/api/v1/challenges",
-      "/api/v1/challenge",
       "/api/v1/import",
       "/api/v1/quiz",
       "/api/v1/weekly",
+      "/api/v1/challenges",
     ];
     for (const f of forbidden) {
       expect(

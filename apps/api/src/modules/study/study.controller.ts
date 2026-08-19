@@ -36,6 +36,7 @@ import {
   ReviewValidationError,
   StudyService,
 } from "./study.service.js";
+import { DailyUsageLimitError } from "../membership/membership.service.js";
 
 @ApiTags("study")
 @Controller("study")
@@ -147,6 +148,20 @@ export class StudyController {
         clientEventId: dto.clientEventId,
       });
     } catch (err) {
+      if (err instanceof DailyUsageLimitError) {
+        res.status(HttpStatus.CONFLICT);
+        return {
+          error: {
+            code: "DAILY_USAGE_LIMIT_REACHED",
+            message: err.message,
+            requestId: req.id,
+            retryable: false,
+            usedMinutes: err.usedMinutes,
+            limitMinutes: err.limitMinutes,
+            resetDay: err.resetDay,
+          },
+        };
+      }
       if (err instanceof IdempotencyConflictError) {
         res.status(HttpStatus.CONFLICT);
         return {

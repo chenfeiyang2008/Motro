@@ -6,6 +6,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   Req,
   UnprocessableEntityException,
   UseGuards,
@@ -27,6 +28,7 @@ import {
   ReviewDecisionResponseDto,
   ReviewDraftDetailDto,
   ReviewDraftListDto,
+  ReviewListQueryDto,
 } from "./reviews.dto.js";
 import { ReviewsService } from "./reviews.service.js";
 
@@ -39,10 +41,20 @@ export class ReviewsController {
 
   @Get()
   @ApiBearerAuth()
-  @ApiOperation({ summary: "列出来源完整、等待审核的草稿队列" })
+  @ApiOperation({ summary: "列出来源完整、等待审核的草稿队列（支持筛选与 keyset 分页）" })
   @ApiOkResponse({ type: ReviewDraftListDto })
-  list(): Promise<ReviewDraftListDto> {
-    return this.service.list();
+  list(@Query() query: ReviewListQueryDto): Promise<ReviewDraftListDto> {
+    const opts: {
+      status?: string;
+      manualAction?: "resolvable" | "non_resolvable";
+      cursor?: string;
+      limit?: number;
+    } = {};
+    if (query.status !== undefined && query.status !== "") opts.status = query.status;
+    if (query.manualAction !== undefined) opts.manualAction = query.manualAction;
+    if (query.cursor !== undefined && query.cursor !== "") opts.cursor = query.cursor;
+    if (query.limit !== undefined) opts.limit = query.limit;
+    return this.service.list(opts);
   }
 
   @Get(":id")

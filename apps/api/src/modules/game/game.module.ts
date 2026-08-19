@@ -1,6 +1,8 @@
 import { Module } from "@nestjs/common";
 import { AuthModule } from "../../auth/auth.module.js";
 import { databaseProvider } from "../../auth/database.provider.js";
+import { AdminXpController } from "./admin-xp.controller.js";
+import { AdminXpService } from "./admin-xp.service.js";
 import { ChallengeController } from "./challenge.controller.js";
 import { ChallengeService } from "./challenge.service.js";
 import { GameController } from "./game.controller.js";
@@ -13,8 +15,8 @@ import { GameService } from "./game.service.js";
 // UnknownDependenciesException，阻断整个应用启动与 openapi:generate）。
 @Module({
   imports: [AuthModule],
-  controllers: [GameController, ChallengeController],
-  providers: [databaseProvider, GameService, ChallengeService],
-  exports: [GameService, ChallengeService],
+  controllers: [GameController, ChallengeController, AdminXpController],
+  providers: [databaseProvider, GameService, ChallengeService, AdminXpService],
+  exports: [GameService, ChallengeService, AdminXpService],
 })
 export class GameModule {}

@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import {
+  getMeXp,
   getWeeklyLeaderboard,
   setLeaderboardVisibility,
   type WeeklyLeaderboardFixed,
@@ -27,6 +28,7 @@ export default function LeaderboardPage() {
   const [cursor, setCursor] = useState<string | undefined>(undefined);
   const [rows, setRows] = useState<LeaderboardRow[]>([]);
   const [hasMore, setHasMore] = useState(false);
+  const [rank, setRank] = useState<{ level: number; title: string } | null>(null);
 
   // 隐私设置
   // 后端默认公开参与；无 GET 偏好接口，故初始按「默认公开」呈现，首次点击即关闭。
@@ -40,7 +42,7 @@ export default function LeaderboardPage() {
   const load = useCallback(async (): Promise<void> => {
     setState({ phase: "loading" });
     // 服务端默认 limit=20；不显式传 limit（@IsInt 校验 query 字符串会 422）。
-    const res = await getWeeklyLeaderboard();
+    const [res, xpRes] = await Promise.all([getWeeklyLeaderboard(), getMeXp().catch(() => null)]);
     if (res.status === 401) {
       router.replace("/login");
       return;
@@ -60,6 +62,7 @@ export default function LeaderboardPage() {
     setRows(res.data.rows);
     setHasMore(res.data.hasMore);
     setCursor(res.data.nextCursor);
+    if (xpRes?.ok && xpRes.data) setRank({ level: xpRes.data.level, title: xpRes.data.title });
     setState({ phase: "ready", data: res.data });
   }, [router]);
 
@@ -163,6 +166,23 @@ export default function LeaderboardPage() {
           <strong className="lb-viewer-rank lb-viewer-rank--none">未上榜</strong>
         )}
         <span className="lb-viewer-points">{d.viewerChallengePoints} Challenge Points</span>
+        {rank && (
+          <span className="lb-viewer-rank-badge">
+            Lv.{rank.level} · {rank.title}
+          </span>
+        )}
+      </div>
+
+      {/* 开始测验：唯一主操作。资格由 /challenge/current 的服务端响应决定（本期开放、
+          已接触 ≥10 词条、未被判定不可参加）；入口统一导向服务端权威页，不在前端推算。 */}
+      <div className="lb-challenge-entry">
+        <Link href="/challenge" className="primary">
+          开始测验
+        </Link>
+        <p className="lb-challenge-hint">
+          每周挑战由服务器组题；一个词义方向每周最多获得一次 Challenge Point；每日 XP
+          不进入排行榜。截止时间以服务端返回并按北京时间（Asia/Shanghai）计。
+        </p>
       </div>
 
       {/* 隐私设置 */}

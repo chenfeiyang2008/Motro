@@ -338,9 +338,26 @@ export type ImportSheetFieldSet = {
 export type ImportValidationSummary = components["schemas"]["ImportValidationSummaryDto"];
 export type ImportMapping = { spellingField?: string; sheet?: string };
 
-/** 当前管理员的导入批次列表（元数据，不含磁盘路径/存储键）。 */
-export function listImportBatches(): Promise<ApiResult<ImportBatchList>> {
-  return apiFetch<ImportBatchList>("/api/v1/admin/imports", { method: "GET" });
+/** 当前管理员的导入批次列表（元数据，不含磁盘路径/存储键；支持 status/时间/分页筛选）。 */
+export function listImportBatches(
+  opts: {
+    status?: string | undefined;
+    createdFrom?: string | undefined;
+    createdTo?: string | undefined;
+    cursor?: string | null;
+    limit?: number | undefined;
+  } = {},
+): Promise<ApiResult<ImportBatchList>> {
+  const search = new URLSearchParams();
+  if (opts.status) search.set("status", opts.status);
+  if (opts.createdFrom) search.set("createdFrom", opts.createdFrom);
+  if (opts.createdTo) search.set("createdTo", opts.createdTo);
+  if (opts.cursor) search.set("cursor", opts.cursor);
+  if (opts.limit !== undefined) search.set("limit", String(opts.limit));
+  const qs = search.toString();
+  return apiFetch<ImportBatchList>(`/api/v1/admin/imports${qs.length > 0 ? `?${qs}` : ""}`, {
+    method: "GET",
+  });
 }
 
 /** 单个导入批次详情。 */
@@ -398,11 +415,13 @@ export function listImportRows(
   cursor: string | null,
   limit?: number,
   mappingVersion?: number,
+  status?: string,
 ): Promise<ApiResult<ImportRowList>> {
   const search = new URLSearchParams();
   if (cursor) search.set("cursor", cursor);
   if (limit !== undefined) search.set("limit", String(limit));
   if (mappingVersion !== undefined) search.set("mappingVersion", String(mappingVersion));
+  if (status !== undefined && status !== "") search.set("status", status);
   const qs = search.toString();
   return apiFetch<ImportRowList>(
     `/api/v1/admin/imports/${encodeURIComponent(id)}/rows${qs.length > 0 ? `?${qs}` : ""}`,
@@ -463,16 +482,20 @@ export type OperationListResponse = components["schemas"]["OperationListResponse
 export type OperationDetail = components["schemas"]["OperationDetailDto"];
 export type OperationRetryResult = components["schemas"]["OperationRetryResultDto"];
 
-/** 分页读取后台操作（游标分页；可安全按 status/type 过滤）。 */
+/** 分页读取后台操作（游标分页；可安全按 status/type/targetType/errorCode 过滤）。 */
 export function listOperations(opts: {
   status?: string;
   operationType?: string;
-  cursor: string | null;
+  targetType?: string;
+  errorCode?: string;
+  cursor?: string | null;
   limit?: number;
 }): Promise<ApiResult<OperationListResponse>> {
   const search = new URLSearchParams();
   if (opts.status) search.set("status", opts.status);
   if (opts.operationType) search.set("operationType", opts.operationType);
+  if (opts.targetType) search.set("targetType", opts.targetType);
+  if (opts.errorCode) search.set("errorCode", opts.errorCode);
   if (opts.cursor) search.set("cursor", opts.cursor);
   if (opts.limit !== undefined) search.set("limit", String(opts.limit));
   const qs = search.toString();
@@ -524,9 +547,152 @@ export interface CreateAdminUserPayload {
   role?: AdminUserRole;
 }
 
-/** 管理员：列出账号（含状态/创建时间，供用户管理表格与停用状态展示）。 */
-export function listAdminUsers(): Promise<ApiResult<AdminUserList>> {
-  return apiFetch<AdminUserList>("/api/v1/admin/users", { method: "GET" });
+// ---- 管理员：经验 / XP ledger（Ticket 19）----
+// 契约来自 @motro/api-client 的 AdminXpEntryDto / AdminXpListDto /
+// AdminXpUserSummaryDto。隐私：只读附录字段，绝不显示 password/token。
+// correction/void 为 append-only 新条目；UI 不提供普通"改 XP"输入框。
+
+export type AdminXpEntry = components["schemas"]["AdminXpEntryDto"];
+export type AdminXpList = components["schemas"]["AdminXpListDto"];
+export type AdminXpUserSummary = components["schemas"]["AdminXpUserSummaryDto"];
+
+/** 管理员：XP 账本查询（只读；userId/kind 筛选 + keyset 分页）。 */
+export function listAdminXp(
+  opts: {
+    userId?: string | undefined;
+    kind?: string | undefined;
+    cursor?: string | null;
+    limit?: number | undefined;
+  } = {},
+): Promise<ApiResult<AdminXpList>> {
+  const search = new URLSearchParams();
+  if (opts.userId) search.set("userId", opts.userId);
+  if (opts.kind) search.set("kind", opts.kind);
+  if (opts.cursor) search.set("cursor", opts.cursor);
+  if (opts.limit !== undefined) search.set("limit", String(opts.limit));
+  const qs = search.toString();
+  return apiFetch<AdminXpList>(`/api/v1/admin/xp${qs.length > 0 ? `?${qs}` : ""}`, {
+    method: "GET",
+  });
+}
+
+/** 管理员：用户 XP 汇总（供选择器）。 */
+export function listAdminXpUsers(q?: string): Promise<ApiResult<{ items: AdminXpUserSummary[] }>> {
+  const search = new URLSearchParams();
+  if (q && q.trim() !== "") search.set("q", q.trim());
+  const qs = search.toString();
+  return apiFetch<{ items: AdminXpUserSummary[] }>(
+    `/api/v1/admin/xp/users${qs.length > 0 ? `?${qs}` : ""}`,
+    { method: "GET" },
+  );
+}
+
+/** 管理员：append-only 作废一笔 XP entry（Idempotency-Key）。 */
+export function voidAdminXp(
+  targetEntryId: string,
+  reason: string,
+  idempotencyKey: string,
+): Promise<ApiResult<AdminXpEntry>> {
+  return apiFetch<AdminXpEntry>("/api/v1/admin/xp/void", {
+    method: "POST",
+    body: JSON.stringify({ targetEntryId, reason }),
+    headers: { "idempotency-key": idempotencyKey },
+  });
+}
+
+/** 管理员：append-only 补正一笔 XP entry（Idempotency-Key）。 */
+export function correctAdminXp(
+  targetEntryId: string,
+  amount: number,
+  reason: string,
+  idempotencyKey: string,
+): Promise<ApiResult<AdminXpEntry>> {
+  return apiFetch<AdminXpEntry>("/api/v1/admin/xp/correct", {
+    method: "POST",
+    body: JSON.stringify({ targetEntryId, amount, reason }),
+    headers: { "idempotency-key": idempotencyKey },
+  });
+}
+
+// ---- 管理员：词条编辑 / 归档（Ticket 19）----
+
+export type UpdateLexicalEntryPayload = {
+  partOfSpeech?: string;
+  pronunciation?: string;
+  senses?: { meaning: string; example?: string }[];
+  sourceNote?: string;
+};
+
+export function updateLexicalEntry(
+  id: string,
+  payload: UpdateLexicalEntryPayload,
+): Promise<ApiResult<LexicalEntryDetail>> {
+  return apiFetch<LexicalEntryDetail>(`/api/v1/admin/lexical-entries/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function archiveLexicalEntry(id: string): Promise<ApiResult<LexicalEntryDetail>> {
+  return apiFetch<LexicalEntryDetail>(
+    `/api/v1/admin/lexical-entries/${encodeURIComponent(id)}/archive`,
+    { method: "POST" },
+  );
+}
+
+export function activateLexicalEntry(id: string): Promise<ApiResult<LexicalEntryDetail>> {
+  return apiFetch<LexicalEntryDetail>(
+    `/api/v1/admin/lexical-entries/${encodeURIComponent(id)}/activate`,
+    { method: "POST" },
+  );
+}
+
+/** 管理员：列出账号（支持 q/role/status 筛选 + keyset 分页）。 */
+export function listAdminUsers(
+  opts: {
+    q?: string | undefined;
+    role?: AdminUserRole | undefined;
+    status?: AdminUserStatus | undefined;
+    cursor?: string | null;
+    limit?: number | undefined;
+  } = {},
+): Promise<ApiResult<AdminUserList>> {
+  const search = new URLSearchParams();
+  if (opts.q && opts.q.trim() !== "") search.set("q", opts.q.trim());
+  if (opts.role) search.set("role", opts.role);
+  if (opts.status) search.set("status", opts.status);
+  if (opts.cursor) search.set("cursor", opts.cursor);
+  if (opts.limit !== undefined) search.set("limit", String(opts.limit));
+  const qs = search.toString();
+  return apiFetch<AdminUserList>(`/api/v1/admin/users${qs.length > 0 ? `?${qs}` : ""}`, {
+    method: "GET",
+  });
+}
+
+/** 管理员：编辑账号显示资料（Idempotency-Key 幂等）。 */
+export function updateAdminUser(
+  id: string,
+  payload: {
+    displayName?: string;
+    role?: AdminUserRole;
+    timezone?: string;
+    dailyBudgetMinutes?: number;
+    mustChangePassword?: boolean;
+  },
+  idempotencyKey: string,
+): Promise<ApiResult<AdminUser>> {
+  return apiFetch<AdminUser>(`/api/v1/admin/users/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+    headers: { "idempotency-key": idempotencyKey },
+  });
+}
+
+/** 管理员：重新启用已停用账号。 */
+export function enableAdminUser(id: string): Promise<ApiResult<AdminUser>> {
+  return apiFetch<AdminUser>(`/api/v1/admin/users/${encodeURIComponent(id)}/enable`, {
+    method: "POST",
+  });
 }
 
 /**
@@ -551,6 +717,13 @@ export function disableAdminUser(id: string): Promise<ApiResult<{ ok: boolean }>
   });
 }
 
+/** 管理员：删除没有业务事实关联的账号；已有历史数据时服务端返回 409。 */
+export function deleteAdminUser(id: string): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(`/api/v1/admin/users/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
 /**
  * 管理员：重置一次性密码并撤销全部会话，返回新一次性密码。
  * Idempotency-Key 由调用方按“意图”生成并复用。
@@ -561,6 +734,64 @@ export function resetAdminUserPassword(
 ): Promise<ApiResult<AdminUserCreateResult>> {
   return apiFetch<AdminUserCreateResult>(
     `/api/v1/admin/users/${encodeURIComponent(id)}/reset-password`,
+    { method: "POST", headers: { "idempotency-key": idempotencyKey } },
+  );
+}
+
+// ---- 管理员：会员读/授予/续期/撤销（Ticket 20）----
+// 契约来自 @motro/api-client 的 AdminMembershipReadDto (= MembershipStatusDto)。
+// 安全边界：projection 来自服务端；响应仅含 plan/status/expiresAt，绝不返回
+// password_hash / session / audit_id / actor_id / request_id。
+// status 为服务端计算的【有效】状态（member=active 且未过期；free=无/过期/未知）；
+// expiresAt 为原始过期时间（null=不限），供 UI 额外判断“已过期”。
+export type AdminMembershipRead = components["schemas"]["AdminMembershipReadDto"];
+
+/** 管理员：读取指定用户的会员投影（只读）。 */
+export function getAdminUserMembership(userId: string): Promise<ApiResult<AdminMembershipRead>> {
+  return apiFetch<AdminMembershipRead>(`/api/v1/admin/memberships/${encodeURIComponent(userId)}`, {
+    method: "GET",
+  });
+}
+
+/** 管理员：授予/覆盖会员（Idempotency-Key 由调用方生成并复用；重放返回冻结首响应）。 */
+export function grantAdminUserMembership(
+  userId: string,
+  payload: { plan: "member"; expiresAt: string | null },
+  idempotencyKey: string,
+): Promise<ApiResult<AdminMembershipRead>> {
+  return apiFetch<AdminMembershipRead>(
+    `/api/v1/admin/memberships/${encodeURIComponent(userId)}/grant`,
+    {
+      method: "POST",
+      headers: { "idempotency-key": idempotencyKey },
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+/** 管理员：续期会员（Idempotency-Key 由调用方生成并复用）。 */
+export function renewAdminUserMembership(
+  userId: string,
+  expiresAt: string | null,
+  idempotencyKey: string,
+): Promise<ApiResult<AdminMembershipRead>> {
+  return apiFetch<AdminMembershipRead>(
+    `/api/v1/admin/memberships/${encodeURIComponent(userId)}/renew`,
+    {
+      method: "POST",
+      headers: { "idempotency-key": idempotencyKey },
+      body: JSON.stringify({ expiresAt }),
+    },
+  );
+}
+
+/** 管理员：撤销会员 → 立即按 free 限制（Idempotency-Key 由调用方生成并复用）。 */
+export function revokeAdminUserMembership(
+  userId: string,
+  idempotencyKey: string,
+): Promise<ApiResult<{ ok: boolean }>> {
+  return apiFetch<{ ok: boolean }>(
+    `/api/v1/admin/memberships/${encodeURIComponent(userId)}/revoke`,
     { method: "POST", headers: { "idempotency-key": idempotencyKey } },
   );
 }
@@ -578,9 +809,24 @@ export type ReviewDecision = components["schemas"]["ReviewDecisionDto"];
 export type ReviewDecisionResponse = components["schemas"]["ReviewDecisionResponseDto"];
 export type ReviewDecisionType = components["schemas"]["ReviewDecisionRequestDto"]["decision"];
 
-/** 待审草稿队列（来源完整、等待审核；含可补全 manual_action 的有效投影）。 */
-export function listReviewDrafts(): Promise<ApiResult<ReviewDraftList>> {
-  return apiFetch<ReviewDraftList>("/api/v1/admin/reviews", { method: "GET" });
+/** 待审草稿队列（来源完整、等待审核；含可补全 manual_action 的有效投影；支持筛选 + 分页）。 */
+export function listReviewDrafts(
+  opts: {
+    status?: string | undefined;
+    manualAction?: "resolvable" | "non_resolvable" | undefined;
+    cursor?: string | null;
+    limit?: number | undefined;
+  } = {},
+): Promise<ApiResult<ReviewDraftList>> {
+  const search = new URLSearchParams();
+  if (opts.status) search.set("status", opts.status);
+  if (opts.manualAction) search.set("manualAction", opts.manualAction);
+  if (opts.cursor) search.set("cursor", opts.cursor);
+  if (opts.limit !== undefined) search.set("limit", String(opts.limit));
+  const qs = search.toString();
+  return apiFetch<ReviewDraftList>(`/api/v1/admin/reviews${qs.length > 0 ? `?${qs}` : ""}`, {
+    method: "GET",
+  });
 }
 
 /** 单个草稿详情（含来源投影 + 当前决定）。 */
@@ -733,7 +979,12 @@ export function getStudyProgress(): Promise<ApiResult<StudyProgress>> {
 // 隐私：排行榜公开行只包含后端提供的 displayName + challengePoints + rank；
 // 绝不读取/显示 password、session、provider payload、audit internal 或他人隐私字段。
 
-export type MeXp = components["schemas"]["MeXpDto"];
+// openapi-typescript represents nullable optional numbers as empty objects under
+// exactOptionalPropertyTypes; keep the runtime contract explicit here.
+export type MeXp = Omit<components["schemas"]["MeXpDto"], "nextLevel" | "nextLevelThreshold"> & {
+  nextLevel?: number | null;
+  nextLevelThreshold?: number | null;
+};
 export type WeeklyLeaderboard = components["schemas"]["WeeklyLeaderboardDto"];
 export type LeaderboardRow = components["schemas"]["LeaderboardRowDto"];
 export type LeaderboardVisibilityPayload = components["schemas"]["LeaderboardVisibilityDto"];
@@ -793,4 +1044,130 @@ export function setLeaderboardVisibility(
     body: JSON.stringify({ public: isPublic }),
     headers: { "idempotency-key": idempotencyKey },
   });
+}
+
+// ---- 学习者：周挑战测验（Ticket 14 / 21）----
+// 契约来自 @motro/api-client 的 ChallengeCurrentDto / ChallengeAnswerDto /
+// ChallengeVerdictDto。只读服务端权威：题面冻结快照、判分、积分均由服务端返回。
+// 隐私/安全：绝不提前展示 server_answer；判分后才展示 correctAnswer。
+// 注意：generated client 把 attemptId/expiresAt 这类可空字段生成成 Record<string, never>，
+// 这里用显式修正类型（与 WeeklyLeaderboardFixed 同模式），避免与 OpenAPI 冲突。
+
+export type ChallengeItem = components["schemas"]["ChallengeItemDto"];
+export type ChallengeCurrent = components["schemas"]["ChallengeCurrentDto"];
+export type ChallengeAnswerPayload = components["schemas"]["ChallengeAnswerDto"];
+export interface ChallengeVerdict {
+  attemptId: string;
+  position: number;
+  isCorrect: boolean;
+  pointsAwarded: number;
+  kind: "scored" | "review" | "wrong" | "already_scored";
+  correctAnswer: string;
+}
+
+export interface HomeMotivationCopy {
+  id: string;
+  text: string;
+  category: "poetry_pun" | "english_joke" | "learning_wit" | "encouragement";
+  attribution: string | null;
+}
+export interface HomeMotivationResponse {
+  message: HomeMotivationCopy | null;
+}
+export function getHomeMotivation(): Promise<ApiResult<HomeMotivationResponse>> {
+  return apiFetch<HomeMotivationResponse>("/api/v1/home/motivation", { method: "GET" });
+}
+export interface AdminMotivationCopy extends HomeMotivationCopy {
+  isEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface AdminMotivationList {
+  items: AdminMotivationCopy[];
+  nextCursor?: string | null;
+  hasMore: boolean;
+}
+export function listAdminMotivation(
+  opts: { status?: string; category?: string; cursor?: string | null; limit?: number } = {},
+): Promise<ApiResult<AdminMotivationList>> {
+  const qs = new URLSearchParams();
+  if (opts.status) qs.set("status", opts.status);
+  if (opts.category) qs.set("category", opts.category);
+  if (opts.cursor) qs.set("cursor", opts.cursor);
+  if (opts.limit) qs.set("limit", String(opts.limit));
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  return apiFetch<AdminMotivationList>(`/api/v1/admin/motivation-copies${suffix}`, {
+    method: "GET",
+  });
+}
+export function createAdminMotivation(payload: {
+  text: string;
+  category: HomeMotivationCopy["category"];
+  attribution?: string | null;
+}): Promise<ApiResult<AdminMotivationCopy>> {
+  return apiFetch<AdminMotivationCopy>("/api/v1/admin/motivation-copies", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+export interface BatchAdminMotivationResult {
+  items: AdminMotivationCopy[];
+  createdCount: number;
+  skippedCount: number;
+  skippedTexts: string[];
+}
+export function createAdminMotivationBatch(payload: {
+  items: Array<{
+    text: string;
+    category: HomeMotivationCopy["category"];
+    attribution?: string | null;
+  }>;
+}): Promise<ApiResult<BatchAdminMotivationResult>> {
+  return apiFetch<BatchAdminMotivationResult>("/api/v1/admin/motivation-copies/batch", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+export function updateAdminMotivation(
+  id: string,
+  payload: Partial<{
+    text: string;
+    category: HomeMotivationCopy["category"];
+    attribution: string | null;
+    isEnabled: boolean;
+  }>,
+): Promise<ApiResult<AdminMotivationCopy>> {
+  return apiFetch<AdminMotivationCopy>(
+    `/api/v1/admin/motivation-copies/${encodeURIComponent(id)}`,
+    { method: "PATCH", body: JSON.stringify(payload) },
+  );
+}
+
+/** corrected nullable: attemptId 为 string | null（服务端返回 null 表示无已接触词条）。 */
+export type ChallengeCurrentFixed = Omit<ChallengeCurrent, "attemptId" | "expiresAt" | "status"> & {
+  attemptId: string | null;
+  expiresAt: string | null;
+  status?: string;
+};
+
+/** GET /challenge/current：当前周测验（10 题冻结快照；无已接触词条时 items 为空、attemptId 为 null）。 */
+export function getChallengeCurrent(): Promise<ApiResult<ChallengeCurrentFixed>> {
+  return apiFetch<ChallengeCurrentFixed>("/api/v1/challenge/current", { method: "GET" });
+}
+
+/**
+ * POST /challenge/attempts/{attemptId}/answers/{position}：提交一道题，服务端判分。
+ * 幂等：同 (attempt, position) 重放返回冻结首次判分（client_event_id）。
+ * 只消费服务端返回的 verdict（isCorrect / pointsAwarded / kind / correctAnswer），
+ * 前端不做任何本地判分。
+ */
+export function submitChallengeAnswer(
+  attemptId: string,
+  position: number,
+  payload: ChallengeAnswerPayload,
+): Promise<ApiResult<ChallengeVerdict>> {
+  return apiFetch<ChallengeVerdict>(
+    `/api/v1/challenge/attempts/${encodeURIComponent(attemptId)}/answers/${position}`,
+    { method: "POST", body: JSON.stringify(payload) },
+  );
 }

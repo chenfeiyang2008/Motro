@@ -11,12 +11,27 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   createAdminUser,
+  deleteAdminUser,
   disableAdminUser,
+  enableAdminUser,
+  getAdminUserMembership,
+  grantAdminUserMembership,
   listAdminUsers,
+  renewAdminUserMembership,
   resetAdminUserPassword,
+  revokeAdminUserMembership,
+  updateAdminUser,
+  type AdminMembershipRead,
   type AdminUser,
   type AdminUserRole,
+  type AdminUserStatus,
+  type ApiError,
 } from "@/lib/api";
+import {
+  deriveMembershipBadge,
+  MEMBERSHIP_BADGE_LABEL,
+  membershipTooltip,
+} from "@/lib/membership-utils";
 import { fetchMe } from "@/lib/auth";
 
 const ROLE_LABEL: Record<AdminUserRole, string> = { learner: "学习者", admin: "管理员" };
@@ -119,6 +134,7 @@ function ConfirmLayer({
   confirmLabel,
   busy,
   danger,
+  error,
   onConfirm,
   onDismiss,
 }: {
@@ -127,6 +143,7 @@ function ConfirmLayer({
   confirmLabel: string;
   busy: boolean;
   danger?: boolean;
+  error?: string;
   onConfirm: () => void;
   onDismiss: () => void;
 }) {
@@ -140,6 +157,11 @@ function ConfirmLayer({
       >
         <h2 id="confirm-title">{title}</h2>
         <p>{body}</p>
+        {error !== undefined && error !== "" && (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        )}
         <div className="dialog-actions">
           <button type="button" className="secondary" onClick={onDismiss} disabled={busy}>
             取消
@@ -166,6 +188,10 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState("");
+
+  // ---- 会员状态（按用户 id 缓存；null = 加载失败/未知）----
+  const [memberships, setMemberships] = useState<Record<string, AdminMembershipRead | null>>({});
+  const [membershipsLoading, setMembershipsLoading] = useState(false);
 
   // ---- 添加用户表单（受控，不做乐观写入）----
   const [showCreate, setShowCreate] = useState(false);
@@ -200,26 +226,58 @@ export default function AdminUsersPage() {
   const [disableTarget, setDisableTarget] = useState<AdminUser | null>(null);
   const [disableBusy, setDisableBusy] = useState(false);
   const [disableError, setDisableError] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const [resetTarget, setResetTarget] = useState<AdminUser | null>(null);
   const [resetBusy, setResetBusy] = useState(false);
   const [resetError, setResetError] = useState("");
   // 重置意图幂等键：同一目标重试复用同一 key。
   const resetIntentRef = useRef<{ userId: string; key: string } | null>(null);
 
-  // ---- 客户端过滤（能力边界：后端当前不提供服务端搜索/分页，仅本地便捷过滤）----
+  // ---- 服务端搜索 + 筛选（后端已支持 q/role/status/cursor/limit）----
   const [query, setQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
 
-  const loadList = useCallback(async () => {
-    setLoading(true);
-    setListError("");
-    const res = await listAdminUsers();
-    setLoading(false);
-    if (!res.ok || !res.data) {
-      setListError(res.error?.message ?? "加载用户失败，请重试");
-      return;
-    }
-    setUsers(res.data.items);
-  }, []);
+  // ---- 编辑弹窗 ----
+  const [editTarget, setEditTarget] = useState<AdminUser | null>(null);
+  const [editDisplayName, setEditDisplayName] = useState("");
+  const [editRole, setEditRole] = useState<AdminUserRole>("learner");
+  const [editTimezone, setEditTimezone] = useState("");
+  const [editBudget, setEditBudget] = useState("");
+  const [editBusy, setEditBusy] = useState(false);
+  const [editError, setEditError] = useState("");
+
+  const loadList = useCallback(
+    async (opts?: { reset?: boolean; append?: boolean }) => {
+      const reset = opts?.reset !== false;
+      setLoading(true);
+      setListError("");
+      const res = await listAdminUsers({
+        q: query.trim() || undefined,
+        role: (roleFilter as AdminUserRole) || undefined,
+        status: (statusFilter as AdminUserStatus) || undefined,
+        cursor: !reset ? nextCursor : null,
+        limit: 50,
+      });
+      setLoading(false);
+      if (!res.ok || !res.data) {
+        setListError(res.error?.message ?? "加载用户失败，请重试");
+        return;
+      }
+      if (reset) {
+        setUsers(res.data.items);
+      } else {
+        setUsers((prev) => [...prev, ...res.data!.items]);
+      }
+      setNextCursor(res.data.nextCursor ?? null);
+      setHasMore(res.data.hasMore ?? false);
+    },
+    [query, roleFilter, statusFilter, nextCursor],
+  );
 
   useEffect(() => {
     void loadList();
@@ -228,6 +286,120 @@ export default function AdminUsersPage() {
       if (me.ok && me.user) setMeId(me.user.id);
     })();
   }, [loadList]);
+
+  // ---- 会员状态批量获取 ----
+  // 在列表加载完成后，为每个用户并行获取会员投影（独立于账号列表，失败不阻塞表格）。
+  const loadMemberships = useCallback(async (userList: AdminUser[]): Promise<void> => {
+    setMembershipsLoading(true);
+    const next: Record<string, AdminMembershipRead | null> = {};
+    await Promise.all(
+      userList.map(async (u) => {
+        const res = await getAdminUserMembership(u.id);
+        next[u.id] = res.ok ? (res.data as AdminMembershipRead) : null;
+      }),
+    );
+    setMemberships(next);
+    setMembershipsLoading(false);
+  }, []);
+
+  // ---- 会员操作（幂等 + 防重复点击）----
+  // 单一活跃操作目标：任一操作期间 disable 该行全部按钮；成功后刷新单行会员投影。
+  const [activeMembershipUser, setActiveMembershipUser] = useState<string | null>(null);
+  const [membershipError, setMembershipError] = useState<string>("");
+  // 每个目标一次性 intent key，失败重试复用；成功/换目标后清空。
+  const membershipIntentRef = useRef<Record<string, string>>({});
+  const membershipActionRef = useRef<{
+    userId: string;
+    kind: "grant" | "renew" | "revoke";
+  } | null>(null);
+
+  async function refreshMembership(userId: string): Promise<void> {
+    const res = await getAdminUserMembership(userId);
+    setMemberships((prev) => ({
+      ...prev,
+      [userId]: res.ok ? (res.data as AdminMembershipRead) : null,
+    }));
+  }
+
+  function ensureIntent(userId: string): string {
+    const existing = membershipIntentRef.current[userId];
+    if (existing) return existing;
+    const key = uuid();
+    membershipIntentRef.current[userId] = key;
+    return key;
+  }
+
+  function clearIntent(userId: string): void {
+    delete membershipIntentRef.current[userId];
+  }
+
+  async function withMembershipAction(
+    userId: string,
+    kind: "grant" | "renew" | "revoke",
+    fn: (key: string) => Promise<{ ok: boolean; status: number; error: ApiError | undefined }>,
+  ): Promise<void> {
+    setMembershipError("");
+    membershipActionRef.current = { userId, kind };
+    setActiveMembershipUser(userId);
+    const key = ensureIntent(userId);
+    const res = await fn(key);
+    setActiveMembershipUser(null);
+    if (!res.ok) {
+      if (res.status === 401) {
+        // 凭据失效 → 跳转登录。
+        window.location.href = "/login";
+        return;
+      }
+      if (res.status === 403) {
+        setMembershipError("无权限执行此操作");
+      } else if (res.status === 409) {
+        setMembershipError("该操作已冲突，请刷新后重试");
+        // 冲突后不复用意图键，下次生成新键。
+        clearIntent(userId);
+      } else if (res.status === 404) {
+        setMembershipError("该用户尚无会员记录，无法续期/撤销（请先授予）");
+        clearIntent(userId);
+      } else if (res.status === 0) {
+        setMembershipError("网络连接失败，请点击重试");
+        // 网络错误复用意图键。
+      } else {
+        setMembershipError(res.error?.message ?? "操作失败，请重试");
+        if (res.status >= 400 && res.status < 500 && res.status !== 409) clearIntent(userId);
+      }
+      return;
+    }
+    // 成功 → 刷新单行会员投影，清理意图。
+    clearIntent(userId);
+    await refreshMembership(userId);
+  }
+
+  async function onGrantMember(userId: string): Promise<void> {
+    await withMembershipAction(userId, "grant", async (key) => {
+      const res = await grantAdminUserMembership(userId, { plan: "member", expiresAt: null }, key);
+      return { ok: res.ok, status: res.status, error: res.error };
+    });
+  }
+
+  async function onRenewMember(userId: string, expiresAt: string | null): Promise<void> {
+    await withMembershipAction(userId, "renew", async (key) => {
+      const res = await renewAdminUserMembership(userId, expiresAt, key);
+      return { ok: res.ok, status: res.status, error: res.error };
+    });
+  }
+
+  async function onRevokeMember(userId: string): Promise<void> {
+    await withMembershipAction(userId, "revoke", async (key) => {
+      const res = await revokeAdminUserMembership(userId, key);
+      return { ok: res.ok, status: res.status, error: res.error };
+    });
+  }
+
+  // 列表加载时同步获取会员状态。
+  useEffect(() => {
+    if (users.length > 0) {
+      void loadMemberships(users);
+    }
+  }, [users, loadMemberships]);
 
   // ---- 创建 ----
   const budgetNum = Math.floor(Number(budget));
@@ -348,6 +520,21 @@ export default function AdminUsersPage() {
     await loadList();
   }
 
+  async function onDeleteConfirm(): Promise<void> {
+    if (!deleteTarget) return;
+    setDeleteBusy(true);
+    setDeleteError("");
+    const res = await deleteAdminUser(deleteTarget.id);
+    setDeleteBusy(false);
+    if (!res.ok) {
+      setDeleteError(res.error?.message ?? "删除失败，请重试");
+      return;
+    }
+    setDeleteTarget(null);
+    setDeleteError("");
+    await loadList();
+  }
+
   // ---- 重置 ----
   async function onResetConfirm(): Promise<void> {
     if (!resetTarget) return;
@@ -380,6 +567,61 @@ export default function AdminUsersPage() {
     await loadList();
   }
 
+  // ---- 启用 ----
+  async function onEnable(target: AdminUser): Promise<void> {
+    const res = await enableAdminUser(target.id);
+    if (!res.ok) {
+      setListError(res.error?.message ?? "启用失败，请重试");
+      return;
+    }
+    await loadList();
+  }
+
+  // ---- 编辑保存 ----
+  const editIntentRef = useRef<{ key: string; targetId: string } | null>(null);
+
+  async function onEditSave(): Promise<void> {
+    if (!editTarget) return;
+    const dname = editDisplayName.trim();
+    const tz = editTimezone.trim();
+    const budgetNum = Math.floor(Number(editBudget));
+    if (dname === "") {
+      setEditError("显示名不能为空");
+      return;
+    }
+    if (!Number.isFinite(budgetNum) || budgetNum < 1 || budgetNum > 120) {
+      setEditError("每日预算需为 1–120 分钟");
+      return;
+    }
+    if (!editIntentRef.current || editIntentRef.current.targetId !== editTarget.id) {
+      editIntentRef.current = { targetId: editTarget.id, key: uuid() };
+    }
+    setEditBusy(true);
+    setEditError("");
+    const res = await updateAdminUser(
+      editTarget.id,
+      {
+        displayName: dname,
+        role: editRole,
+        timezone: tz,
+        dailyBudgetMinutes: budgetNum,
+      },
+      editIntentRef.current.key,
+    );
+    setEditBusy(false);
+    if (!res.ok) {
+      const retryable = res.status === 0 || res.error?.retryable === true;
+      if (!retryable) editIntentRef.current = null;
+      setEditError(
+        res.error?.message ?? (retryable ? "网络连接失败，请点击重试" : "更新失败，请重试"),
+      );
+      return;
+    }
+    editIntentRef.current = null;
+    setEditTarget(null);
+    await loadList();
+  }
+
   // ---- 路由切换/卸载时确保 OTP 从内存清除（关闭层也会置 null）。 ----
   const otpOnDismiss = useCallback(() => setOtp(null), []);
 
@@ -392,12 +634,8 @@ export default function AdminUsersPage() {
         </button>
       </div>
 
-      <p className="users-capability-note">
-        当前后端不支持服务端搜索与分页；下方搜索框为前端过滤。
-      </p>
-
-      {!loading && users.length > 0 && (
-        <div className="users-filter">
+      <div className="users-filter">
+        <div className="users-filter-field">
           <label htmlFor="users-query">搜索用户名/显示名</label>
           <input
             id="users-query"
@@ -406,7 +644,34 @@ export default function AdminUsersPage() {
             placeholder="输入关键词…"
           />
         </div>
-      )}
+        <div className="users-filter-field">
+          <label htmlFor="users-role">角色</label>
+          <select
+            id="users-role"
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+          >
+            <option value="">全部</option>
+            <option value="learner">学习者</option>
+            <option value="admin">管理员</option>
+          </select>
+        </div>
+        <div className="users-filter-field">
+          <label htmlFor="users-status">状态</label>
+          <select
+            id="users-status"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="">全部</option>
+            <option value="active">活跃</option>
+            <option value="disabled">已停用</option>
+          </select>
+        </div>
+        <button type="button" className="secondary" onClick={() => void loadList({ reset: true })}>
+          搜索
+        </button>
+      </div>
 
       {listError !== "" && (
         <p className="form-error users-list-error" role="alert">
@@ -414,6 +679,24 @@ export default function AdminUsersPage() {
           <button type="button" className="secondary" onClick={() => void loadList()}>
             重试
           </button>
+        </p>
+      )}
+      {membershipError !== "" && (
+        <p className="form-error users-membership-error" role="alert">
+          {membershipError}
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => setMembershipError("")}
+            aria-label="关闭错误提示"
+          >
+            关闭
+          </button>
+        </p>
+      )}
+      {membershipsLoading && (
+        <p className="users-membership-loading" role="status" aria-live="polite">
+          正在加载会员状态…
         </p>
       )}
       {loading && (
@@ -438,6 +721,9 @@ export default function AdminUsersPage() {
                 <th scope="col">用户名</th>
                 <th scope="col">角色</th>
                 <th scope="col">状态</th>
+                <th scope="col" className="users-membership-th">
+                  会员状态
+                </th>
                 <th scope="col">时区</th>
                 <th scope="col">每日预算</th>
                 <th scope="col">创建时间</th>
@@ -447,81 +733,197 @@ export default function AdminUsersPage() {
               </tr>
             </thead>
             <tbody>
-              {users
-                .filter((u) => {
-                  const q = query.trim().toLowerCase();
-                  if (q === "") return true;
-                  return (
-                    u.username.toLowerCase().includes(q) || u.displayName.toLowerCase().includes(q)
-                  );
-                })
-                .map((u) => {
-                  const isSelf = meId === u.id;
-                  const isDisabled = u.status === "disabled";
-                  return (
-                    <tr key={u.id} data-testid="user-row">
-                      <td data-label="显示名">
-                        <span className="user-display-name">{u.displayName}</span>
-                      </td>
-                      <td data-label="用户名">{u.username}</td>
-                      <td data-label="角色">
-                        <span className={`users-role users-role--${u.role}`}>
-                          {ROLE_LABEL[u.role]}
+              {users.map((u) => {
+                const isSelf = meId === u.id;
+                const isDisabled = u.status === "disabled";
+                return (
+                  <tr key={u.id} data-testid="user-row">
+                    <td data-label="显示名">
+                      <span className="user-display-name">{u.displayName}</span>
+                    </td>
+                    <td data-label="用户名">{u.username}</td>
+                    <td data-label="角色">
+                      <span className={`users-role users-role--${u.role}`}>
+                        {ROLE_LABEL[u.role]}
+                      </span>
+                    </td>
+                    <td data-label="状态">
+                      <span className={`users-status users-status--${u.status}`}>
+                        {STATUS_LABEL[u.status]}
+                      </span>
+                      {u.mustChangePassword && (
+                        <span
+                          className="users-status users-status--must-change"
+                          title="该账号首次登录后需要修改密码"
+                        >
+                          待改密
                         </span>
-                      </td>
-                      <td data-label="状态">
-                        <span className={`users-status users-status--${u.status}`}>
-                          {STATUS_LABEL[u.status]}
-                        </span>
-                        {u.mustChangePassword && (
+                      )}
+                    </td>
+                    <td data-label="会员状态">
+                      {(() => {
+                        const m = memberships[u.id];
+                        const badge = deriveMembershipBadge(m);
+                        return (
                           <span
-                            className="users-status users-status--must-change"
-                            title="该账号首次登录后需要修改密码"
+                            className={`membership-badge membership-badge--${badge}`}
+                            title={membershipTooltip(m, formatTime)}
+                            data-testid={`membership-badge-${u.id}`}
                           >
-                            待改密
+                            {MEMBERSHIP_BADGE_LABEL[badge]}
                           </span>
-                        )}
-                      </td>
-                      <td data-label="时区">{u.timezone}</td>
-                      <td data-label="每日预算">{u.dailyBudgetMinutes} 分钟</td>
-                      <td data-label="创建时间">{formatTime(u.createdAt)}</td>
-                      <td data-label="操作" className="users-actions">
-                        {isSelf ? (
-                          <span className="users-self-hint" title="不能停用自己的账号">
-                            当前账号
-                          </span>
-                        ) : (
-                          <>
-                            {!isDisabled && (
-                              <button
-                                type="button"
-                                className="secondary danger user-action-btn"
-                                onClick={() => {
-                                  setDisableError("");
-                                  setDisableTarget(u);
-                                }}
-                              >
-                                停用
-                              </button>
-                            )}
+                        );
+                      })()}
+                    </td>
+                    <td data-label="时区">{u.timezone}</td>
+                    <td data-label="每日预算">{u.dailyBudgetMinutes} 分钟</td>
+                    <td data-label="创建时间">{formatTime(u.createdAt)}</td>
+                    <td data-label="操作" className="users-actions">
+                      {isSelf ? (
+                        <span className="users-self-hint" title="不能停用自己的账号">
+                          当前账号
+                        </span>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            className="secondary user-action-btn"
+                            onClick={() => {
+                              setEditError("");
+                              setEditDisplayName(u.displayName);
+                              setEditRole(u.role);
+                              setEditTimezone(u.timezone);
+                              setEditBudget(String(u.dailyBudgetMinutes));
+                              setEditTarget(u);
+                            }}
+                          >
+                            编辑
+                          </button>
+                          {isDisabled && (
                             <button
                               type="button"
                               className="secondary user-action-btn"
+                              onClick={() => void onEnable(u)}
+                            >
+                              启用
+                            </button>
+                          )}
+                          {!isDisabled && (
+                            <button
+                              type="button"
+                              className="secondary danger user-action-btn"
                               onClick={() => {
-                                setResetError("");
-                                setResetTarget(u);
+                                setDisableError("");
+                                setDisableTarget(u);
                               }}
                             >
-                              重置密码
+                              停用
                             </button>
-                          </>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                          )}
+                          <button
+                            type="button"
+                            className="secondary user-action-btn"
+                            onClick={() => {
+                              setResetError("");
+                              setResetTarget(u);
+                            }}
+                          >
+                            重置密码
+                          </button>
+                          <button
+                            type="button"
+                            className="secondary danger user-action-btn"
+                            onClick={() => {
+                              setDeleteError("");
+                              setDeleteTarget(u);
+                            }}
+                          >
+                            删除
+                          </button>
+                          {/* ---- 会员操作（幂等 + 防重复点击） ---- */}
+                          {(() => {
+                            const m = memberships[u.id];
+                            const badge = deriveMembershipBadge(m);
+                            const busy = activeMembershipUser === u.id;
+                            const canGrant = badge !== "member";
+                            const canRenew = badge === "member" || badge === "expired";
+                            const canRevoke = badge === "member" || badge === "expired";
+                            return (
+                              <>
+                                {canGrant && (
+                                  <button
+                                    type="button"
+                                    className="secondary user-action-btn"
+                                    disabled={busy}
+                                    aria-busy={busy || undefined}
+                                    title="开通会员"
+                                    data-testid={`member-grant-${u.id}`}
+                                    onClick={() => void onGrantMember(u.id)}
+                                  >
+                                    {busy && membershipActionRef.current?.userId === u.id ? (
+                                      <span aria-hidden="true">处理中…</span>
+                                    ) : (
+                                      "开通会员"
+                                    )}
+                                  </button>
+                                )}
+                                {canRenew && (
+                                  <button
+                                    type="button"
+                                    className="secondary user-action-btn"
+                                    disabled={busy}
+                                    aria-busy={busy || undefined}
+                                    title="续期会员（永不过期）"
+                                    data-testid={`member-renew-${u.id}`}
+                                    onClick={() => void onRenewMember(u.id, null)}
+                                  >
+                                    {busy && membershipActionRef.current?.userId === u.id ? (
+                                      <span aria-hidden="true">处理中…</span>
+                                    ) : (
+                                      "续期会员"
+                                    )}
+                                  </button>
+                                )}
+                                {canRevoke && (
+                                  <button
+                                    type="button"
+                                    className="secondary user-action-btn"
+                                    disabled={busy}
+                                    aria-busy={busy || undefined}
+                                    title="撤销会员"
+                                    data-testid={`member-revoke-${u.id}`}
+                                    onClick={() => void onRevokeMember(u.id)}
+                                  >
+                                    {busy && membershipActionRef.current?.userId === u.id ? (
+                                      <span aria-hidden="true">处理中…</span>
+                                    ) : (
+                                      "撤销会员"
+                                    )}
+                                  </button>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {!loading && listError === "" && hasMore && (
+        <div className="users-load-more">
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => void loadList({ append: true })}
+          >
+            加载更多
+          </button>
         </div>
       )}
 
@@ -657,6 +1059,25 @@ export default function AdminUsersPage() {
         </p>
       )}
 
+      {/* 删除二次确认：仅删除无业务事实关联的账号，服务端会拒绝有历史数据的账号。 */}
+      {deleteTarget && (
+        <ConfirmLayer
+          title={`删除 ${deleteTarget.displayName}？`}
+          body="删除不可恢复。若账号已有学习、XP、审核、会员或其他业务记录，系统会拒绝删除，请改用停用。"
+          confirmLabel="确认删除"
+          danger
+          busy={deleteBusy}
+          error={deleteError}
+          onConfirm={() => void onDeleteConfirm()}
+          onDismiss={() => setDeleteTarget(null)}
+        />
+      )}
+      {deleteError !== "" && !deleteTarget && (
+        <p className="form-error users-action-error" role="alert">
+          {deleteError}
+        </p>
+      )}
+
       {/* 重置二次确认 */}
       {resetTarget && (
         <ConfirmLayer
@@ -672,6 +1093,83 @@ export default function AdminUsersPage() {
         <p className="form-error users-action-error" role="alert">
           {resetError}
         </p>
+      )}
+
+      {/* 编辑账号弹窗 */}
+      {editTarget && (
+        <div className="dialog-backdrop" role="presentation">
+          <div
+            className="create-user-layer"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-user-title"
+          >
+            <h2 id="edit-user-title">编辑 {editTarget.displayName}</h2>
+            {editError !== "" && (
+              <p className="form-error" role="alert">
+                {editError}
+              </p>
+            )}
+            <div className="create-user-layer" style={{ padding: 0, border: 0, boxShadow: "none" }}>
+              <div className="create-field">
+                <label htmlFor="edit-displayname">显示名</label>
+                <input
+                  id="edit-displayname"
+                  value={editDisplayName}
+                  onChange={(e) => setEditDisplayName(e.target.value)}
+                />
+              </div>
+              <div className="create-field">
+                <label htmlFor="edit-role">角色</label>
+                <select
+                  id="edit-role"
+                  value={editRole}
+                  onChange={(e) => setEditRole(e.target.value as AdminUserRole)}
+                >
+                  <option value="learner">学习者</option>
+                  <option value="admin">管理员</option>
+                </select>
+              </div>
+              <div className="create-field">
+                <label htmlFor="edit-timezone">IANA 时区</label>
+                <input
+                  id="edit-timezone"
+                  value={editTimezone}
+                  onChange={(e) => setEditTimezone(e.target.value)}
+                  autoComplete="off"
+                />
+              </div>
+              <div className="create-field">
+                <label htmlFor="edit-budget">每日学习预算（分钟）</label>
+                <input
+                  id="edit-budget"
+                  inputMode="numeric"
+                  value={editBudget}
+                  onChange={(e) => setEditBudget(e.target.value)}
+                />
+                <p className="create-field-hint">1–120 分钟</p>
+              </div>
+            </div>
+            <div className="dialog-actions">
+              <button
+                type="button"
+                className="secondary"
+                disabled={editBusy}
+                onClick={() => setEditTarget(null)}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="primary"
+                disabled={editBusy}
+                onClick={() => void onEditSave()}
+              >
+                {editBusy ? "保存中…" : "保存"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 一次性密码确认层（仅内存；取消/确认即清除） */}

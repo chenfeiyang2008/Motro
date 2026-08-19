@@ -2,7 +2,17 @@
 // Response DTOs are OpenAPI-only (no class-validator needed on plain responses).
 // Privacy: only display_name is exposed on the leaderboard; never username/user_id.
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsIn, IsInt, IsOptional, IsString, Matches, Max, Min, MinLength } from "class-validator";
+import {
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Matches,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from "class-validator";
 
 export class XpSummaryEntryDto {
   @ApiProperty({ description: "XP 事实金额（correction/void 可为负）" })
@@ -22,6 +32,22 @@ export class MeXpDto {
   entries!: XpSummaryEntryDto[];
   @ApiProperty({ description: "当前规则版本" })
   ruleVersion!: number;
+  @ApiProperty({ description: "当前永久段位" })
+  level!: number;
+  @ApiProperty({ description: "当前段位头衔" })
+  title!: string;
+  @ApiProperty({ description: "当前段位稳定键" })
+  titleKey!: string;
+  @ApiProperty({ description: "当前段位门槛 XP" })
+  levelThreshold!: number;
+  @ApiProperty({ nullable: true, type: Number, description: "下一段位；最高段位为 null" })
+  nextLevel!: number | null;
+  @ApiProperty({ nullable: true, type: Number, description: "下一段位门槛；最高段位为 null" })
+  nextLevelThreshold!: number | null;
+  @ApiProperty({ description: "当前段位内进度 XP" })
+  progressXp!: number;
+  @ApiProperty({ description: "当前段位内进度百分比" })
+  progressPercent!: number;
   @ApiProperty({ description: "计算截止时刻" })
   asOf!: string;
 }
@@ -103,4 +129,106 @@ export class LeaderboardVisibilityDto {
   @ApiProperty({ description: "true=公开参与（默认）；false=退出公开榜单" })
   @IsIn([true, false])
   public!: boolean;
+}
+
+// ---- 管理端 XP ledger DTOs（Ticket 19） ----
+
+export class AdminXpEntryDto {
+  @ApiProperty({ description: "XP entry ID" })
+  id!: string;
+
+  @ApiProperty({ description: "用户 ID" })
+  userId!: string;
+
+  @ApiProperty({ description: "用户名" })
+  username?: string;
+
+  @ApiProperty({ description: "关联的 review event ID" })
+  reviewEventId!: string;
+
+  @ApiProperty({ description: "规则版本" })
+  ruleVersion!: number;
+
+  @ApiProperty({ description: "XP 金额（correction/void 为负）" })
+  amount!: number;
+
+  @ApiProperty({ description: "reason：initial_review / due_review / correction / void" })
+  reason!: string;
+
+  @ApiProperty({ description: "关联的目标 XP entry ID（correction/void 时存在）" })
+  referencesXpEntryId?: string;
+
+  @ApiProperty({ description: "来源事件 ID" })
+  sourceEventId!: string;
+
+  @ApiProperty({ description: "获得时间" })
+  earnedAt!: string;
+
+  @ApiProperty({ description: "记录创建时间" })
+  createdAt!: string;
+}
+
+export class AdminXpListDto {
+  @ApiProperty({ type: [AdminXpEntryDto] })
+  items!: AdminXpEntryDto[];
+
+  @ApiProperty({ description: "下一页游标；null 表示无更多" })
+  nextCursor?: string;
+
+  @ApiProperty({ description: "是否还有更多" })
+  hasMore!: boolean;
+}
+
+export class AdminXpUserSummaryDto {
+  @ApiProperty({ description: "用户 ID" })
+  userId!: string;
+
+  @ApiProperty({ description: "用户名" })
+  username!: string;
+
+  @ApiProperty({ description: "显示名" })
+  displayName!: string;
+
+  @ApiProperty({ description: "累计获奖 XP（不含 correction/void）" })
+  grossXp!: number;
+
+  @ApiProperty({ description: "净 XP（含 correction/void 调整）" })
+  netXp!: number;
+
+  @ApiProperty({ description: "correction/void 调整合计" })
+  adjustmentXp!: number;
+
+  @ApiProperty({ description: "XP entry 总数" })
+  entryCount!: number;
+}
+
+export class AdminXpUserSummaryListDto {
+  @ApiProperty({ type: [AdminXpUserSummaryDto] })
+  items!: AdminXpUserSummaryDto[];
+}
+
+export class AdminXpVoidDto {
+  @ApiProperty({ description: "目标 XP entry ID（必须是正向获奖 entry）" })
+  targetEntryId!: string;
+
+  @ApiProperty({ description: "作废理由" })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(500)
+  reason!: string;
+}
+
+export class AdminXpCorrectionDto {
+  @ApiProperty({ description: "目标 XP entry ID（必须是正向获奖 entry）" })
+  targetEntryId!: string;
+
+  @ApiProperty({ description: "补正金额（正数=增加，负数=减少）" })
+  @IsInt()
+  amount!: number;
+
+  @ApiProperty({ description: "补正理由" })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(500)
+  reason!: string;
 }

@@ -88,6 +88,9 @@ export class OperationListResponseDto {
 
   @ApiPropertyOptional({ description: "下一页游标；null 表示无更多" })
   nextCursor?: string;
+
+  @ApiProperty({ description: "是否还有更多" })
+  hasMore!: boolean;
 }
 
 export class OperationDetailDto {

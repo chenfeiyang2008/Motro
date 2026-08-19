@@ -32,6 +32,8 @@ export default function AdminOperationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [targetTypeFilter, setTargetTypeFilter] = useState("");
+  const [errorCodeFilter, setErrorCodeFilter] = useState("");
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
 
@@ -41,24 +43,29 @@ export default function AdminOperationsPage() {
     const opts: {
       status?: string;
       operationType?: string;
+      targetType?: string;
+      errorCode?: string;
       cursor: string | null;
       limit?: number;
     } = { cursor: resetCursor ? null : cursor, limit: PAGE_SIZE };
     if (statusFilter !== "") opts.status = statusFilter;
+    if (targetTypeFilter !== "") opts.targetType = targetTypeFilter;
+    if (errorCodeFilter !== "") opts.errorCode = errorCodeFilter;
     const res = await listOperations(opts);
     setLoading(false);
     if (!res.ok || !res.data) {
       setError(res.error?.message ?? "加载任务状态失败，请重试");
       return;
     }
-    setItems(res.data.items);
+    if (resetCursor) setItems(res.data.items);
+    else setItems((prev) => [...prev, ...res.data!.items]);
     setCursor(res.data.nextCursor ?? null);
-    setHasMore(res.data.nextCursor !== null);
+    setHasMore(res.data.hasMore ?? res.data.nextCursor !== null);
   }
 
   useEffect(() => {
     void load(true);
-  }, [statusFilter]);
+  }, [statusFilter, targetTypeFilter, errorCodeFilter]);
 
   function onLoadMore(): void {
     if (cursor) void load(false);
@@ -90,6 +97,33 @@ export default function AdminOperationsPage() {
             <option value="failed">已失败</option>
             <option value="manual_action">待人工处理</option>
           </select>
+        </div>
+        <div className="operations-filter">
+          <label htmlFor="op-target-filter">目标类型</label>
+          <select
+            id="op-target-filter"
+            value={targetTypeFilter}
+            onChange={(e) => {
+              setTargetTypeFilter(e.target.value);
+              setCursor(null);
+            }}
+          >
+            <option value="">全部</option>
+            <option value="import_batch">导入批次</option>
+            <option value="enrichment_draft">补全草稿</option>
+          </select>
+        </div>
+        <div className="operations-filter">
+          <label htmlFor="op-error-filter">最近错误码</label>
+          <input
+            id="op-error-filter"
+            value={errorCodeFilter}
+            onChange={(e) => {
+              setErrorCodeFilter(e.target.value);
+              setCursor(null);
+            }}
+            placeholder="例如 PARSE_ERROR…"
+          />
         </div>
         <button type="button" className="secondary" onClick={() => void load(true)}>
           刷新

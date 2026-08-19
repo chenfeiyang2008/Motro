@@ -1,5 +1,16 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsIn, IsObject, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
+import {
+  IsIn,
+  IsInt,
+  IsObject,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from "class-validator";
+import { Type } from "class-transformer";
 
 /**
  * The review decision body contract per Ticket 07 §9.1.
@@ -65,6 +76,14 @@ export class ReviewSourceProjectionDto {
   @ApiProperty() attribution!: string;
 }
 
+export class ManualActionInfoDto {
+  @ApiProperty({ enum: ["resolvable", "non_resolvable"], description: "manual_action 分类" })
+  cls!: "resolvable" | "non_resolvable";
+
+  @ApiProperty({ type: String, nullable: true, description: "触发错误码（非敏感）" })
+  errorCode!: string | null;
+}
+
 export class ReviewDraftListItemDto {
   @ApiProperty() draftId!: string;
   @ApiProperty() spelling!: string;
@@ -73,10 +92,42 @@ export class ReviewDraftListItemDto {
   @ApiPropertyOptional() decisionType?: string;
   @ApiPropertyOptional() reviewVersion?: string;
   @ApiProperty({ type: ReviewSourceProjectionDto }) source!: ReviewSourceProjectionDto;
+  @ApiPropertyOptional({
+    type: ManualActionInfoDto,
+    description: "manual_action 分类信息（仅 manual_action 草稿）",
+  })
+  manualAction?: ManualActionInfoDto;
+}
+
+export class ReviewListQueryDto {
+  @ApiPropertyOptional({ description: "按状态过滤（draft_ready/manual_action）" })
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @ApiPropertyOptional({ description: "manual_action 分类过滤：resolvable/non_resolvable" })
+  @IsOptional()
+  @IsIn(["resolvable", "non_resolvable"])
+  manualAction?: "resolvable" | "non_resolvable";
+
+  @ApiPropertyOptional({ description: "keyset 分页游标" })
+  @IsOptional()
+  @IsString()
+  cursor?: string;
+
+  @ApiPropertyOptional({ description: "每页数量（1-100，默认 50）" })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
 }
 
 export class ReviewDraftListDto {
   @ApiProperty({ type: [ReviewDraftListItemDto] }) items!: ReviewDraftListItemDto[];
+  @ApiPropertyOptional({ description: "下一页游标" }) nextCursor?: string;
+  @ApiProperty({ description: "是否还有更多" }) hasMore!: boolean;
 }
 
 export class ReviewDecisionDto {
@@ -102,6 +153,8 @@ export class ReviewDraftDetailDto {
   @ApiProperty() reviewVersion!: string;
   @ApiProperty({ type: ReviewSourceProjectionDto }) source!: ReviewSourceProjectionDto;
   @ApiPropertyOptional({ type: ReviewDecisionDto }) decision?: ReviewDecisionDto;
+  @ApiPropertyOptional({ type: ManualActionInfoDto, description: "manual_action 分类信息" })
+  manualAction?: ManualActionInfoDto;
 }
 
 export class ReviewDecisionResponseDto {

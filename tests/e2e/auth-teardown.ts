@@ -64,10 +64,12 @@ export async function cleanupIsolatedAdmin(admin: ImportTestAdmin): Promise<void
     ];
     await pool.query(`DELETE FROM idempotency_keys WHERE scope = ANY($1::text[])`, [scopes]);
     await pool.query(`DELETE FROM audit_events WHERE actor_id = $1::uuid`, [userId]);
-    // 5) 删除用户：若仍有不可变 commit facts 引用（committed_by RESTRICT），保留并留给库销毁。
+    // 5) 删除用户：若仍有不可变事实引用（import_batch_commits / membership_audit），
+    //    保留并留给独立库整体销毁（down -v）。绝不绕过 trigger，直接跳过删除。
     const delUser = await pool.query(
       `DELETE FROM users WHERE id = $1::uuid
-       AND NOT EXISTS (SELECT 1 FROM import_batch_commits c WHERE c.committed_by = $1::uuid)`,
+       AND NOT EXISTS (SELECT 1 FROM import_batch_commits c WHERE c.committed_by = $1::uuid)
+       AND NOT EXISTS (SELECT 1 FROM membership_audit ma WHERE ma.actor_id = $1::uuid)`,
       [userId],
     );
     await pool.query("COMMIT");

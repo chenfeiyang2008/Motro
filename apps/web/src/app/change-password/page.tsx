@@ -22,8 +22,8 @@ export default function ChangePasswordPage() {
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
-    if (newPassword.length < 10) {
-      setError("新密码至少 10 个字符");
+    if (newPassword.length < 6) {
+      setError("新密码至少 6 个字符");
       return;
     }
     if (newPassword !== confirm) {
@@ -59,7 +59,7 @@ export default function ChangePasswordPage() {
           autoComplete="current-password"
           required
         />
-        <label htmlFor="new">新密码（至少 10 个字符）</label>
+        <label htmlFor="new">新密码（至少 6 个字符）</label>
         <input
           id="new"
           type="password"
@@ -67,7 +67,7 @@ export default function ChangePasswordPage() {
           onChange={(e) => setNewPassword(e.target.value)}
           autoComplete="new-password"
           required
-          minLength={10}
+          minLength={6}
         />
         <label htmlFor="confirm">确认新密码</label>
         <input
@@ -77,7 +77,7 @@ export default function ChangePasswordPage() {
           onChange={(e) => setConfirm(e.target.value)}
           autoComplete="new-password"
           required
-          minLength={10}
+          minLength={6}
         />
         <button type="submit" disabled={busy}>
           {busy ? "保存中…" : "保存新密码"}

@@ -334,6 +334,12 @@ export class UpdateImportBatchDto {
 export class ImportBatchListDto {
   @ApiProperty({ type: [ImportBatchDetailDto], description: "批次列表（按创建时间倒序）" })
   items!: ImportBatchDetailDto[];
+
+  @ApiPropertyOptional({ description: "下一页游标；null 表示无更多" })
+  nextCursor?: string;
+
+  @ApiProperty({ description: "是否还有更多" })
+  hasMore!: boolean;
 }
 
 /** GET /imports/{id}/rows 行摘要。 */

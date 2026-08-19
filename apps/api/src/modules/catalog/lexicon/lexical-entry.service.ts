@@ -277,6 +277,172 @@ export class LexicalEntryService {
     }
   }
 
+  /** 管理员：编辑词条元数据（白名单）。来源事实不变；sourceNote 追加一条 manual 来源（append-only）。 */
+  async update(
+    actor: UserRecord,
+    id: string,
+    input: {
+      partOfSpeech?: string;
+      pronunciation?: string;
+      senses?: { meaning: string; example?: string }[];
+      sourceNote?: string;
+    },
+    requestId: string,
+  ): Promise<LexicalEntryDetailDto> {
+    const existing = await this.loadDetail(id);
+    if (!existing) throw new NotFoundException("词条不存在");
+
+    const fieldErrors: { path: string; code: string; message: string }[] = [];
+    for (const message of validatePartOfSpeech(input.partOfSpeech)) {
+      fieldErrors.push({ path: "partOfSpeech", code: "invalid", message });
+    }
+    for (const message of validatePronunciation(input.pronunciation)) {
+      fieldErrors.push({ path: "pronunciation", code: "invalid", message });
+    }
+    for (const message of validateSenses(input.senses)) {
+      fieldErrors.push({ path: "senses", code: "invalid", message });
+    }
+    if (fieldErrors.length > 0) {
+      throw new UnprocessableEntityException({ message: "词条输入不合法", fieldErrors });
+    }
+
+    const senses = input.senses ? input.senses : existing.senses.map((s) => s);
+    const partOfSpeech = input.partOfSpeech ? input.partOfSpeech.trim() : existing.partOfSpeech;
+    const pronunciation =
+      input.pronunciation === undefined ||
+      input.pronunciation === null ||
+      input.pronunciation.trim() === ""
+        ? null
+        : input.pronunciation.trim();
+
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const before = stripDetail(existing);
+      const updated = await client.query<LexicalEntryRow>(
+        `UPDATE lexical_entries
+           SET part_of_speech = $2, pronunciation = $3, senses = $4::jsonb, updated_at = now()
+         WHERE id = $1
+         RETURNING id, canonical_spelling, normalized_spelling, part_of_speech, pronunciation, senses, status, created_at, updated_at`,
+        [id, partOfSpeech, pronunciation, JSON.stringify(senses)],
+      );
+      if (!updated.rows[0]) throw new NotFoundException("词条不存在");
+
+      // sourceNote 追加一条 manual 来源（append-only provenance；既有来源不变）。
+      if (input.sourceNote?.trim()) {
+        await client.query(
+          `INSERT INTO lexical_sources (lexical_entry_id, source_type, source_note, content_hash, created_by)
+           VALUES ($1, 'manual', $2, $3, $4)`,
+          [
+            id,
+            input.sourceNote.trim(),
+            createHash("sha256")
+              .update(JSON.stringify({ senses, partOfSpeech, pronunciation }))
+              .digest("hex"),
+            actor.id,
+          ],
+        );
+      }
+
+      await client.query(
+        `INSERT INTO audit_events (actor_id, action, target_type, target_id, before_summary, after_summary, request_id)
+         VALUES ($1, 'admin.lexical_entry.update', 'lexical_entry', $2, $3::jsonb, $4::jsonb, $5)`,
+        [
+          actor.id,
+          id,
+          JSON.stringify({ before }),
+          JSON.stringify({
+            partOfSpeech,
+            pronunciation,
+            sourceNoteAdded: !!input.sourceNote?.trim(),
+          }),
+          requestId,
+        ],
+      );
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    const detail = await this.loadDetail(id);
+    if (!detail) throw new Error("词条更新后详情缺失");
+    return detail;
+  }
+
+  /** 管理员：归档词条（仅当没有被草稿/发布词项引用，否则 fail-closed 422）。 */
+  async archive(actor: UserRecord, id: string, requestId: string): Promise<LexicalEntryDetailDto> {
+    const existing = await this.loadDetail(id);
+    if (!existing) throw new NotFoundException("词条不存在");
+    if (existing.status === "archived") return existing;
+
+    const refs = await this.pool.query<{ n: string }>(
+      `SELECT (SELECT count(*)::text FROM draft_course_items WHERE lexical_entry_id = $1)
+              || '/' ||
+              (SELECT count(*)::text FROM released_course_items WHERE lexical_entry_id = $1) AS n`,
+      [id],
+    );
+    const [draftRefs] = (refs.rows[0]?.n ?? "0/0").split("/");
+    if (Number(draftRefs) > 0) {
+      throw new UnprocessableEntityException({
+        message: "该词条正被草稿课程词项引用，不能归档",
+        fieldErrors: [{ path: "status", code: "archived_referenced", message: "正被草稿引用" }],
+      });
+    }
+
+    await this.updateStatus(actor, id, "archived", requestId);
+    const detail = await this.loadDetail(id);
+    if (!detail) throw new Error("词条状态更新后详情缺失");
+    return detail;
+  }
+
+  /** 管理员：重新激活归档词条。 */
+  async activate(actor: UserRecord, id: string, requestId: string): Promise<LexicalEntryDetailDto> {
+    const existing = await this.loadDetail(id);
+    if (!existing) throw new NotFoundException("词条不存在");
+    if (existing.status === "active") return existing;
+    await this.updateStatus(actor, id, "active", requestId);
+    const detail = await this.loadDetail(id);
+    if (!detail) throw new Error("词条状态更新后详情缺失");
+    return detail;
+  }
+
+  private async updateStatus(
+    actor: UserRecord,
+    id: string,
+    status: "active" | "archived",
+    requestId: string,
+  ): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const updated = await client.query<LexicalEntryRow>(
+        `UPDATE lexical_entries SET status = $2, updated_at = now() WHERE id = $1 RETURNING id, status`,
+        [id, status],
+      );
+      if (!updated.rows[0]) throw new NotFoundException("词条不存在");
+      await client.query(
+        `INSERT INTO audit_events (actor_id, action, target_type, target_id, before_summary, after_summary, request_id)
+         VALUES ($1, $2, 'lexical_entry', $3, NULL, $4::jsonb, $5)`,
+        [
+          actor.id,
+          status === "archived" ? "admin.lexical_entry.archive" : "admin.lexical_entry.activate",
+          id,
+          JSON.stringify({ status }),
+          requestId,
+        ],
+      );
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
   private async findCandidates(normalizedSpelling: string): Promise<DuplicateCandidateDto[]> {
     const result = await this.pool.query<DuplicateCandidateRow>(
       `SELECT id, canonical_spelling, normalized_spelling
@@ -403,6 +569,16 @@ function toSummary(
     // 课程词项工单落地前引用次数恒为 0（预留 lexicalEntryId 查询边界）。
     referenceCount: 0,
     updatedAt: row.updated_at.toISOString(),
+  };
+}
+
+/** 审计用的纯数据副本（不含大段未脱敏用户输入；只保留关键字段）。 */
+function stripDetail(d: LexicalEntryDetailDto): Record<string, unknown> {
+  return {
+    canonicalSpelling: d.canonicalSpelling,
+    normalizedSpelling: d.normalizedSpelling,
+    partOfSpeech: d.partOfSpeech,
+    status: d.status,
   };
 }
 
