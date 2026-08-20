@@ -1,0 +1,42 @@
+/* MemberCrownBadge — 组件专属样式（紧凑/默认/欢迎三档尺寸）。
+   从 member-crown-badge.tsx import ./member-crown-badge.css 加载。
+   不依赖 globals.css；去掉这个文件会令皇冠不可见（只有 SVG stroke，无尺寸）。 */
+
+.member-crown-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-brand-600);
+  white-space: nowrap;
+}
+.member-crown-badge svg {
+  flex-shrink: 0;
+}
+.member-crown-badge--compact svg {
+  width: 18px;
+  height: 18px;
+}
+.member-crown-badge--default svg {
+  width: 22px;
+  height: 22px;
+}
+.member-crown-badge--welcome svg {
+  width: 36px;
+  height: 36px;
+  color: #e4aa62;
+}
+.member-crown-badge__label {
+  white-space: nowrap;
+}
+.member-crown-badge--compact .member-crown-badge__label {
+  font-size: 12px;
+  font-weight: 600;
+}
+.member-crown-badge--default .member-crown-badge__label {
+  font-size: 14px;
+  font-weight: 600;
+}
+.member-crown-badge--welcome .member-crown-badge__label {
+  font-size: 16px;
+  font-weight: 700;
+}

@@ -102,6 +102,14 @@ export class AdminDailyLimitResultDto {
   dailyLimitMinutes!: number;
 }
 
+export class AdminBulkDailyLimitResultDto {
+  @ApiProperty({ description: "受影响（设为新时长）的非会员用户数" })
+  affected!: number;
+
+  @ApiProperty({ description: "保存后的非会员每日学习时长（分钟）" })
+  dailyLimitMinutes!: number;
+}
+
 /** 管理员：读取指定用户的会员投影（只读；与 /me/membership 同一服务端计算源）。 */
 export class AdminMembershipReadDto extends MembershipStatusDto {
   @ApiProperty({ description: "非会员每日学习时长（分钟）" })

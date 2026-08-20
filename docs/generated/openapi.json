@@ -3985,6 +3985,15 @@
             }
           },
           {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "文案内容搜索（模糊匹配）",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "cursor",
             "required": false,
             "in": "query",
@@ -7665,12 +7674,17 @@
           "rank": {
             "type": "number",
             "description": "dense rank（并列者共享名次）"
+          },
+          "isMember": {
+            "type": "boolean",
+            "description": "该参与者是否为有效会员（VIP 标识，服务端计算）"
           }
         },
         "required": [
           "displayName",
           "challengePoints",
-          "rank"
+          "rank",
+          "isMember"
         ]
       },
       "WeeklyLeaderboardDto": {
@@ -7713,7 +7727,8 @@
           },
           "viewerRank": {
             "type": "object",
-            "description": "当前登录用户的公开排名（未上榜/退出则为 null）"
+            "description": "当前登录用户的排名。可见（未退出 + 未停用）时与公开 rows 中该用户行完全一致；退出/停用时为私有名次（不公开）",
+            "nullable": true
           },
           "viewerChallengePoints": {
             "type": "number",

@@ -883,6 +883,18 @@ export function setAdminUserDailyLimit(
   );
 }
 
+export type AdminBulkDailyLimitResult = components["schemas"]["AdminBulkDailyLimitResultDto"];
+
+/** 管理员：批量设置全体非会员用户的每日学习时长（分钟）。 */
+export function setBulkAdminDailyLimit(
+  minutes: number,
+): Promise<ApiResult<AdminBulkDailyLimitResult>> {
+  return apiFetch<AdminBulkDailyLimitResult>("/api/v1/admin/memberships/bulk/daily-limit", {
+    method: "PATCH",
+    body: JSON.stringify({ minutes }),
+  });
+}
+
 // ---- 管理员：词库审核（Ticket 07/18） ----
 // 契约来自 @motro/api-client 的 ReviewDraftListDto / ReviewDraftDetailDto /
 // ReviewDecisionDto / ReviewDecisionResponseDto。
@@ -1175,11 +1187,18 @@ export interface AdminMotivationList {
   hasMore: boolean;
 }
 export function listAdminMotivation(
-  opts: { status?: string; category?: string; cursor?: string | null; limit?: number } = {},
+  opts: {
+    status?: string;
+    category?: string;
+    q?: string;
+    cursor?: string | null;
+    limit?: number;
+  } = {},
 ): Promise<ApiResult<AdminMotivationList>> {
   const qs = new URLSearchParams();
   if (opts.status) qs.set("status", opts.status);
   if (opts.category) qs.set("category", opts.category);
+  if (opts.q) qs.set("q", opts.q);
   if (opts.cursor) qs.set("cursor", opts.cursor);
   if (opts.limit) qs.set("limit", String(opts.limit));
   const suffix = qs.toString() ? `?${qs.toString()}` : "";

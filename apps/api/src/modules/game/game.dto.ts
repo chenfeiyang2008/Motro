@@ -2,6 +2,7 @@
 // Response DTOs are OpenAPI-only (no class-validator needed on plain responses).
 // Privacy: only display_name is exposed on the leaderboard; never username/user_id.
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { Type } from "class-transformer";
 import {
   IsIn,
   IsInt,
@@ -72,6 +73,8 @@ export class LeaderboardRowDto {
   challengePoints!: number;
   @ApiProperty({ description: "dense rank（并列者共享名次）" })
   rank!: number;
+  @ApiProperty({ description: "该参与者是否为有效会员（VIP 标识，服务端计算）" })
+  isMember!: boolean;
 }
 
 export class WeeklyLeaderboardDto {
@@ -91,7 +94,11 @@ export class WeeklyLeaderboardDto {
   hasMore!: boolean;
   @ApiPropertyOptional({ description: "下一页游标" })
   nextCursor?: string;
-  @ApiProperty({ description: "当前登录用户的公开排名（未上榜/退出则为 null）" })
+  @ApiProperty({
+    description:
+      "当前登录用户的排名。可见（未退出 + 未停用）时与公开 rows 中该用户行完全一致；退出/停用时为私有名次（不公开）",
+    nullable: true,
+  })
   viewerRank!: number | null;
   @ApiProperty({ description: "当前登录用户的挑战积分" })
   viewerChallengePoints!: number;
@@ -118,6 +125,7 @@ export class LeaderboardQueryDto {
 
   @ApiPropertyOptional({ description: "每页行数，默认 20，最大 100" })
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(100)

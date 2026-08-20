@@ -1,0 +1,99 @@
+/* 管理端课程页 /admin/courses — 专属样式。
+   导入：apps/web/src/app/admin/courses/page.tsx。
+   当前 globals.css Baseline 缺失 admin-courses-* / admin-table-wrap 规则，此处补充，
+   搜索框与 users-filter / xp-field 设计令牌保持一致。 */
+
+.admin-courses-page {
+  padding: 12px 0 40px;
+  color: var(--color-text-primary);
+}
+.admin-courses-page h1 {
+  margin: 0 0 20px;
+  font-size: 28px;
+  letter-spacing: -0.02em;
+}
+
+/* 搜索工具栏：与 users-filter 一致（flex + 44px 输入 + 8px 圆角） */
+.admin-courses-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.admin-courses-search label {
+  font-weight: 600;
+  font-size: 14px;
+}
+.admin-courses-search input[type="search"] {
+  min-height: 44px;
+  font-size: 16px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  width: 260px;
+  max-width: 100%;
+}
+.admin-courses-search input[type="search"]:focus {
+  outline: none;
+  border-color: var(--color-brand-600);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand-600) 18%, transparent);
+}
+.admin-courses-clear {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+}
+.admin-courses-clear:hover {
+  border-color: var(--color-brand-600);
+  color: var(--color-brand-700);
+}
+
+.admin-courses-error {
+  margin: 0 0 16px;
+}
+.admin-courses-loading,
+.admin-courses-end {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+.admin-courses-more {
+  margin-top: 16px;
+  text-align: center;
+}
+.admin-courses-more button {
+  min-height: 44px;
+  padding: 0 24px;
+}
+
+/* 表格容器：与 xp-ledger-wrap 一致（横向滚动 + 面板描边） */
+.admin-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+}
+
+/* 课程徽章（级别） */
+.course-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 22px;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--color-brand-600) 14%, transparent);
+  color: var(--color-brand-900);
+}

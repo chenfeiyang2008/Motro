@@ -33,9 +33,11 @@ interface AggRow {
   user_id: string;
   display_name: string;
   total: string;
+  total_numeric: number; // numeric sort key; `total` is the text transport form
   first_reached_at: Date | null;
   disabled: boolean;
   is_public: boolean;
+  is_member: boolean;
 }
 
 @Injectable()
@@ -179,7 +181,13 @@ export class GameService {
    * Weekly leaderboard (rebuildable from challenge_point_entries).
    * Only Challenge Points enter the rank; daily XP never does (ADR-0007).
    * Disabled users excluded; opt-out users excluded from rows (private points kept).
-   * Dense rank; tie-break: total DESC → first_reached_at ASC → user_id ASC.
+   * Dense rank: SAME score → SAME rank (并列共享名次), regardless of award time.
+   * Stable tie ORDER within the same score: total DESC → first_reached_at ASC → user_id ASC.
+   *
+   * Public rows and the viewer summary are derived from the SAME aggregated,
+   * ordered universe with the SAME dense-rank assignment, so a viewer who appears
+   * on the public board always has viewerRank === rows.rank and
+   * viewerChallengePoints === rows.challengePoints.
    */
   async getWeeklyLeaderboard(
     viewerId: string,
@@ -196,28 +204,38 @@ export class GameService {
     const limit = Math.min(query.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
     const offset = query.cursor ? safeCursorDecode(query.cursor) : 0;
 
-    // Aggregated scores per user-week from the seam ledger, ordered by the
-    // deterministic tie-break so dense rank assignment is stable across pages.
+    // Aggregated scores per user-week from the seam ledger.  ORDER BY total DESC
+    // establishes the rank; first_reached_at ASC + user_id ASC are ONLY stable
+    // within-tie secondary ordering (never change an equal-score rank).
+    // NOTE: `SUM(amount)` is cast to numeric for ORDER BY — a `::text` column would
+    // sort lexicographically ('5' > '10') and break ranking.  `total` stays text only
+    // for transport (TO_DATE-free numeric compare; see assignDenseRanks).
     const agg = await this.pool.query<AggRow>(
       `SELECT c.user_id, u.display_name,
               SUM(c.amount)::text AS total,
+              SUM(c.amount) AS total_numeric,
               MIN(c.awarded_at) AS first_reached_at,
               (u.status = 'disabled') AS disabled,
-              COALESCE(p.is_public, true) AS is_public
+              COALESCE(p.is_public, true) AS is_public,
+              (m.plan = 'member' AND m.status = 'active'
+               AND (m.expires_at IS NULL OR m.expires_at > now())) AS is_member
        FROM challenge_point_entries c
        JOIN users u ON u.id = c.user_id
        LEFT JOIN leaderboard_preferences p ON p.user_id = c.user_id
+       LEFT JOIN memberships m ON m.user_id = c.user_id
        WHERE c.challenge_week = $1
-       GROUP BY c.user_id, u.display_name, u.status, p.is_public
-       ORDER BY total DESC, first_reached_at ASC NULLS LAST, c.user_id ASC`,
+       GROUP BY c.user_id, u.display_name, u.status, p.is_public, m.plan, m.status, m.expires_at
+       ORDER BY total_numeric DESC, first_reached_at ASC NULLS LAST, c.user_id ASC`,
       [weekKey],
     );
 
+    // Universe for PUBLIC rows: non-disabled AND opted-in (is_public).  Dense rank
+    // is assigned to this exact ordered list, so rows' rank only ever reflects
+    // score ties (equal score → equal rank).
     const visible = agg.rows.filter((r) => !r.disabled && r.is_public);
-    // Public rank over visible (non-disabled, opting-in) users only.
-    const denseRanks = assignDenseRanks(visible);
-    const paged = visible.slice(offset, offset + limit);
-    const hasMore = offset + limit < visible.length;
+    const rankedVisible = assignDenseRanks(visible);
+    const paged = rankedVisible.slice(offset, offset + limit);
+    const hasMore = offset + limit < rankedVisible.length;
 
     const totalR = await this.pool.query<{ n: string }>(
       `SELECT count(DISTINCT user_id)::text AS n FROM challenge_point_entries WHERE challenge_week = $1`,
@@ -225,14 +243,26 @@ export class GameService {
     );
     const totalParticipants = Number(totalR.rows[0]?.n ?? 0);
 
-    const viewerRow = agg.rows.find((r) => r.user_id === viewerId);
-    // Viewer's private rank among ALL non-disabled users (even if the viewer opted
-    // out).  Other opted-out users are never shown (not in public rows).
-    const privateRank = viewerRow
-      ? (assignDenseRanks(agg.rows.filter((r) => !r.disabled)).find((r) => r.user_id === viewerId)
-          ?.rank ?? null)
-      : null;
-    const viewerRank = privateRank;
+    const viewerRow = agg.rows.find((r) => r.user_id === viewerId) ?? null;
+    // Viewer summary:
+    //  - If the viewer is on the PUBLIC board (non-disabled + opted-in), reuse the
+    //    exact public row (rank + points) so the two can never diverge.
+    //  - If the viewer opted out / is disabled, keep the PRIVATE rank among all
+    //    NON-disabled users (opted-out peers do not appear in public rows but DO
+    //    still rank privately per product contract).  Other opted-out users'
+    //    identities are never exposed.
+    const visibleViewerRank =
+      viewerRow && !viewerRow.disabled && viewerRow.is_public
+        ? (rankedVisible.find((r) => r.user_id === viewerId)?.rank ?? null)
+        : null;
+    const viewerRank =
+      visibleViewerRank !== null
+        ? visibleViewerRank
+        : viewerRow
+          ? (assignDenseRanks(agg.rows.filter((r) => !r.disabled)).find(
+              (r) => r.user_id === viewerId,
+            )?.rank ?? null)
+          : null;
 
     const result: WeeklyLeaderboardDto = {
       challengeWeek: weekKey,
@@ -242,7 +272,8 @@ export class GameService {
       rows: paged.map((r) => ({
         displayName: r.display_name,
         challengePoints: Number(r.total),
-        rank: denseRanks.find((d) => d.user_id === r.user_id)!.rank,
+        rank: r.rank,
+        isMember: r.is_member,
       })),
       totalParticipants,
       hasMore,
@@ -317,18 +348,27 @@ export class GameService {
   }
 }
 
-/** Dense rank over rows already ordered by the deterministic tie-break. */
+/**
+ * Dense rank over rows already ordered by the deterministic tie-break
+ * (total DESC → first_reached_at ASC → user_id ASC).
+ *
+ * DENSE-RANK SEMANTICS: rank is based on SCORE ALONE.  Equal scores share the
+ * same rank (并列共享名次), regardless of award time or user id.  The input order
+ * only makes the tie ORDER stable; it never changes an equal-score rank.
+ */
 function assignDenseRanks(rows: AggRow[]): Array<AggRow & { rank: number }> {
   const out: Array<AggRow & { rank: number }> = [];
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i]!;
-    const prev = i > 0 ? out[i - 1]! : undefined;
-    const sameAsPrev =
-      prev !== undefined &&
-      prev.total === row.total &&
-      (prev.first_reached_at?.getTime() ?? null) === (row.first_reached_at?.getTime() ?? null);
-    const rank = prev === undefined ? 1 : sameAsPrev ? prev.rank : prev.rank + 1;
-    out.push({ ...row, rank });
+  let lastTotal: string | null = null;
+  let currentRank = 0;
+  for (const row of rows) {
+    // Equal score → same dense rank; score change (DESC order) → next rank.
+    // Note rows are pre-ordered DESC by total, so a change in total strictly
+    // means the score went DOWN (a lower rank number than peers above).
+    if (lastTotal === null || row.total !== lastTotal) {
+      currentRank += 1;
+      lastTotal = row.total;
+    }
+    out.push({ ...row, rank: currentRank });
   }
   return out;
 }

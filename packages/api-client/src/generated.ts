@@ -2571,6 +2571,8 @@ export interface components {
             challengePoints: number;
             /** @description dense rank（并列者共享名次） */
             rank: number;
+            /** @description 该参与者是否为有效会员（VIP 标识，服务端计算） */
+            isMember: boolean;
         };
         WeeklyLeaderboardDto: {
             /** @description 挑战周键，例如 cw-2026-08-11 */
@@ -2589,8 +2591,8 @@ export interface components {
             hasMore: boolean;
             /** @description 下一页游标 */
             nextCursor?: string;
-            /** @description 当前登录用户的公开排名（未上榜/退出则为 null） */
-            viewerRank: Record<string, never>;
+            /** @description 当前登录用户的排名。可见（未退出 + 未停用）时与公开 rows 中该用户行完全一致；退出/停用时为私有名次（不公开） */
+            viewerRank: Record<string, never> | null;
             /** @description 当前登录用户的挑战积分 */
             viewerChallengePoints: number;
             /** @description 计算截止时刻 */
@@ -5465,6 +5467,8 @@ export interface operations {
             query?: {
                 status?: "enabled" | "disabled";
                 category?: string;
+                /** @description 文案内容搜索（模糊匹配） */
+                q?: string;
                 cursor?: string;
                 limit?: string;
             };

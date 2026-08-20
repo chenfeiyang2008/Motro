@@ -9,6 +9,7 @@ import {
   revokeAdminUserMembership,
   renewAdminUserMembership,
   setAdminUserDailyLimit,
+  setBulkAdminDailyLimit,
   type AdminMembershipList,
   type MembershipSchedulePayload,
 } from "@/lib/api";
@@ -50,15 +51,23 @@ export default function AdminMembershipsPage() {
   const [dailyLimitMinutes, setDailyLimitMinutes] = useState("15");
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkMinutes, setBulkMinutes] = useState("15");
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkError, setBulkError] = useState("");
+  const [bulkResult, setBulkResult] = useState("");
 
   useEffect(() => {
-    if (selected === null || saving) return;
+    if ((selected === null || saving) && !bulkOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setSelected(null);
+      if (event.key === "Escape") {
+        if (bulkOpen && !bulkSaving) setBulkOpen(false);
+        else if (selected !== null && !saving) setSelected(null);
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [selected, saving]);
+  }, [selected, saving, bulkOpen, bulkSaving]);
 
   async function load(reset = true): Promise<void> {
     setLoading(true);
@@ -159,20 +168,59 @@ export default function AdminMembershipsPage() {
     await load(true);
   }
 
+  async function submitBulk(): Promise<void> {
+    const minutes = Number(bulkMinutes);
+    if (!Number.isInteger(minutes) || minutes < 0 || minutes > 1440) {
+      setBulkError("请输入 0 至 1440 之间的整数分钟数");
+      return;
+    }
+    setBulkSaving(true);
+    setBulkError("");
+    setBulkResult("");
+    const result = await setBulkAdminDailyLimit(minutes);
+    setBulkSaving(false);
+    if (!result.ok) {
+      setBulkError(result.error?.message ?? "批量保存失败，请重试");
+      return;
+    }
+    setBulkResult(`已更新 ${result.data?.affected ?? 0} 位非会员用户的每日时长`);
+    setBulkOpen(false);
+    await load(true);
+  }
+
   return (
     <section className="admin-memberships admin-memberships-page">
       <header className="users-header admin-membership-heading">
         <div>
           <h1>会员管理</h1>
         </div>
-        <button
-          className="secondary"
-          type="button"
-          onClick={() => void load(true)}
-          disabled={loading}
-        >
-          刷新
-        </button>
+        {bulkResult && (
+          <p className="admin-membership-bulk-result" role="status">
+            {bulkResult}
+          </p>
+        )}
+        <div className="admin-membership-heading-actions">
+          <button
+            className="secondary"
+            type="button"
+            onClick={() => void load(true)}
+            disabled={loading}
+          >
+            刷新
+          </button>
+          <button
+            className="secondary"
+            type="button"
+            onClick={() => {
+              setBulkError("");
+              setBulkResult("");
+              setBulkMinutes("15");
+              setBulkOpen(true);
+            }}
+          >
+            批量修改非会员时长
+          </button>
+        </div>
       </header>
       <div className="users-filter admin-membership-toolbar" role="search">
         <div className="admin-membership-filter-field">
@@ -447,6 +495,68 @@ export default function AdminMembershipsPage() {
                   撤销会员
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {bulkOpen && (
+        <div
+          className="admin-membership-dialog-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !bulkSaving) setBulkOpen(false);
+          }}
+        >
+          <div
+            className="admin-membership-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="bulk-panel-title"
+          >
+            <div className="admin-membership-panel-header">
+              <h2 id="bulk-panel-title">批量修改非会员时长</h2>
+              <button type="button" onClick={() => setBulkOpen(false)} aria-label="关闭">
+                ×
+              </button>
+            </div>
+            <p className="admin-membership-bulk-desc">
+              仅影响当前非会员用户（含已过期会员）；有效会员不受影响。
+            </p>
+            <label>
+              每日学习时长（分钟）
+              <input
+                type="number"
+                min={0}
+                max={1440}
+                step={1}
+                autoFocus
+                value={bulkMinutes}
+                onChange={(event) => setBulkMinutes(event.target.value)}
+              />
+              <small>会员不受此值限制；设为 0 将暂停非会员学习。</small>
+            </label>
+            {bulkError && (
+              <p className="admin-membership-error" role="alert">
+                {bulkError}
+              </p>
+            )}
+            <div className="admin-membership-panel-actions">
+              <button
+                className="admin-membership-primary"
+                type="button"
+                onClick={() => void submitBulk()}
+                disabled={bulkSaving}
+              >
+                {bulkSaving ? "处理中…" : "确认批量保存"}
+              </button>
+              <button
+                className="secondary"
+                type="button"
+                onClick={() => setBulkOpen(false)}
+                disabled={bulkSaving}
+              >
+                取消
+              </button>
             </div>
           </div>
         </div>

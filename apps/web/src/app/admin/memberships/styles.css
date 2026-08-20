@@ -13,6 +13,12 @@
   padding-bottom: 22px;
   border-bottom: 1px solid var(--color-border);
 }
+.admin-membership-heading-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
 .admin-membership-heading h1 {
   margin: 0;
   font-size: clamp(30px, 4vw, 44px);
@@ -82,6 +88,7 @@
   border-top: 2px solid var(--color-text-primary);
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg-surface);
+  border-radius: 6px;
 }
 .admin-membership-table {
   width: 100%;
@@ -90,7 +97,7 @@
 }
 .admin-membership-table th,
 .admin-membership-table td {
-  padding: 12px 12px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--color-border);
   vertical-align: middle;
   white-space: nowrap;
@@ -104,7 +111,6 @@
 }
 .admin-membership-table th:nth-child(8),
 .admin-membership-table td:nth-child(8) {
-  width: 1%;
   white-space: normal;
 }
 .admin-membership-table tbody tr:hover {
@@ -155,18 +161,14 @@
   color: var(--color-brand-700);
 }
 .admin-membership-row-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
   white-space: normal;
 }
 .admin-membership-row-actions button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 auto;
   min-height: 36px;
+  margin: 3px 6px 3px 0;
   padding: 0 12px;
   border: 1px solid var(--color-border);
   border-radius: 5px;
@@ -292,6 +294,17 @@
   display: flex;
   gap: 10px;
   margin-top: 24px;
+}
+.admin-membership-bulk-desc {
+  margin: 0 0 18px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+.admin-membership-bulk-result {
+  margin: 0;
+  color: var(--color-success);
+  font-size: 13px;
+  font-weight: 600;
 }
 .admin-membership-primary,
 .admin-membership-danger {

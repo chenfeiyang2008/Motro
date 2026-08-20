@@ -17,6 +17,7 @@ import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swa
 import { Roles, RolesGuard } from "../../auth/roles.guard.js";
 import { SessionGuard, type AuthenticatedRequest } from "../../auth/session.guard.js";
 import {
+  AdminBulkDailyLimitResultDto,
   AdminMembershipReadDto,
   AdminDailyLimitResultDto,
   AdminMembershipListDto,
@@ -163,5 +164,17 @@ export class AdminMembershipController {
       req.id,
       idempotencyKey,
     );
+  }
+
+  @Patch("bulk/daily-limit")
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "批量设置全体非会员用户的每日学习时长（服务端原子 + 审计汇总）" })
+  @ApiOkResponse({ type: AdminBulkDailyLimitResultDto })
+  setBulkDailyLimit(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: SetDailyLimitDto,
+  ): Promise<AdminBulkDailyLimitResultDto> {
+    return this.membershipService.setBulkDailyLimit(req.user, dto.minutes, req.id);
   }
 }
