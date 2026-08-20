@@ -7631,7 +7631,11 @@ html[data-theme="dark"] .admin-motivation-toolbar input[type="search"]:focus {
 /* ---- 页面切换入场动效（PageTransition：pathname key 重播） ----
    仅 opacity + 极小位移，丝滑不产生布局/滚动跳变。 */
 .page-enter {
-  animation: page-enter 500ms cubic-bezier(0, 0, 0.2, 1) both;
+  /* 用 `backwards` 而非 `both`：动画结束后不保留 transform。
+     否则持续的非 none transform 会在 .page-enter 上形成包含块，
+     使其内部的 position:fixed 元素（如 .dialog-backdrop）相对它而非视口定位，
+     导致弹层背板被拉高、对话框被推到可见区外（只显示灰色遮罩）。 */
+  animation: page-enter 500ms cubic-bezier(0, 0, 0.2, 1) backwards;
 }
 @keyframes page-enter {
   from {

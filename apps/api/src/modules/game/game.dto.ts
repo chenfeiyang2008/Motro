@@ -217,6 +217,7 @@ export class AdminXpUserSummaryListDto {
 
 export class AdminXpVoidDto {
   @ApiProperty({ description: "目标 XP entry ID（必须是正向获奖 entry）" })
+  @IsString()
   targetEntryId!: string;
 
   @ApiProperty({ description: "作废理由" })
@@ -228,6 +229,7 @@ export class AdminXpVoidDto {
 
 export class AdminXpCorrectionDto {
   @ApiProperty({ description: "目标 XP entry ID（必须是正向获奖 entry）" })
+  @IsString()
   targetEntryId!: string;
 
   @ApiProperty({ description: "补正金额（正数=增加，负数=减少）" })
