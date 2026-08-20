@@ -45,6 +45,7 @@ function toItemFlow(i: ChallengeItem): ChallengeItemFlow {
     questionType: i.questionType as "choice" | "spelling",
     englishSpelling: i.englishSpelling,
     meaning: i.meaning,
+    choices: i.choices ?? [],
   };
 }
 
@@ -89,6 +90,13 @@ export default function ChallengePage() {
       router.replace("/change-password");
       return;
     }
+    if (res.error?.code === "DAILY_USAGE_LIMIT_REACHED") {
+      setState({
+        phase: "error",
+        message: res.error?.message ?? "今日非会员学习时长已达上限，请升级会员或明天继续。",
+      });
+      return;
+    }
     if (!res.ok || !res.data) {
       setState({ phase: "error", message: res.error?.message ?? "加载测验失败，请重试" });
       return;
@@ -128,6 +136,10 @@ export default function ChallengePage() {
     const cur = f.perItem[idx];
     if (!cur || (cur.phase !== "answering" && cur.phase !== "retryable")) return;
     const answer = input.trim();
+    if (item.questionType === "choice" && item.choices.length === 0) {
+      setSubmitError("选项暂时不可用，请刷新后重试");
+      return;
+    }
     if (answer === "" && item.questionType === "spelling") {
       setSubmitError("请输入你的回答");
       return;
@@ -154,6 +166,17 @@ export default function ChallengePage() {
     }
     if (res.status === 403) {
       router.replace("/change-password");
+      return;
+    }
+
+    // DAILY_USAGE_LIMIT_REACHED: non-member exhausted 15-minute budget.
+    // Show a dedicated terminal message — no retry, cannot continue.
+    if (res.error?.code === "DAILY_USAGE_LIMIT_REACHED") {
+      clientEventRef.current = "";
+      setState({
+        phase: "error",
+        message: res.error?.message ?? "今日非会员学习时长已达上限，请升级会员或明天继续。",
+      });
       return;
     }
 
@@ -349,10 +372,28 @@ export default function ChallengePage() {
           </>
         )}
         {item.questionType === "choice" && (
-          <div className="challenge-choices">
-            {/* 服务端选项在真实实现中由后端返回；当前 contract 未返回选项，
-                选择题由服务端冻结 server_answer，选项列表缺失属契约待扩——本票不伪造选项。 */}
-            <p className="challenge-note">本题为选择题。选项应由服务端返回。</p>
+          <div className="challenge-choices" role="group" aria-label="中文选项">
+            {item.choices.length > 0 ? (
+              item.choices.map((choice) => (
+                <button
+                  key={choice}
+                  type="button"
+                  className={`challenge-choice-btn ${input === choice ? "selected" : ""}`}
+                  aria-pressed={input === choice}
+                  disabled={submitBusy || answeredVerdict !== null}
+                  onClick={() => {
+                    setInput(choice);
+                    setSubmitError("");
+                  }}
+                >
+                  {choice}
+                </button>
+              ))
+            ) : (
+              <p className="challenge-note" role="alert">
+                选项暂时不可用，请刷新后重试。
+              </p>
+            )}
           </div>
         )}
         {item.questionType === "spelling" && (
@@ -411,7 +452,7 @@ export default function ChallengePage() {
           <button
             type="button"
             className="primary"
-            disabled={submitBusy}
+            disabled={submitBusy || (item.questionType === "choice" && item.choices.length === 0)}
             onClick={() => void onSubmit()}
           >
             {submitBusy ? "提交中…" : "提交答案"}

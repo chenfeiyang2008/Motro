@@ -14,6 +14,7 @@
 import { ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import type { Pool } from "pg";
 import { POOL } from "../../auth/database.provider.js";
+import { MembershipService } from "../membership/membership.service.js";
 import {
   attemptMaxPoints,
   getWeeklyChallengeWindow,
@@ -34,6 +35,7 @@ interface AttemptItemRow {
   lexical_entry_id: string;
   english_spelling: string;
   meaning: string;
+  choice_options: string[] | null;
   server_answer: string;
   score_eligible: boolean;
 }
@@ -52,7 +54,12 @@ interface AttemptRow {
 
 @Injectable()
 export class ChallengeService {
-  constructor(@Inject(POOL) private readonly pool: Pool) {}
+  constructor(
+    @Inject(POOL) private readonly pool: Pool,
+    // membershipService：非会员每日 15 分钟使用时长（Ticket 20）。开始新测验与
+    // 提交答案前都会调用 assertCanAccrue；会员不受限。
+    private readonly _membershipService: MembershipService,
+  ) {}
 
   /**
    * Get (or create) the current week's in-progress attempt for the user and
@@ -70,12 +77,23 @@ export class ChallengeService {
        LIMIT 1`,
       [userId, weekKey],
     );
+    let replaceLegacyAttempt = false;
     if (existing.rows[0]) {
       const attempt = await this.loadAttempt(existing.rows[0].id, userId);
-      return this.toCurrentDto(attempt, weekKey);
+      const hasLegacyChoice = attempt.items.some(
+        (item) => item.question_type === "choice" && (item.choice_options?.length ?? 0) === 0,
+      );
+      if (!hasLegacyChoice) return this.toCurrentDto(attempt, weekKey);
+      replaceLegacyAttempt = true;
+      // A pre-0044 attempt has no frozen options. Continue into the
+      // transactional creator, which will cut it off and create a complete
+      // replacement instead of exposing a non-answerable question.
     }
 
     // Assemble a new attempt: 10 questions chosen from this user's exposed words.
+    // Daily usage limit check: non-members cannot start new attempts once their
+    // 15-minute daily budget is exhausted.  Members are unlimited.
+    await this._membershipService.assertCanAccrue(userId);
     const items = await this.assembleItems(userId);
     if (items.length === 0) {
       // No eligible words yet — leaderboard surface treats this as "coming soon".
@@ -92,41 +110,86 @@ export class ChallengeService {
       };
     }
     const maxPoints = attemptMaxPoints(items.map((i) => ({ scoreEligible: i.score_eligible })));
-    const created = await this.pool.query<AttemptRow>(
-      `INSERT INTO challenge_attempts (user_id, challenge_week, total_items, expires_at, max_points)
-       VALUES ($1, $2, $3, now() + $4 * interval '1 millisecond', $5)
-       RETURNING *`,
-      [userId, weekKey, items.length, ATTEMPT_TTL_MS, maxPoints],
-    );
-    const attemptId = created.rows[0]!.id;
+    // Serialize creation per user/week.  A browser can issue duplicate GETs
+    // (and two tabs can race); the partial unique index is a safety net, not a
+    // substitute for making the session creation transaction deterministic.
+    const client = await this.pool.connect();
+    let attemptId: string | undefined;
+    try {
+      await client.query("BEGIN");
+      await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1 || ':' || $2, 0))`, [
+        userId,
+        weekKey,
+      ]);
 
-    // Insert frozen item snapshots.
-    for (const it of items) {
-      await this.pool.query(
-        `INSERT INTO challenge_attempt_items
-           (attempt_id, position, direction, question_type, lexical_entry_id,
-            english_spelling, meaning, server_answer, score_eligible)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-        [
-          attemptId,
-          it.position,
-          it.direction,
-          it.question_type,
-          it.lexical_entry_id,
-          it.english_spelling,
-          it.meaning,
-          it.server_answer,
-          it.score_eligible,
-        ],
+      const active = await client.query<Pick<AttemptRow, "id" | "expires_at">>(
+        `SELECT id, expires_at FROM challenge_attempts
+         WHERE user_id=$1 AND challenge_week=$2 AND status='in_progress'
+         FOR UPDATE`,
+        [userId, weekKey],
       );
+      const existingActive = active.rows[0];
+      if (
+        existingActive &&
+        !replaceLegacyAttempt &&
+        new Date(existingActive.expires_at).getTime() > Date.now()
+      ) {
+        attemptId = existingActive.id;
+      } else {
+        if (existingActive) {
+          await client.query(
+            `UPDATE challenge_attempts
+             SET status='cutoff', completed_at=COALESCE(completed_at, now())
+             WHERE id=$1`,
+            [existingActive.id],
+          );
+        }
+        const created = await client.query<AttemptRow>(
+          `INSERT INTO challenge_attempts (user_id, challenge_week, total_items, expires_at, max_points)
+           VALUES ($1, $2, $3, now() + $4 * interval '1 millisecond', $5)
+           RETURNING *`,
+          [userId, weekKey, items.length, ATTEMPT_TTL_MS, maxPoints],
+        );
+        attemptId = created.rows[0]!.id;
+
+        // Insert frozen item snapshots in the same transaction as the attempt.
+        for (const it of items) {
+          await client.query(
+            `INSERT INTO challenge_attempt_items
+               (attempt_id, position, direction, question_type, lexical_entry_id,
+               english_spelling, meaning, choice_options, server_answer, score_eligible)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+            [
+              attemptId,
+              it.position,
+              it.direction,
+              it.question_type,
+              it.lexical_entry_id,
+              it.english_spelling,
+              it.meaning,
+              it.choice_options,
+              it.server_answer,
+              it.score_eligible,
+            ],
+          );
+        }
+      }
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
     }
-    const dto = await this.loadAttempt(attemptId, userId);
+    const dto = await this.loadAttempt(attemptId!, userId);
     return this.toCurrentDto(dto, weekKey);
   }
 
   /**
    * Submit one answer.  Server-graded, idempotent (client_event_id), atomic.
    * Returns the graded verdict + this answer's points.
+   * Non-members: each answer accrues 1 minute toward the daily usage budget;
+   * once exhausted, further attempts/answers are blocked with 429.
    */
   async submitAnswer(
     userId: string,
@@ -135,9 +198,13 @@ export class ChallengeService {
     clientEventId: string,
     clientAnswer: string,
   ) {
+    // Daily usage limit: block submission once a non-member's 15-minute budget
+    // is exhausted.  Members are unlimited; this is a lightweight pre-check.
+    await this._membershipService.assertCanAccrue(userId);
+
     const item = await this.pool.query<AttemptItemRow>(
       `SELECT i.id AS item_id, i.position, i.direction, i.question_type, i.lexical_entry_id,
-              i.english_spelling, i.meaning, i.server_answer, i.score_eligible
+              i.english_spelling, i.meaning, i.choice_options, i.server_answer, i.score_eligible
        FROM challenge_attempt_items i
        JOIN challenge_attempts a ON a.id = i.attempt_id
        WHERE i.attempt_id=$1 AND i.position=$2 AND a.user_id=$3`,
@@ -230,10 +297,11 @@ export class ChallengeService {
         };
       }
 
-      await client.query(
+      const answerInsert = await client.query<{ id: string }>(
         `INSERT INTO challenge_answers
            (attempt_id, position, client_event_id, client_answer, is_correct, points_awarded)
-         VALUES ($1,$2,$3,$4,$5,$6)`,
+         VALUES ($1,$2,$3,$4,$5,$6)
+         RETURNING id`,
         [
           attemptId,
           row.position,
@@ -243,6 +311,11 @@ export class ChallengeService {
           verdict.pointsAwarded,
         ],
       );
+      const challengeAnswerId = answerInsert.rows[0]!.id;
+
+      // Daily usage accrual: each challenge answer contributes 1 minute toward
+      // the non-member 15-minute daily budget.  Members are unlimited.
+      await this._membershipService.recordChallengeMinutes(client, userId, challengeAnswerId, 1);
 
       // Append a Challenge Point entry ONLY for a scored first-correct answer.
       if (verdict.kind === "scored" && verdict.pointsAwarded > 0) {
@@ -306,7 +379,7 @@ export class ChallengeService {
     if (!a.rows[0]) throw new NotFoundException("测验不存在或不属于当前用户");
     const items = await this.pool.query<AttemptItemRow>(
       `SELECT id AS item_id, position, direction, question_type, lexical_entry_id,
-              english_spelling, meaning, server_answer, score_eligible
+              english_spelling, meaning, choice_options, server_answer, score_eligible
        FROM challenge_attempt_items WHERE attempt_id=$1 ORDER BY position`,
       [attemptId],
     );
@@ -329,6 +402,7 @@ export class ChallengeService {
         questionType: i.question_type,
         englishSpelling: i.english_spelling,
         meaning: i.meaning,
+        choices: i.choice_options ?? [],
       })),
       maxPoints: loaded.attempt.max_points,
     };
@@ -356,16 +430,22 @@ export class ChallengeService {
          ON lexp.lexical_entry_id = rci.lexical_entry_id AND lexp.user_id=$1
        GROUP BY rci.lexical_entry_id, rci.english_spelling, rci.meaning
        ORDER BY MAX(lexp.first_exposed_at) DESC NULLS LAST
-       LIMIT ${ATTEMPT_TOTAL_ITEMS}`,
+       LIMIT 64`,
       [userId],
     );
 
     // Interleave: positions 1,3,5,7,9 => choice (en→zh); 2,4,6,8,10 => spelling
     // (zh→en).  Each position uses one of the exposed words.
+    const words = r.rows.slice(0, ATTEMPT_TOTAL_ITEMS);
+    const meaningPool = Array.from(
+      new Set(r.rows.map((word) => word.meaning).filter((meaning) => meaning.length > 0)),
+    );
     const items: AttemptItemRow[] = [];
-    for (let idx = 0; idx < r.rows.length; idx++) {
-      const word = r.rows[idx]!;
+    for (let idx = 0; idx < words.length; idx++) {
+      const word = words[idx]!;
       const isChoice = idx % 2 === 0;
+      const distractors = meaningPool.filter((meaning) => meaning !== word.meaning).slice(0, 3);
+      const choices = isChoice ? [word.meaning, ...distractors] : [];
       items.push({
         item_id: "",
         position: idx + 1,
@@ -374,6 +454,7 @@ export class ChallengeService {
         lexical_entry_id: word.lexical_entry_id,
         english_spelling: word.english_spelling,
         meaning: word.meaning,
+        choice_options: choices,
         // choice: frozen answer is the meaning; spelling: frozen answer is the English spelling.
         server_answer: isChoice ? word.meaning : word.english_spelling,
         score_eligible: true,

@@ -404,10 +404,40 @@ export class MembershipService {
     const localDay = localDayKey(now, tz);
     await client.query(
       `INSERT INTO daily_usage
-         (user_id, local_day, review_event_id, source_event_id, minutes_accrued, accrued_at)
-       VALUES ($1, $2, $3, $4, $5, $6)
+         (user_id, local_day, review_event_id, source_event_id, source_type,
+          minutes_accrued, accrued_at)
+       VALUES ($1, $2, $3, $4, 'review', $5, $6)
        ON CONFLICT (user_id, review_event_id) DO NOTHING`,
       [userId, localDay, reviewEventId, clientEventId, accruedMinutes, now],
+    );
+  }
+
+  /**
+   * Record challenge answer participation toward the daily study-time budget.
+   * Each accepted challenge answer accrues 1 minute (same as a study review).
+   * Idempotent per (user_id, challenge_answer_id) via partial unique index.
+   */
+  async recordChallengeMinutes(
+    client: Pick<Pool, "query">,
+    userId: string,
+    challengeAnswerId: string,
+    accruedMinutes: number,
+    now = new Date(),
+  ): Promise<void> {
+    const tz =
+      (
+        await client.query<{ timezone: string }>(`SELECT timezone FROM users WHERE id = $1`, [
+          userId,
+        ])
+      ).rows[0]?.timezone ?? "Asia/Shanghai";
+    const localDay = localDayKey(now, tz);
+    await client.query(
+      `INSERT INTO daily_usage
+         (user_id, local_day, challenge_answer_id, source_event_id, source_type,
+          minutes_accrued, accrued_at)
+       VALUES ($1, $2, $3, $4, 'challenge_answer', $5, $6)
+       ON CONFLICT (user_id, challenge_answer_id) DO NOTHING`,
+      [userId, localDay, challengeAnswerId, challengeAnswerId, accruedMinutes, now],
     );
   }
 
@@ -710,6 +740,87 @@ export class MembershipService {
         idempotencyKey,
       ]);
       throw err;
+    }
+  }
+
+  /**
+   * 批量设置**全体非会员**用户的每日免费学习时长。
+   * "非会员" = 无 membership 行 / plan='free' / 会员已过期/失效。
+   * 有效会员（plan='member' 且 active 且未过期）不触碰。
+   * 操作原子：先 UPSERT 现有非会员行，再补审计记录。
+   */
+  async setBulkDailyLimit(
+    actor: UserRecord,
+    minutes: number,
+    requestId: string,
+  ): Promise<{ dailyLimitMinutes: number; affected: number }> {
+    if (!Number.isInteger(minutes) || minutes < 0 || minutes > 1440) {
+      throw new UnprocessableEntityException("每日时长必须是 0 至 1440 分钟");
+    }
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const now = new Date();
+
+      // ---- 1) UPSERT 非会员行（含无 membership 行的用户） ----
+      // 用 users 完整集合 LEFT JOIN 来识别"非会员"，然后按需创建/更新。
+      // last_action 受 CHECK 约束（grant/renew/revoke），与单用户 setDailyLimit
+      // 保持一致使用 'revoke'（该操作把用户降级为 free 并更新时长）。
+      // affected = 所有被 UPSERT 的非会员用户数（无论值是否变化，均计入批量操作影响范围）。
+      const upsertResult = await client.query<{
+        user_id: string;
+      }>(
+        `WITH target_users AS (
+           SELECT u.id, u.timezone
+             FROM users u
+            WHERE NOT EXISTS (
+              SELECT 1 FROM memberships m
+               WHERE m.user_id = u.id
+                 AND m.plan = 'member'
+                 AND m.status = 'active'
+                 AND (m.expires_at IS NULL OR m.expires_at >= $2)
+            )
+         )
+         INSERT INTO memberships
+           (user_id, plan, status, started_at, expires_at, timezone, last_action, free_daily_limit_minutes)
+         SELECT id, 'free', 'active', $2, NULL, timezone, 'revoke', $1
+           FROM target_users
+         ON CONFLICT (user_id) DO UPDATE SET
+           free_daily_limit_minutes = EXCLUDED.free_daily_limit_minutes,
+           last_action = 'revoke',
+           updated_at = now()
+         RETURNING user_id`,
+        [minutes, now.toISOString()],
+      );
+
+      const affected = upsertResult.rows.length;
+
+      // ---- 2) 批量审计（仅对"实际变化"的行插入，无变化不重复写审计） ----
+      if (upsertResult.rows.length > 0) {
+        await client.query(
+          `INSERT INTO membership_audit
+             (user_id, actor_id, action, plan, started_at, expired_at, daily_limit_minutes, request_id)
+           SELECT m.user_id, $2, 'daily_limit', 'free', $3, NULL, $1, $4
+             FROM memberships m
+            WHERE m.user_id = ANY($5::uuid[])
+              AND m.free_daily_limit_minutes = $1`,
+          [
+            minutes,
+            actor.id,
+            now.toISOString(),
+            requestId,
+            upsertResult.rows.map((r) => r.user_id),
+          ],
+        );
+      }
+
+      await client.query("COMMIT");
+      return { dailyLimitMinutes: minutes, affected };
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw err;
+    } finally {
+      client.release();
     }
   }
 }

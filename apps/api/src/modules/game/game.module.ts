@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { AuthModule } from "../../auth/auth.module.js";
 import { databaseProvider } from "../../auth/database.provider.js";
+import { MembershipModule } from "../membership/membership.module.js";
 import { AdminXpController } from "./admin-xp.controller.js";
 import { AdminXpService } from "./admin-xp.service.js";
 import { ChallengeController } from "./challenge.controller.js";
@@ -14,7 +15,7 @@ import { GameService } from "./game.service.js";
 // 使 SessionService 在 GameModule 上下文中可解析（否则 Nest 启动即抛
 // UnknownDependenciesException，阻断整个应用启动与 openapi:generate）。
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, MembershipModule],
   controllers: [GameController, ChallengeController, AdminXpController],
   providers: [databaseProvider, GameService, ChallengeService, AdminXpService],
   exports: [GameService, ChallengeService, AdminXpService],

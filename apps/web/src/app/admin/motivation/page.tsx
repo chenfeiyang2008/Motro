@@ -31,6 +31,8 @@ export default function AdminMotivationPage() {
   const [items, setItems] = useState<AdminMotivationCopy[]>([]);
   const [status, setStatus] = useState("");
   const [category, setCategory] = useState("");
+  const [q, setQ] = useState(""); // 搜索框即时值
+  const [appliedQ, setAppliedQ] = useState(""); // 已应用（回车/按钮提交）的搜索词
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -41,6 +43,7 @@ export default function AdminMotivationPage() {
   const [batchText, setBatchText] = useState("");
   const [batchCategory, setBatchCategory] = useState<HomeMotivationCopy["category"]>("poetry_pun");
   const [batchAttribution, setBatchAttribution] = useState("");
+  const [batchOpen, setBatchOpen] = useState(false);
   const [batchSaving, setBatchSaving] = useState(false);
   const [batchError, setBatchError] = useState("");
 
@@ -63,11 +66,17 @@ export default function AdminMotivationPage() {
   async function load(reset = true): Promise<void> {
     setLoading(true);
     setError("");
-    const opts: { status?: string; category?: string; cursor?: string | null; limit?: number } = {
-      limit: 30,
-    };
+    const opts: {
+      status?: string;
+      category?: string;
+      q?: string;
+      cursor?: string | null;
+      limit?: number;
+    } = { limit: 30 };
     if (status) opts.status = status;
     if (category) opts.category = category;
+    const trimmed = appliedQ.trim();
+    if (trimmed) opts.q = trimmed;
     opts.cursor = reset ? null : cursor;
     const res = await listAdminMotivation(opts);
     setLoading(false);
@@ -82,7 +91,7 @@ export default function AdminMotivationPage() {
 
   useEffect(() => {
     void load(true);
-  }, [status, category]);
+  }, [status, category, appliedQ]);
 
   async function save(): Promise<void> {
     if (!form.text.trim()) return setError("请填写文案");
@@ -186,102 +195,126 @@ export default function AdminMotivationPage() {
         </div>
       </div>
 
-      <div className="admin-motivation-batch">
-        <div className="admin-motivation-editor__heading">
-          <div>
-            <h2>批量添加</h2>
-            <p>一行一句，最多 100 条；重复文案会自动跳过。</p>
-          </div>
-        </div>
-        <>
-          <textarea
-            value={batchText}
-            rows={6}
-            maxLength={20000}
-            onChange={(e) => setBatchText(e.target.value)}
-            placeholder={"日照香炉生紫烟，来学两个单词先。\n今天学一点，明天就能多说一句。"}
-          />
-          <div className="admin-motivation-editor__row">
-            <label>
-              统一分类
-              <select
-                value={batchCategory}
-                onChange={(e) => setBatchCategory(e.target.value as HomeMotivationCopy["category"])}
-              >
-                {Object.entries(CATEGORY_LABEL).map(([key, label]) => (
-                  <option key={key} value={key}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              统一出处（可选）
-              <input
-                value={batchAttribution}
-                maxLength={80}
-                onChange={(e) => setBatchAttribution(e.target.value)}
-                placeholder="例如：Motro 文案"
-              />
-            </label>
-            <button
-              type="button"
-              className="primary"
-              disabled={batchSaving || batchLines.length === 0}
-              onClick={() => {
-                if (batchRawLines.length > 100) {
-                  setBatchError("一次最多添加 100 条文案");
-                  return;
-                }
-                if (batchIssues.length > 0) {
-                  setBatchError(batchIssues[0] ?? "请修正文案后再提交");
-                  return;
-                }
-                setBatchSaving(true);
-                setBatchError("");
-                void createAdminMotivationBatch({
-                  items: batchLines.map((text) => ({
-                    text,
-                    category: batchCategory,
-                    attribution: batchAttribution.trim() || null,
-                  })),
-                }).then(async (res) => {
-                  setBatchSaving(false);
-                  if (!res.ok || !res.data) {
-                    setBatchError(res.error?.message ?? "批量添加失败，请重试");
+      <div className={`admin-motivation-batch${batchOpen ? " is-open" : ""}`}>
+        <button
+          type="button"
+          className="admin-motivation-batch__toggle"
+          aria-expanded={batchOpen}
+          onClick={() => setBatchOpen((v) => !v)}
+        >
+          <span className="admin-motivation-batch__title">
+            <span>批量添加</span>
+            <span className="admin-motivation-batch__sub">
+              一行一句，最多 100 条；重复文案会自动跳过。
+            </span>
+          </span>
+          <span aria-hidden>{batchOpen ? "收起 ▲" : "展开 ▼"}</span>
+        </button>
+        {batchOpen && (
+          <>
+            <textarea
+              value={batchText}
+              rows={5}
+              maxLength={20000}
+              onChange={(e) => setBatchText(e.target.value)}
+              placeholder={"日照香炉生紫烟，来学两个单词先。\n今天学一点，明天就能多说一句。"}
+            />
+            <div className="admin-motivation-editor__row">
+              <label>
+                统一分类
+                <select
+                  value={batchCategory}
+                  onChange={(e) =>
+                    setBatchCategory(e.target.value as HomeMotivationCopy["category"])
+                  }
+                >
+                  {Object.entries(CATEGORY_LABEL).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                统一出处（可选）
+                <input
+                  value={batchAttribution}
+                  maxLength={80}
+                  onChange={(e) => setBatchAttribution(e.target.value)}
+                  placeholder="例如：Motro 文案"
+                />
+              </label>
+              <button
+                type="button"
+                className="primary"
+                disabled={batchSaving || batchLines.length === 0}
+                onClick={() => {
+                  if (batchRawLines.length > 100) {
+                    setBatchError("一次最多添加 100 条文案");
                     return;
                   }
-                  setBatchText("");
-                  setBatchError(
-                    res.data.skippedCount > 0
-                      ? `已新增 ${res.data.createdCount} 条，跳过 ${res.data.skippedCount} 条重复文案`
-                      : `已新增 ${res.data.createdCount} 条文案`,
-                  );
-                  await load(true);
-                });
-              }}
-            >
-              {batchSaving ? "添加中…" : `添加 ${batchLines.length || ""} 条`}
-            </button>
-          </div>
-          <div className="admin-motivation-batch__meta">
-            {batchRawLines.length > 0 && (
-              <span>
-                已识别 {batchLines.length} 条
-                {batchRawLines.length !== batchLines.length ? "（已去重）" : ""}
-              </span>
+                  if (batchIssues.length > 0) {
+                    setBatchError(batchIssues[0] ?? "请修正文案后再提交");
+                    return;
+                  }
+                  setBatchSaving(true);
+                  setBatchError("");
+                  void createAdminMotivationBatch({
+                    items: batchLines.map((text) => ({
+                      text,
+                      category: batchCategory,
+                      attribution: batchAttribution.trim() || null,
+                    })),
+                  }).then(async (res) => {
+                    setBatchSaving(false);
+                    if (!res.ok || !res.data) {
+                      setBatchError(res.error?.message ?? "批量添加失败，请重试");
+                      return;
+                    }
+                    setBatchText("");
+                    setBatchError(
+                      res.data.skippedCount > 0
+                        ? `已新增 ${res.data.createdCount} 条，跳过 ${res.data.skippedCount} 条重复文案`
+                        : `已新增 ${res.data.createdCount} 条文案`,
+                    );
+                    await load(true);
+                  });
+                }}
+              >
+                {batchSaving ? "添加中…" : `添加 ${batchLines.length || ""} 条`}
+              </button>
+            </div>
+            <div className="admin-motivation-batch__meta">
+              {batchRawLines.length > 0 && (
+                <span>
+                  已识别 {batchLines.length} 条
+                  {batchRawLines.length !== batchLines.length ? "（已去重）" : ""}
+                </span>
+              )}
+              {batchIssues.length > 0 && <span className="form-error">{batchIssues[0]}</span>}
+            </div>
+            {batchError && (
+              <p className="form-error" role="alert">
+                {batchError}
+              </p>
             )}
-            {batchIssues.length > 0 && <span className="form-error">{batchIssues[0]}</span>}
-          </div>
-          {batchError && (
-            <p className="form-error" role="alert">
-              {batchError}
-            </p>
-          )}
-        </>
+          </>
+        )}
       </div>
 
       <div className="admin-motivation-toolbar">
+        <label className="admin-motivation-search">
+          <span className="admin-motivation-search-label">搜索</span>
+          <input
+            type="search"
+            value={q}
+            placeholder="按文案内容搜索…"
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") setAppliedQ(q);
+            }}
+          />
+        </label>
         <label>
           状态
           <select value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -301,6 +334,21 @@ export default function AdminMotivationPage() {
             ))}
           </select>
         </label>
+        <button type="button" className="primary" onClick={() => setAppliedQ(q)}>
+          搜索
+        </button>
+        {appliedQ && (
+          <button
+            type="button"
+            className="text-button"
+            onClick={() => {
+              setQ("");
+              setAppliedQ("");
+            }}
+          >
+            清除
+          </button>
+        )}
       </div>
       {error && (
         <p className="form-error" role="alert">

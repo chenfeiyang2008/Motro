@@ -225,6 +225,30 @@ button.primary {
   cursor: pointer;
 }
 
+/* 主要操作也支持 <Link>（渲染为 <a>）：Next.js 会把导航链接用作主 CTA。 */
+a.primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 8px;
+  border: none;
+  background: var(--color-brand-600);
+  color: var(--color-text-on-brand);
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+a.primary:hover:not(:disabled) {
+  background: var(--color-brand-700);
+}
+a.primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .auth-form button:hover:not(:disabled),
 button.primary:hover:not(:disabled) {
   background: var(--color-brand-700);
@@ -349,6 +373,8 @@ main:has(.auth-page) {
 }
 
 .auth-card form {
+  display: flex;
+  flex-direction: column;
   gap: 24px;
 }
 
@@ -381,13 +407,16 @@ main:has(.auth-page) {
 }
 
 .auth-card button[type="submit"] {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 56px;
   width: 78%;
-  min-height: 56px;
   margin-top: 4px;
   margin-right: auto;
   margin-left: auto;
-  border-radius: 12px;
+  border-radius: 999px;
   font-weight: 600;
   letter-spacing: 0.02em;
   font-size: 16px;
@@ -395,6 +424,11 @@ main:has(.auth-page) {
   background: var(--color-brand-600);
   color: var(--color-text-on-brand);
   cursor: pointer;
+  transition:
+    width 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    border-radius 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 0.5s ease,
+    opacity 0.2s ease;
 }
 
 .auth-card button[type="submit"]:hover:not(:disabled) {
@@ -404,6 +438,105 @@ main:has(.auth-page) {
 .auth-card button[type="submit"]:disabled {
   cursor: default;
   opacity: 0.64;
+}
+
+/* ---- 登录成功：胶囊 → 鲜艳绿圆 → 白色路径打勾 ----
+   时间轴（对齐 login/page.tsx 的 timers）：
+     0ms      success → 胶囊开始收缩、背景渐变为鲜艳绿
+     ~500ms   胶囊收成圆
+     ~550ms   打勾浮现（scale 弹出）
+     ~650ms   打勾路径从中间向两端描边
+     ~1200ms  卡片整体淡出上移
+     ~1600ms  跳转
+   注意用 animation（而非 transition），因为打勾元素是条件渲染、挂载即播放。 */
+.auth-card button[type="submit"].auth-submit--success {
+  width: 56px;
+  min-height: 56px;
+  padding: 0;
+  border-radius: 50%;
+  background: #22c55e; /* 鲜艳绿（Tailwind green-500） */
+  opacity: 1;
+}
+
+.auth-card button[type="submit"].auth-submit--success:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+.auth-submit__label {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  transition:
+    opacity 0.2s ease 0.05s,
+    transform 0.25s ease;
+}
+
+.auth-submit__check {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  opacity: 0;
+  color: #fff;
+  transform: scale(0.3);
+}
+
+.auth-submit__check svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* 打勾整体浮现：圆收缩到一半时即开始弹出，紧贴圆形完成 */
+.auth-card button[type="submit"].auth-submit--success .auth-submit__check {
+  animation: auth-check-in 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s forwards;
+}
+
+/* 路径描边：check-in 出现后随即从中间向两端画出对勾 */
+.auth-card button[type="submit"].auth-submit--success .auth-submit__check path {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  animation: auth-check-draw 0.35s ease 0.4s forwards;
+}
+
+@keyframes auth-check-in {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes auth-check-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.auth-card button[type="submit"].auth-submit--success .auth-submit__label {
+  opacity: 0;
+  transform: scale(0.6);
+}
+
+/* ---- 页面离开动效：整页淡出 + 轻微上移 ----
+   时间对齐 login/page.tsx 的 timers（约 1200ms 进入 leaving，1600ms 跳转）。 */
+.auth-page--leaving .auth-card {
+  animation: auth-card-leave 0.45s ease forwards;
+}
+
+@keyframes auth-card-leave {
+  to {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.99);
+  }
+}
+
+.auth-page--leaving .auth-card__header,
+.auth-page--leaving .auth-card__body {
+  pointer-events: none;
 }
 
 .auth-page__note {
@@ -5068,6 +5201,67 @@ html[data-theme="dark"] .operations-status--manual_action {
   text-decoration: none;
 }
 
+.profile-uuid {
+  font-family: var(--font-english);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.profile-account-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border);
+}
+
+.profile-account-actions h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.profile-account-actions p {
+  margin: 4px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+.profile-logout {
+  flex-shrink: 0;
+  min-height: 40px;
+  padding: 0 18px;
+  border: 1px solid var(--color-error, #b43f35);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-error, #b43f35);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+.profile-logout:hover:not(:disabled) {
+  border-color: var(--color-error, #b43f35);
+  background: color-mix(in srgb, var(--color-error, #b43f35) 12%, transparent);
+  color: var(--color-error, #b43f35);
+}
+
+.profile-logout:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.profile-logout-error {
+  margin: 12px 0 0;
+  color: var(--color-error);
+  font-size: 13px;
+}
+
 .profile-skeleton {
   width: 100%;
   height: 280px;
@@ -5166,32 +5360,112 @@ html[data-theme="dark"] .operations-status--manual_action {
 
 .lb-viewer {
   display: flex;
-  align-items: baseline;
-  gap: 12px;
-  flex-wrap: wrap;
-  background: var(--color-bg-surface);
-  border: 1px solid var(--color-border);
+  flex-direction: column;
+  gap: 14px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--color-brand-600) 7%, var(--color-bg-surface)) 0%, var(--color-bg-surface) 60%);
+  border: 1px solid color-mix(in srgb, var(--color-brand-600) 22%, var(--color-border));
   border-radius: var(--radius-panel);
-  padding: 14px 16px;
+  padding: 20px 22px;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--color-brand-600) 8%, transparent),
+    0 2px 8px color-mix(in srgb, var(--color-brand-600) 6%, transparent);
+}
+
+.lb-viewer-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lb-viewer-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.lb-viewer-period {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+}
+
+.lb-viewer-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.lb-viewer-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.lb-viewer-stat-label {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.lb-viewer-stat strong {
+  font-size: 18px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.lb-viewer-rank {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+}
+
+.lb-viewer-rank--none {
+  color: var(--color-text-secondary);
+  font-size: 16px;
+}
+
+.lb-viewer-points {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-brand-700);
 }
 
 .lb-viewer-rank-badge {
-  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--color-brand-800);
   font-size: 13px;
   font-weight: 700;
 }
 
-.lb-viewer-rank {
-  font-size: 22px;
+.lb-viewer-rank-badge__level {
+  display: inline-grid;
+  place-items: center;
+  min-width: 42px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-brand-600) 14%, transparent);
+  font-size: 12px;
 }
 
-.lb-viewer-rank--none {
-  color: var(--color-text-secondary);
-}
-
-.lb-viewer-points {
-  color: var(--color-text-secondary);
+@media (max-width: 560px) {
+  .lb-viewer-stats {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .lb-viewer-stat--rank,
+  .lb-viewer-stat--level {
+    border-top: 1px solid var(--color-border-subtle);
+    padding-top: 10px;
+  }
 }
 
 .lb-privacy {
@@ -5220,6 +5494,7 @@ html[data-theme="dark"] .operations-status--manual_action {
   text-align: left;
   padding: 12px;
   border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
 }
 
 .lb-table th {
@@ -5229,6 +5504,79 @@ html[data-theme="dark"] .operations-status--manual_action {
 
 .lb-table tbody tr:last-child td {
   border-bottom: 0;
+}
+
+/* --- 排名单元格：前 3 名奖牌圆徽 + 常规名次 --- */
+.lb-rank-cell {
+  width: 72px;
+}
+.lb-rank-num {
+  display: inline-grid;
+  place-items: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 4px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-text-tertiary) 12%, transparent);
+}
+.lb-rank-num--top1 {
+  color: #fff6e0;
+  background: linear-gradient(135deg, #e7b44a, #cd8f1f);
+  box-shadow: 0 1px 4px color-mix(in srgb, #cd8f1f 35%, transparent);
+}
+.lb-rank-num--top2 {
+  color: #f5f5f5;
+  background: linear-gradient(135deg, #c8c8cd, #94979d);
+  box-shadow: 0 1px 4px color-mix(in srgb, #94979d 30%, transparent);
+}
+.lb-rank-num--top3 {
+  color: #fff2e0;
+  background: linear-gradient(135deg, #d99a64, #a86a38);
+  box-shadow: 0 1px 4px color-mix(in srgb, #a86a38 30%, transparent);
+}
+
+/* --- 当前用户行高亮 --- */
+.lb-table tbody tr.lb-row--current {
+  background: color-mix(in srgb, var(--color-brand-600) 10%, transparent);
+}
+.lb-table tbody tr.lb-row--current td {
+  border-bottom-color: color-mix(in srgb, var(--color-brand-600) 26%, var(--color-border));
+  font-weight: 600;
+}
+.lb-table tbody tr.lb-row--current .lb-rank-num {
+  outline: 2px solid color-mix(in srgb, var(--color-brand-600) 45%, transparent);
+  outline-offset: 1px;
+}
+.lb-you-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 5px;
+  margin-left: 6px;
+  border-radius: 999px;
+  background: var(--color-brand-600);
+  color: var(--color-text-on-brand);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* --- 参与者 / 积分列排版 --- */
+.lb-participant-cell {
+  white-space: nowrap;
+}
+.lb-participant-cell .member-crown-badge {
+  margin-left: 6px;
+}
+.lb-points-cell {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: right !important;
 }
 
 /* 结果页 XP 反馈（安静、诚实；无强制动画） */
@@ -6787,11 +7135,6 @@ html[data-theme="dark"] .operations-filter input {
   margin: 8px 0 16px;
 }
 
-.lb-challenge-entry .primary {
-  text-decoration: none;
-  font-weight: 600;
-}
-
 .lb-challenge-hint {
   color: var(--color-text-secondary);
   font-size: 13px;
@@ -7031,8 +7374,95 @@ html[data-theme="dark"] .operations-filter input {
   flex: 1;
 }
 .admin-motivation-toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.6rem;
   margin: 1rem 0;
-  align-items: center;
+  flex-wrap: wrap;
+}
+.admin-motivation-toolbar label {
+  display: grid;
+  gap: 0.3rem;
+  color: var(--color-text-secondary);
+  font-size: 0.78rem;
+}
+.admin-motivation-toolbar .admin-motivation-search {
+  flex: 1 1 220px;
+  min-width: 180px;
+}
+.admin-motivation-toolbar .admin-motivation-search-label {
+  position: absolute;
+  width: 0;
+  height: 0;
+  clip: rect(0 0 0 0);
+  overflow: hidden;
+}
+.admin-motivation-toolbar input[type="search"] {
+  width: 100%;
+  height: 44px;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  padding: 0 0.75rem;
+  font: inherit;
+}
+.admin-motivation-toolbar input[type="search"]:focus {
+  outline: none;
+  border-color: var(--color-brand-600);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand-600) 18%, transparent);
+}
+.admin-motivation-toolbar select {
+  height: 44px;
+  min-width: 110px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  padding: 0 1.9rem 0 0.7rem;
+  font: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--color-text-secondary) 50%),
+    linear-gradient(135deg, var(--color-text-secondary) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) 50%,
+    calc(100% - 13px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+.admin-motivation-toolbar select:focus {
+  outline: none;
+  border-color: var(--color-brand-600);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand-600) 18%, transparent);
+}
+.admin-motivation-toolbar .primary,
+.admin-motivation-toolbar .text-button {
+  height: 44px;
+  min-height: 0;
+  flex-shrink: 0;
+  font-size: 0.85rem;
+}
+.admin-motivation-toolbar .primary {
+  padding: 0 1rem;
+  border-radius: var(--radius-control);
+  border: 1px solid transparent;
+  font: inherit;
+}
+.admin-motivation-toolbar .text-button {
+  padding: 0 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+}
+.admin-motivation-toolbar .text-button:hover {
+  border-color: var(--color-brand-600);
+  color: var(--color-brand-600);
 }
 .admin-motivation-table-wrap {
   overflow-x: auto;
@@ -7101,7 +7531,8 @@ html[data-theme="dark"] .admin-motivation-batch input,
 html[data-theme="dark"] .admin-motivation-editor select,
 html[data-theme="dark"] .admin-motivation-editor input,
 html[data-theme="dark"] .admin-motivation-editor textarea,
-html[data-theme="dark"] .admin-motivation-toolbar select {
+html[data-theme="dark"] .admin-motivation-toolbar select,
+html[data-theme="dark"] .admin-motivation-toolbar input[type="search"] {
   background-color: var(--color-bg-surface);
   color: var(--color-text-primary);
   border-color: var(--color-border);
@@ -7130,7 +7561,8 @@ html[data-theme="dark"] .admin-motivation-batch {
 html[data-theme="dark"] .admin-motivation-batch select:focus,
 html[data-theme="dark"] .admin-motivation-batch input:focus,
 html[data-theme="dark"] .admin-motivation-editor select:focus,
-html[data-theme="dark"] .admin-motivation-editor input:focus {
+html[data-theme="dark"] .admin-motivation-editor input:focus,
+html[data-theme="dark"] .admin-motivation-toolbar input[type="search"]:focus {
   border-color: var(--color-brand-600);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand-600) 26%, transparent);
 }
@@ -7140,5 +7572,85 @@ html[data-theme="dark"] .admin-motivation-editor input:focus {
   .admin-motivation-batch select,
   .admin-motivation-batch input {
     transition: none;
+  }
+}
+
+/* ============================================================
+   会员身份展示（MemberCrownBadge / dash-usage） + 页面切换入场动效
+   ============================================================ */
+
+/* ---- MemberCrownBadge ---- */
+.member-crown-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-brand-600);
+  white-space: nowrap;
+}
+.member-crown-badge svg {
+  flex-shrink: 0;
+}
+.member-crown-badge--compact svg {
+  width: 18px;
+  height: 18px;
+}
+.member-crown-badge--default svg {
+  width: 22px;
+  height: 22px;
+}
+.member-crown-badge--welcome svg {
+  width: 36px;
+  height: 36px;
+  color: #e4aa62;
+}
+.member-crown-badge__label {
+  white-space: nowrap;
+}
+.member-crown-badge--compact .member-crown-badge__label {
+  font-size: 12px;
+  font-weight: 600;
+}
+.member-crown-badge--default .member-crown-badge__label {
+  font-size: 14px;
+  font-weight: 600;
+}
+.member-crown-badge--welcome .member-crown-badge__label {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+/* ---- 首页 member usage 行 ---- */
+.dash-usage--member {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-brand-700);
+  font-weight: 600;
+}
+
+/* ---- 页面切换入场动效（PageTransition：pathname key 重播） ----
+   仅 opacity + 极小位移，丝滑不产生布局/滚动跳变。 */
+.page-enter {
+  animation: page-enter 500ms cubic-bezier(0, 0, 0.2, 1) both;
+}
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .member-crown-badge,
+  .dash-usage--member,
+  .lb-viewer-label,
+  .lb-participant-cell {
+    animation: none;
+  }
+  .page-enter {
+    animation: none;
   }
 }

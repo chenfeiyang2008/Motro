@@ -13,27 +13,62 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const redirectTimerRef = useRef<number | null>(null);
+  const leavingTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     void warmCsrf();
     usernameRef.current?.focus();
+
+    return () => {
+      if (redirectTimerRef.current !== null) {
+        window.clearTimeout(redirectTimerRef.current);
+      }
+      if (leavingTimerRef.current !== null) {
+        window.clearTimeout(leavingTimerRef.current);
+      }
+    };
   }, []);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
     setError("");
+    setSuccess(false);
+    setLeaving(false);
     const res = await login(username, password);
     setBusy(false);
     if (!res.ok || !res.user) {
       setError(res.message ?? "登录失败，请重试");
       return;
     }
-    router.push(res.user.mustChangePassword ? "/change-password" : "/app");
+    setSuccess(true);
+    // 写入"刚登录"信号；会员欢迎层在首页确认服务端会员身份后才决定是否播放。
+    // 非会员也写入，让首页可消费并清除旧信号（避免跨会话遗留）。
+    try {
+      sessionStorage.setItem("motro_just_logged_in_member", "1");
+    } catch {
+      // sessionStorage 不可用 → 欢迎层保守跳过。
+    }
+    const nextPath = res.user.mustChangePassword ? "/change-password" : "/app";
+    // 动画时间轴（与 globals.css 对齐）：
+    //   0ms  success → 胶囊收缩变圆（~500ms）→ 打勾弹出（~550ms）→ 描边（~720ms）
+    //   1200ms 整卡淡出上移，1650ms 跳转。
+    leavingTimerRef.current = window.setTimeout(() => {
+      setLeaving(true);
+    }, 1200);
+    redirectTimerRef.current = window.setTimeout(() => {
+      router.push(nextPath);
+    }, 1650);
   }
 
   return (
-    <section className="auth-page" aria-labelledby="login-title">
+    <section
+      className={`auth-page${leaving ? " auth-page--leaving" : ""}`}
+      aria-labelledby="login-title"
+    >
       <div className="auth-card">
         <header className="auth-card__header">
           <div className="auth-brand" aria-label="Motro">
@@ -57,31 +92,58 @@ export default function LoginPage() {
           )}
           <form onSubmit={onSubmit} noValidate>
             <div className="auth-field">
-              <label htmlFor="username">用户名</label>
+              <label className="visually-hidden" htmlFor="username">
+                用户名
+              </label>
               <input
                 id="username"
                 ref={usernameRef}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 autoComplete="username"
+                placeholder="用户名"
                 required
                 minLength={1}
               />
             </div>
             <div className="auth-field">
-              <label htmlFor="password">密码</label>
+              <label className="visually-hidden" htmlFor="password">
+                密码
+              </label>
               <input
                 id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
+                placeholder="密码"
                 required
                 minLength={1}
               />
             </div>
-            <button type="submit" disabled={busy}>
-              {busy ? "登录中…" : "登录"}
+            <button
+              type="submit"
+              className={success ? "auth-submit--success" : undefined}
+              disabled={busy || success}
+              aria-label={success ? "登录成功" : undefined}
+            >
+              <span className="auth-submit__label" aria-hidden={success}>
+                {busy ? "登录中…" : "登录"}
+              </span>
+              {success && (
+                <span className="auth-submit__check" aria-hidden="true">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M4 12.5 L9.5 18 L20 6" />
+                  </svg>
+                </span>
+              )}
             </button>
           </form>
         </div>
