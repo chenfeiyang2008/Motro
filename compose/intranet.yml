@@ -80,6 +80,29 @@ services:
         condition: service_healthy
     command: ["node", "apps/worker/dist/worker-migrate.js"]
 
+  migrate:
+    <<: *intranet-base
+    restart: "no" # 一次性：应用自身 SQL 迁移（db/migrations，由 packages/db/dist/cli-migrate.js 应用）
+    build:
+      context: ../
+      dockerfile: apps/api/Dockerfile
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:?}
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      SESSION_KEY: ${SESSION_KEY:?SESSION_KEY 必须设置}
+      CSRF_KEY: ${CSRF_KEY:?CSRF_KEY 必须设置}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      COOKIE_SAMESITE: ${COOKIE_SAMESITE:-lax}
+      MOTRO_PROVIDER_MODE: ${MOTRO_PROVIDER_MODE:-fake}
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["node", "packages/db/dist/cli-migrate.js"]
+
   api:
     <<: *intranet-base
     build:
@@ -117,6 +140,8 @@ services:
       db:
         condition: service_healthy
       worker-migrate:
+        condition: service_completed_successfully
+      migrate:
         condition: service_completed_successfully
 
   worker:
@@ -162,6 +187,8 @@ services:
       db:
         condition: service_healthy
       worker-migrate:
+        condition: service_completed_successfully
+      migrate:
         condition: service_completed_successfully
     command: ["node", "apps/worker/dist/worker-main.js"]
 

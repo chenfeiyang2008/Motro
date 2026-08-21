@@ -5,7 +5,6 @@ import { chromium } from "@playwright/test";
 import { createPool } from "@motro/db";
 import { PasswordService } from "../../apps/api/src/auth/password.service.js";
 
-const API = process.env.API_PUBLIC_URL ?? "http://127.0.0.1:3100";
 const WEB = process.env.PW_BASE_URL ?? "http://127.0.0.1:3101";
 const E2E_DB = process.env.E2E_IMPORT_DB ?? "";
 const E2E_PORT = Number(process.env.E2E_POSTGRES_PORT ?? 5433);

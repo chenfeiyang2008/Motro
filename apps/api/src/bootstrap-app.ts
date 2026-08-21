@@ -17,9 +17,24 @@ const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 // 请求体层面的兜底，防止超大 multipart 耗尽内存；两者取较小者生效。
 const DEFAULT_MULTIPART_BODY_LIMIT = 20 * 1024 * 1024;
 
+// 信任上游内网代理（Caddy / web 容器均位于 intranet-net 桥接网络），使 req.ip 取自
+// X-Forwarded-For 的客户端地址，而非代理容器的桥接 IP，从而让登录限速与日志 IP 正确。
+// Fastify v5 的 trustProxy 是 server 选项（无 setTrustProxy 实例方法），经 FastifyAdapter
+// 构造参数透传。仅信任回环与私有/RFC1918/docker 桥接段；绝不能信任 "0.0.0.0/0"。
+const TRUSTED_PROXY: string[] = [
+  "127.0.0.1/8", // 回环 IPv4
+  "::1", // 回环 IPv6
+  "10.0.0.0/8", // 私有 A 类
+  "172.16.0.0/12", // 私有 B 类 + docker 默认桥接（Caddy/web 容器在此段）
+  "192.168.0.0/16", // 私有 C 类
+];
+
 export async function createApp(config?: AppConfig): Promise<NestFastifyApplication> {
   const cfg = config ?? loadConfig();
-  const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter(), {
+  const app = await NestFactory.create<NestFastifyApplication>(
+    AppModule,
+    new FastifyAdapter({ trustProxy: TRUSTED_PROXY }),
+    {
     logger: cfg.logging.level === "debug" ? ["debug"] : ["log", "error", "warn"],
   });
 
@@ -45,6 +60,7 @@ export async function createApp(config?: AppConfig): Promise<NestFastifyApplicat
   );
 
   const fastify = app.getHttpAdapter().getInstance();
+
   await fastify.register(cookie);
   await fastify.register(multipart, {
     limits: { fileSize: DEFAULT_MULTIPART_BODY_LIMIT, files: 1 },

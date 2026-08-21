@@ -114,6 +114,46 @@ jobs:
       - name: Web shell E2E
         run: pnpm exec playwright test tests/e2e/web-shell.spec.ts --project=chromium --project=webkit
 
+  compose-prod-config:
+    name: Compose prod config (intranet)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compose config (proxy path)
+        env:
+          POSTGRES_DB: motro
+          POSTGRES_USER: motro
+          POSTGRES_PASSWORD: ci_pw
+          SESSION_KEY: ci_session_key_0123456789abcdef
+          CSRF_KEY: ci_csrf_key_0123456789abcdef
+          COOKIE_SECURE: "true"
+          CORS_ORIGINS: http://localhost:3001
+          WEB_PUBLIC_URL: http://localhost:3001
+          INTRA_HOST_NAME: motro.local
+          TLS_CERT_FILE: /tmp/tls.crt
+          TLS_KEY_FILE: /tmp/tls.key
+          PROXY_BIND_ADDR: 127.0.0.1
+        run: docker compose -f compose/intranet.yml -f compose/intranet/proxy.yaml config
+
+      - name: Compose config (verify override path)
+        env:
+          POSTGRES_DB: motro
+          POSTGRES_USER: motro
+          POSTGRES_PASSWORD: ci_pw
+          SESSION_KEY: ci_session_key_0123456789abcdef
+          CSRF_KEY: ci_csrf_key_0123456789abcdef
+          COOKIE_SECURE: "true"
+          CORS_ORIGINS: http://localhost:3001
+          WEB_PUBLIC_URL: http://localhost:3001
+          INTRA_HOST_NAME: motro.local
+          TLS_CERT_FILE: /tmp/tls.crt
+          TLS_KEY_FILE: /tmp/tls.key
+          PROXY_BIND_ADDR: 127.0.0.1
+        run: docker compose -f compose/intranet.yml -f compose/intranet/verify.override.yml config
+
   compose-loop:
     name: Compose auth loop
     runs-on: ubuntu-latest
