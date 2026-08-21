@@ -39,3 +39,5 @@ secrets/
 
 # Local Claude worktrees created by the harness.
 .claude/worktrees/
+# Local Claude harness config (per-machine; not source, not secret).
+.claude/settings.json
