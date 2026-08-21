@@ -4498,7 +4498,11 @@ html[data-theme="dark"] .liquid-dock__active-indicator {
   backdrop-filter: blur(18px) saturate(1.5);
   -webkit-backdrop-filter: blur(18px) saturate(1.5);
   background:
-    radial-gradient(100% 160% at var(--dock-light-x) -20%, rgba(255, 245, 235, 0.3), transparent 60%),
+    radial-gradient(
+      100% 160% at var(--dock-light-x) -20%,
+      rgba(255, 245, 235, 0.3),
+      transparent 60%
+    ),
     linear-gradient(135deg, rgba(255, 245, 235, 0.14), rgba(255, 245, 235, 0.03)),
     var(--dock-active-fill);
   box-shadow:
@@ -5463,8 +5467,11 @@ html[data-theme="dark"] .operations-status--manual_action {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--color-brand-600) 7%, var(--color-bg-surface)) 0%, var(--color-bg-surface) 60%);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-brand-600) 7%, var(--color-bg-surface)) 0%,
+    var(--color-bg-surface) 60%
+  );
   border: 1px solid color-mix(in srgb, var(--color-brand-600) 22%, var(--color-border));
   border-radius: var(--radius-panel);
   padding: 20px 22px;
@@ -7571,7 +7578,9 @@ html[data-theme="dark"] .operations-filter input {
   background-position:
     calc(100% - 18px) 50%,
     calc(100% - 13px) 50%;
-  background-size: 5px 5px, 5px 5px;
+  background-size:
+    5px 5px,
+    5px 5px;
   background-repeat: no-repeat;
 }
 .admin-motivation-toolbar select:focus {

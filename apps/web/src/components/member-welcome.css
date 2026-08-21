@@ -111,8 +111,7 @@
   inset: 0;
   z-index: 1;
   border-radius: inherit;
-  background-image:
-    radial-gradient(rgb(228 170 98 / 0.055) 1px, transparent 1.5px);
+  background-image: radial-gradient(rgb(228 170 98 / 0.055) 1px, transparent 1.5px);
   background-size: 22px 22px;
   pointer-events: none;
 }
@@ -142,7 +141,9 @@
   z-index: 2;
   border-radius: inherit;
   border: 1px solid rgb(255 236 200 / 0.24);
-  box-shadow: inset 0 0 0 1px rgb(43 29 14 / 0.72), 0 5px 0 rgb(25 16 7 / 0.72);
+  box-shadow:
+    inset 0 0 0 1px rgb(43 29 14 / 0.72),
+    0 5px 0 rgb(25 16 7 / 0.72);
   pointer-events: none;
   transform: translateZ(2px);
 }
@@ -274,8 +275,12 @@
   }
 }
 @keyframes member-shine {
-  0%  { transform: translateX(-120%); }
-  100% { transform: translateX(130%); }
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(130%);
+  }
 }
 @keyframes member-flash {
   0% {

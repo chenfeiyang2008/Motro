@@ -265,7 +265,9 @@ export default function LeaderboardPage() {
                     data-is-viewer={isViewer || undefined}
                   >
                     <td className="lb-rank-cell">
-                      <span className={`lb-rank-num${r.rank <= 3 ? ` lb-rank-num--top${r.rank}` : ""}`}>
+                      <span
+                        className={`lb-rank-num${r.rank <= 3 ? ` lb-rank-num--top${r.rank}` : ""}`}
+                      >
                         {r.rank}
                       </span>
                     </td>

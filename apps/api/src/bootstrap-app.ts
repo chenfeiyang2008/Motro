@@ -35,8 +35,9 @@ export async function createApp(config?: AppConfig): Promise<NestFastifyApplicat
     AppModule,
     new FastifyAdapter({ trustProxy: TRUSTED_PROXY }),
     {
-    logger: cfg.logging.level === "debug" ? ["debug"] : ["log", "error", "warn"],
-  });
+      logger: cfg.logging.level === "debug" ? ["debug"] : ["log", "error", "warn"],
+    },
+  );
 
   app.setGlobalPrefix("api/v1");
   app.useGlobalFilters(new GlobalExceptionFilter());

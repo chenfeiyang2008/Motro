@@ -111,7 +111,9 @@ test.describe("learner dock & type (no-API shell)", () => {
 
       const assertProfileGeometry = async () => {
         const geometry = await page.evaluate(() => {
-          const profile = document.querySelector(".learner-topbar-profile")?.getBoundingClientRect();
+          const profile = document
+            .querySelector(".learner-topbar-profile")
+            ?.getBoundingClientRect();
           const theme = document.querySelector(".theme-toggle--global")?.getBoundingClientRect();
           return {
             profileRight: profile?.right ?? 0,
