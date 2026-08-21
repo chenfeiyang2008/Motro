@@ -195,6 +195,66 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
       expect(JSON.stringify(body)).not.toMatch(/password|session|request_hash/);
     });
 
+    it("admin list: pagination (limit + cursor) and q text search", async () => {
+      // 造 4 条可区分的文案（含唯一标记，供搜索与断言）；3 条命中搜索，1 条不命中
+      const tag = randomBytes(3).toString("hex");
+      await pool.query(
+        `INSERT INTO home_motivation_copies (copy_text, category) VALUES
+           ('search-tag-${tag}-alpha', 'poetry_pun'),
+           ('search-tag-${tag}-beta',  'english_joke'),
+           ('search-tag-${tag}-gamma', 'learning_wit'),
+           ('other-no-match-${tag}',   'encouragement')`,
+      );
+      // 1) q 搜索只命中匹配的 3 条
+      const search = await admin.req(
+        "GET",
+        `/api/v1/admin/motivation-copies?q=${encodeURIComponent(`search-tag-${tag}`)}&limit=30`,
+      );
+      expect(search.statusCode).toBe(200);
+      const searchBody = search.json() as {
+        items: Array<{ text: string; category: string }>;
+        hasMore: boolean;
+        nextCursor?: string | null;
+      };
+      const texts = searchBody.items.map((i) => i.text);
+      expect(searchBody.items.length).toBe(3);
+      expect(texts.some((t) => t.includes("alpha"))).toBe(true);
+      expect(texts.some((t) => t.includes("beta"))).toBe(true);
+      expect(texts.some((t) => t.includes("gamma"))).toBe(true);
+      expect(texts.some((t) => t.includes("no-match"))).toBe(false);
+
+      // 2) q 与 category 组合过滤
+      const filtered = await admin.req(
+        "GET",
+        `/api/v1/admin/motivation-copies?q=${encodeURIComponent(`search-tag-${tag}`)}&category=poetry_pun`,
+      );
+      expect(filtered.statusCode).toBe(200);
+      const filteredBody = filtered.json() as { items: Array<{ category: string }> };
+      expect(filteredBody.items.length).toBe(1);
+      expect(filteredBody.items[0]!.category).toBe("poetry_pun");
+
+      // 3) limit=2 → hasMore=true + nextCursor 非空；用 cursor 取下一页（剩 1 条）
+      const page1 = await admin.req(
+        "GET",
+        `/api/v1/admin/motivation-copies?q=${encodeURIComponent(`search-tag-${tag}`)}&limit=2`,
+      );
+      const page1Body = page1.json() as {
+        items: Array<{ text: string }>;
+        hasMore: boolean;
+        nextCursor: string | null;
+      };
+      expect(page1Body.items.length).toBe(2);
+      expect(page1Body.hasMore).toBe(true);
+      expect(page1Body.nextCursor).toBeTruthy();
+      const page2 = await admin.req(
+        "GET",
+        `/api/v1/admin/motivation-copies?q=${encodeURIComponent(`search-tag-${tag}`)}&limit=2&cursor=${encodeURIComponent(page1Body.nextCursor!)}`,
+      );
+      const page2Body = page2.json() as { items: Array<{ text: string }>; hasMore: boolean };
+      expect(page2Body.items.length).toBe(1); // 剩 1 条命中
+      expect(page2Body.hasMore).toBe(false);
+    });
+
     it("batch create: creates new, skips duplicate-in-request, skips existing-DB, counts accurate", async () => {
       // Seed one copy directly so batch sees it as existing.
       await pool.query(

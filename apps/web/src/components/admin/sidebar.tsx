@@ -4,16 +4,22 @@
 // 不是漂浮圆角卡片（spec §4.3），桌面端始终可见；窄屏由 AdminMobileNav 接管。
 // Liquid Glass 仅作用于侧栏功能层，正文/表单/表格保持实体表面。
 import Link from "next/link";
+import type { PublicUser } from "@/lib/auth";
 
+import { AccountMenu } from "../account-menu";
 import { MotroLogo } from "../motro-logo";
 import { ADMIN_NAV_GROUPS } from "./nav";
 import { AdminNavList } from "./nav-list";
 
 interface Props {
   pathname: string;
+  user: PublicUser;
+  onLogout: () => void;
+  logoutBusy: boolean;
+  logoutError: string | null;
 }
 
-export function AdminSidebar({ pathname }: Props) {
+export function AdminSidebar({ pathname, user, onLogout, logoutBusy, logoutError }: Props) {
   return (
     <aside className="admin-sidebar" aria-label="管理端导航">
       <Link className="admin-brand" href="/admin" aria-label="Motro 管理端首页">
@@ -28,6 +34,14 @@ export function AdminSidebar({ pathname }: Props) {
       </div>
 
       <div className="admin-sidebar__footer">
+        <div className="admin-sidebar__account">
+          <AccountMenu user={user} onLogout={onLogout} busy={logoutBusy} />
+          {logoutError && (
+            <p className="app-logout-error admin-logout-error" role="alert">
+              {logoutError}
+            </p>
+          )}
+        </div>
         <Link href="/" className="admin-sidebar__exit">
           前往学习端
         </Link>

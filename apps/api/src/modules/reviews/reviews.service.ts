@@ -137,14 +137,16 @@ function sourceOf(
 ): ReviewSourceProjectionDto {
   return {
     sourceName: "Wiktionary",
-    pageId: row.source_page_id,
-    revisionId: row.source_revision_id,
-    revisionTimestamp: new Date(row.source_revision_timestamp!).toISOString(),
-    sourceUrl: row.source_url,
-    licenseName: row.license_name!,
+    pageId: row.source_page_id ?? "unknown",
+    revisionId: row.source_revision_id ?? "unknown",
+    revisionTimestamp: row.source_revision_timestamp
+      ? new Date(row.source_revision_timestamp).toISOString()
+      : "unknown",
+    sourceUrl: row.source_url ?? "https://en.wiktionary.org",
+    licenseName: row.license_name ?? "unknown",
     ...(row.license_version ? { licenseVersion: row.license_version } : {}),
-    licenseUrl: row.license_url!,
-    attribution: row.attribution!,
+    licenseUrl: row.license_url ?? "https://creativecommons.org/licenses/by-sa/4.0/",
+    attribution: row.attribution ?? "Contributors to Wiktionary",
   };
 }
 
@@ -198,7 +200,9 @@ function projectionVersionOf(
     draftStatus: row.draft_status,
     sourceFactIdentity: row.source_fact_identity,
     sourceRevisionId: row.source_revision_id,
-    sourceRevisionTimestamp: new Date(row.source_revision_timestamp!).toISOString(),
+    sourceRevisionTimestamp: row.source_revision_timestamp
+      ? new Date(row.source_revision_timestamp).toISOString()
+      : "unknown",
     resolvedProviderModel: row.resolved_provider_model,
     promptTemplateVersion: row.prompt_template_version,
     draftSchemaVersion: row.draft_schema_version,
@@ -302,6 +306,7 @@ export class ReviewsService {
       `SELECT dec.decision_type,
               EXISTS (SELECT 1 FROM manual_handling_facts h2 WHERE h2.draft_id = d.id AND h2.next_status='draft_ready') AS handling_fact_exists,
               d.id AS draft_id,
+              d.created_at AS draft_created_at,
               r.normalized_spelling AS spelling,
               CASE WHEN d.status = 'draft_ready' THEN d.status ELSE 'draft_ready' END AS draft_status,
               f.part_of_speech AS part_of_speech,

@@ -1,7 +1,3 @@
-## Agent skills
-
-### Issue tracker
-
 Issues and specifications are tracked as local Markdown files in `.scratch/`. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels

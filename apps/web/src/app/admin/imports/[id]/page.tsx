@@ -590,10 +590,13 @@ export default function AdminImportBatchDetailPage() {
     setRowsHasMore(res.data.hasMore);
   }
 
-  /** 提交成功：保存结果并刷新批次详情（获取 committed 状态）。 */
+  /** 提交成功：保存结果并刷新批次详情（获取 committed 状态），并重新加载行表以反映已提交状态。 */
   async function handleCommitted(result: ImportCommitResult): Promise<void> {
     setCommitResult(result);
     await reload();
+    // reload() 将 rows 重置为 []，但 currentValidationStatus 未变（仍为 "validated"），
+    // auto-load effect 不会重新触发。需显式重新加载行表以获取最新的 commitStatus。
+    void loadMoreRows(true);
   }
 
   // Auto-load rows on first validated state or when the row status filter changes.

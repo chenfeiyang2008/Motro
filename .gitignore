@@ -29,3 +29,13 @@ secrets/
 
 # Local UI skill runtime state; installed skill definitions remain tracked.
 .impeccable/
+
+# Local scratch / ad-hoc working dirs — never committed (debug scripts, agent notes, demos).
+.scratch/
+.vscode/
+
+# Installed UI agent skills (definitions are fetched at runtime, not source).
+.agents/skills/
+
+# Local Claude worktrees created by the harness.
+.claude/worktrees/

@@ -76,6 +76,9 @@ export const PERMANENT_ERROR_CODES = new Set([
   "OPERATION_INVALID_PAYLOAD",
   "OPERATION_ALREADY_SUCCEEDED",
   "OPERATION_MAX_ATTEMPTS_EXCEEDED",
+  // 未注册的 operation handler：在 providerMode=real 模式下收到 fake task，或在
+  // fake 模式下收到 real task。handler 注册不会在重试中自愈，直接永久失败。
+  "OPERATION_HANDLER_MISSING",
   // 工单 05 seam 修复（Ticket 04→05）：WIKI permanent 契约。见 P1-2。
   "WIKI_RESPONSE_MALFORMED",
   "WIKI_RESPONSE_TOO_LARGE",
@@ -503,4 +506,34 @@ export function claimDecision(options: {
   }
   // succeeded / failed / manual_action
   return "noop";
+}
+
+// ---- Enrichment provider task identifiers + mode selector ----
+//
+// 这些 task identifier 必须与 worker 侧 handler 的实际注册键完全一致
+// （see apps/worker/src/{wiktionary,deepseek}-{fake,real}-handler/…）。
+// 放置于 domain 而非 worker，是为了让 API 层（import.service）在不 import
+// worker 内部的前提下，按 providerMode 解析富集操作的 operation_type。
+
+export const WIKTIONARY_TASK_IDENTIFIERS = {
+  fake: "motro-wiktionary-fake",
+  real: "motro-wiktionary-real",
+} as const;
+
+export const DEEPSEEK_TASK_IDENTIFIERS = {
+  fake: "motro-deepseek-fake",
+  real: "motro-deepseek-real",
+} as const;
+
+/** 解析当前 providerMode 下富集链路（Wiktionary→DeepSeek）的 operation type。 */
+export function enrichmentOperationTypes(providerMode: "fake" | "real") {
+  return providerMode === "real"
+    ? {
+        wiktionary: WIKTIONARY_TASK_IDENTIFIERS.real,
+        deepseek: DEEPSEEK_TASK_IDENTIFIERS.real,
+      }
+    : {
+        wiktionary: WIKTIONARY_TASK_IDENTIFIERS.fake,
+        deepseek: DEEPSEEK_TASK_IDENTIFIERS.fake,
+      };
 }

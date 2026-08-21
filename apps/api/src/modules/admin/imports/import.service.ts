@@ -32,6 +32,7 @@ import {
   ERROR_REPORT_CSV_LINE_SEPARATOR,
   safeReportFilename,
   operationInputHash,
+  enrichmentOperationTypes,
   type ImportMapping,
   type ImportRowIssue,
 } from "@motro/domain";
@@ -1376,6 +1377,31 @@ export class ImportService {
       }
     }
 
+    // 5c) 富集链路：为每个稳定 commit row 原子投递 Wiktionary → DeepSeek 两个 operation
+    //     （同一事务内 add_job；失败整体回滚）。DeepSeek handler 依 commit_row_id 自取
+    //     fetched 源事实（wiktionary_source_facts），缺失时 → DRAFT_SOURCE_MISSING manual_action。
+    const enrichment = enrichmentOperationTypes(this.config.providerMode);
+    for (const crId of commitRowIds) {
+      await this.enqueueEnrichmentOperation(client, {
+        operationType: enrichment.wiktionary,
+        targetType: "import_batch_commit_row",
+        targetId: crId,
+        inputVersion: 1,
+        requestedBy: userId,
+        queueName: "local",
+        maxAttempts,
+      });
+      await this.enqueueEnrichmentOperation(client, {
+        operationType: enrichment.deepseek,
+        targetType: "import_batch_commit_row",
+        targetId: crId,
+        inputVersion: 1,
+        requestedBy: userId,
+        queueName: "local",
+        maxAttempts,
+      });
+    }
+
     // 6) 批次状态 → committed（本批已提交过有效行；不可变提交事实是权威来源）。
     await client.query(
       `UPDATE import_batches SET status = 'committed', updated_at = now() WHERE id = $1`,
@@ -1433,6 +1459,54 @@ export class ImportService {
     };
     await this.completeCommit(client, userId, idempotencyKey, finalResult);
     return finalResult;
+  }
+
+  /**
+   * 富集操作投递（镜像 fixture enqueue 的语义）。
+   * 在同一事务内原子投递一个 Wiktionary 或 DeepSeek 操作；add_job 失败时
+   * 抛 OperationEnqueueRollbackError，整个业务事务回滚，绝不 fire-and-forget。
+   * 返回值非 null（operationId + created），幂等由 application_operations 唯一约束保障。
+   */
+  private async enqueueEnrichmentOperation(
+    client: import("pg").PoolClient,
+    spec: {
+      operationType: string;
+      targetType: string;
+      targetId: string;
+      inputVersion: number;
+      requestedBy: string;
+      queueName: string;
+      maxAttempts: number;
+    },
+  ): Promise<{ created: boolean; operationId: string }> {
+    const inputHash = operationInputHash({
+      operationType: spec.operationType,
+      targetType: spec.targetType,
+      targetId: spec.targetId,
+      inputVersion: spec.inputVersion,
+    });
+    let enqueued: { created: boolean; operationId: string } | null;
+    try {
+      enqueued = await this.enqueuePort.enqueueInTransaction(client, {
+        operationType: spec.operationType,
+        targetType: spec.targetType,
+        targetId: spec.targetId,
+        inputVersion: spec.inputVersion,
+        inputHash,
+        requestedBy: spec.requestedBy,
+        queueName: spec.queueName,
+        maxAttempts: spec.maxAttempts,
+      });
+    } catch (err) {
+      if (err instanceof OperationEnqueueRollbackError) throw err;
+      throw new OperationEnqueueRollbackError(
+        err instanceof Error ? err.message : "无法为富集操作投递后台任务",
+      );
+    }
+    if (enqueued === null) {
+      throw new OperationEnqueueRollbackError("无法为富集操作投递后台任务");
+    }
+    return enqueued;
   }
 
   private sourceContentHash(rowId: string, batchId: string, mappingVersion: number): string {

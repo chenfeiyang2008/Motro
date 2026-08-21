@@ -268,7 +268,10 @@ test.describe("admin imports", () => {
 
     // 校验成功 → 校验摘要 + 行表。
     await expect(adminPage.getByText("校验摘要")).toBeVisible({ timeout: 15000 });
-    await expect(adminPage.getByText("有效候选", { exact: true })).toBeVisible();
+    // 「有效候选」既出现在校验摘要（dt）也出现在行状态筛选 option，用 .import-summary-list 限定语义元素。
+    await expect(
+      adminPage.locator(".import-summary-list").getByText("有效候选", { exact: true }),
+    ).toBeVisible();
     await expect(adminPage.getByText("行结果")).toBeVisible();
     // 提交有效行现在是可用的主操作（工单 03）。
     await expect(adminPage.getByRole("button", { name: /提交有效行/ })).toBeEnabled();
@@ -317,9 +320,13 @@ test.describe("admin imports", () => {
     });
     await adminPage.getByLabel("来源声明").fill("E2E 溢出来源");
     await uploadBtn.click();
+    // 上传成功 → 等待 toast + 列表批次行出现后再点击（避免冷启动下列表尚未刷新导致点击无效）。
+    await expect(adminPage.getByText("上传成功，已创建批次。")).toBeVisible({ timeout: 15000 });
     await expect(adminPage.getByText(fileName, { exact: true })).toBeVisible({ timeout: 15000 });
     await adminPage.getByText(fileName, { exact: true }).click();
-    await expect(adminPage.getByRole("heading", { name: "导入批次" })).toBeVisible();
+    await expect(adminPage.getByRole("heading", { name: "导入批次" })).toBeVisible({
+      timeout: 10000,
+    });
 
     for (const width of [390, 768, 1440]) {
       await adminPage.setViewportSize({ width, height: width === 390 ? 844 : 900 });

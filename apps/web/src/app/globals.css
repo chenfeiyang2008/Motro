@@ -1753,7 +1753,7 @@ button.secondary.danger {
   bottom: max(12px, env(safe-area-inset-bottom));
   top: auto;
   justify-content: center;
-  padding: 0 16px;
+  padding: 0 8px;
   pointer-events: auto;
 }
 
@@ -1774,16 +1774,16 @@ button.secondary.danger {
 .liquid-dock {
   --dock-light-x: 50%;
   --dock-light-y: -25%;
-  --dock-gap: 4px;
+  --dock-gap: 8px;
   --dock-active-fg: #a9470d;
   --dock-active-fill: rgba(245, 120, 31, 0.14);
   --dock-active-edge: rgba(245, 120, 31, 0.42);
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  /* 宽度随视口缩放（保证 320px 起不横向溢出），同时用 max-width 维持胶囊比例，桌面端居中。 */
+  /* 宽度随视口缩放（保证 320px 起不横向溢出），同时用 max-width 维持比例，桌面端居中。 */
   width: 100%;
-  max-width: 440px;
+  max-width: 680px;
   padding: 5px;
   border: 1px solid rgba(121, 139, 157, 0.42);
   border-radius: 999px;
@@ -1884,22 +1884,27 @@ button.secondary.danger {
   top: 0;
   bottom: 0;
   left: 0;
-  /* 宽度与透视轨道同源：每项占 1/4，间隙由 translateX 的百分比微补。 */
-  width: calc(25% - 3px);
+  /* 胶囊宽 = 列宽 = (容器宽 - 3×gap)/4；translateX 严格按 N×(自身宽+gap) 对齐，
+     保证胶囊精确覆盖激活列（列宽随 Dock 拉长而变宽，胶囊随之更长）。 */
+  width: calc((100% - var(--dock-gap) * 3) / 4);
   border: 1px solid var(--dock-active-edge);
-  border-radius: 999px;
+  /* 标准胶囊形：圆角 = 高度一半（28px），两头圆头、中间平直，非矩形非正圆 */
+  border-radius: 28px;
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
   background:
     radial-gradient(
-      100% 120% at var(--dock-light-x) 0%,
-      rgba(255, 255, 255, 0.28),
-      transparent 66%
+      100% 160% at var(--dock-light-x) -20%,
+      rgba(255, 255, 255, 0.42),
+      transparent 62%
     ),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.08)),
     var(--dock-active-fill);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    inset 0 -1px 0 rgba(46, 81, 110, 0.16),
-    0 1px 2px rgba(35, 52, 69, 0.1);
-  /* 选中态沿用 Dock 其余链接一致的 motion.state（180ms），可被新点击中断改道。 */
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -1px 0 rgba(46, 81, 110, 0.22),
+    0 2px 6px rgba(35, 52, 69, 0.14),
+    0 0 0 0.5px rgba(255, 255, 255, 0.25);
   transform: translateX(0);
   transition:
     transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -1907,16 +1912,18 @@ button.secondary.danger {
   will-change: transform;
 }
 
-.liquid-dock[data-active-index="1"] .liquid-dock__active-indicator {
+/* data-active-index 在 .liquid-dock__content 上；translateX 百分比参照自身宽度：
+   第N列位置 = N×(自身宽 + gap) = N×(100% + gap) */
+.liquid-dock__content[data-active-index="1"] .liquid-dock__active-indicator {
   transform: translateX(calc(100% + var(--dock-gap)));
 }
 
-.liquid-dock[data-active-index="2"] .liquid-dock__active-indicator {
-  transform: translateX(calc(200% + 8px));
+.liquid-dock__content[data-active-index="2"] .liquid-dock__active-indicator {
+  transform: translateX(calc(200% + var(--dock-gap) * 2));
 }
 
-.liquid-dock[data-active-index="3"] .liquid-dock__active-indicator {
-  transform: translateX(calc(300% + 12px));
+.liquid-dock__content[data-active-index="3"] .liquid-dock__active-indicator {
+  transform: translateX(calc(300% + var(--dock-gap) * 3));
 }
 
 .liquid-dock a {
@@ -1925,11 +1932,11 @@ button.secondary.danger {
   z-index: 1;
   width: 100%;
   min-width: 0;
-  min-height: 56px;
+  min-height: 64px;
   place-items: center;
   align-content: center;
   gap: 2px;
-  padding: 4px 12px 5px;
+  padding: 6px 22px 7px;
   border: 1px solid transparent;
   border-radius: 999px;
   color: rgba(30, 52, 74, 0.82);
@@ -4488,13 +4495,17 @@ html[data-theme="dark"] .liquid-dock a[data-dock-active="true"] {
 
 html[data-theme="dark"] .liquid-dock__active-indicator {
   border-color: var(--dock-active-edge);
+  backdrop-filter: blur(18px) saturate(1.5);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
   background:
-    radial-gradient(100% 120% at var(--dock-light-x) 0%, rgba(255, 245, 235, 0.2), transparent 66%),
+    radial-gradient(100% 160% at var(--dock-light-x) -20%, rgba(255, 245, 235, 0.3), transparent 60%),
+    linear-gradient(135deg, rgba(255, 245, 235, 0.14), rgba(255, 245, 235, 0.03)),
     var(--dock-active-fill);
   box-shadow:
-    inset 0 1px 0 rgba(255, 245, 235, 0.28),
-    inset 0 -1px 0 rgba(40, 20, 7, 0.28),
-    0 1px 2px rgba(0, 0, 0, 0.24);
+    inset 0 1px 0 rgba(255, 245, 235, 0.4),
+    inset 0 -1px 0 rgba(40, 20, 7, 0.32),
+    0 2px 6px rgba(0, 0, 0, 0.28),
+    0 0 0 0.5px rgba(255, 245, 235, 0.2);
 }
 
 /* 透明度不可用时保持实体可读性；减少透明度时也不保留高光伪影。 */

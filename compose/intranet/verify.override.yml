@@ -1,0 +1,47 @@
+# Motro 内网 fresh-volume 最小验证覆盖文件（Ticket 11 / verify.sh）。
+# ---------------------------------------------------------------------------
+# 目的：将 `docker compose -f compose/intranet.yml -f compose/intranet/verify.override.yml`
+# 组合为一个与共享 motro/e2e 库完全隔离的 fresh-volume smoke 栈。
+#
+#   - 改写 db volume 为独立 `motro-intranet-verify-db`（不碰共享库）；
+#   - 把 db/api/web worker 绑定到独占 loopback 端口上（3001/3002/3003），
+#     避免与已运行的 `127.0.0.1:3000/3001` 冲突；
+#   - 强制 fake-only provider + localhost-only CORS，永不触网；
+#   - 不暴露公网；浏览器不直接访问 (verify.sh 走 localhost)。
+#
+# 前置：准备 intranet.env（含 POSTGRES_DB/USER/PASSWORD/SESSION_KEY/CSRF_KEY/
+# CORS_ORIGINS/WEB_PUBLIC_URL=）。然后：
+#   docker compose -f compose/intranet.yml --env-file intranet.env \
+#     -f compose/intranet/verify.override.yml up -d --build
+#   sh compose/intranet/verify.sh
+# ---------------------------------------------------------------------------
+services:
+  db:
+    volumes:
+      - motro-intranet-verify-db:/var/lib/postgresql/data
+    # 暂时不要绑定到宿主机 5432，避免与正在跑的 dev 库冲突。
+    ports: []
+
+  api:
+    ports:
+      - "127.0.0.1:${API_VERIFY_PORT:-3002}:3000"
+    # Fresh-volume smoke 不走管理导入；强化 fake-only + localhost。
+    environment:
+      MOTRO_PROVIDER_MODE: fake
+      DEEPSEEK_ENABLED: "false"
+      MOTRO_WIKTIONARY_ALLOW_NETWORK: "false"
+      CORS_ORIGINS: http://127.0.0.1:${API_VERIFY_PORT:-3002}
+
+  worker:
+    # worker 在 verify stack 仍按常规方式运行，用以验证队列/恢复环路。
+    environment:
+      MOTRO_PROVIDER_MODE: fake
+      DEEPSEEK_ENABLED: "false"
+      MOTRO_WIKTIONARY_ALLOW_NETWORK: "false"
+
+  web:
+    ports:
+      - "127.0.0.1:${WEB_VERIFY_PORT:-3003}:3001"
+
+volumes:
+  motro-intranet-verify-db:

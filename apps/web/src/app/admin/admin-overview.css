@@ -1,0 +1,624 @@
+/* 管理概览 /admin — 专属样式。
+   导入：apps/web/src/app/admin/page.tsx。
+   本文件覆盖全局 admin-overview* 规则，沿用 tokens: --color-brand-*, --color-bg-surface,
+   --color-border, --color-text-*, --radius-panel/--radius-control, --color-success/--color-error/--color-warning. */
+
+/* ---- 根容器 ---- */
+.admin-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding: 12px 0 40px;
+  color: var(--color-text-primary);
+}
+
+/* ---- 顶部身份区 ---- */
+.admin-overview__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+.admin-overview__header .admin-overview__eyebrow {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+.admin-overview__header h1 {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: -0.02em;
+}
+.admin-overview__updated {
+  margin: 4px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+.admin-overview__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* 状态徽章行 */
+.admin-overview__badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.admin-overview__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--color-text-primary);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  transition: opacity 120ms ease;
+}
+.admin-overview__badge:hover {
+  opacity: 0.8;
+}
+.admin-overview__badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.admin-overview__badge--brand .admin-overview__badge-dot {
+  background: var(--color-brand-600);
+}
+.admin-overview__badge--error .admin-overview__badge-dot {
+  background: var(--color-error, #b43f35);
+}
+.admin-overview__badge--warn .admin-overview__badge-dot {
+  background: var(--color-warning, #9a6813);
+}
+.admin-overview__badge--muted {
+  opacity: 0.55;
+}
+.admin-overview__badge--muted .admin-overview__badge-dot {
+  background: var(--color-border);
+}
+
+/* 刷新按钮 */
+.admin-overview__refresh {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.admin-overview__refresh:hover {
+  border-color: var(--color-brand-600);
+  color: var(--color-brand-700);
+}
+.admin-overview__refresh:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* ---- loading skeleton ---- */
+.admin-overview__skeleton {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+}
+.admin-overview__skeleton span {
+  height: 110px;
+  border-radius: var(--radius-panel);
+  background: color-mix(in srgb, var(--color-text-secondary) 8%, transparent);
+}
+
+/* ---- error alert ---- */
+.admin-overview__error {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-left: 3px solid var(--color-error, #b43f35);
+  background: color-mix(in srgb, var(--color-error, #b43f35) 9%, transparent);
+  color: var(--color-error, #b43f35);
+}
+.admin-overview__error button {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid currentcolor;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* ---- section headings ---- */
+.admin-overview__section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+.admin-overview__section-heading h2 {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+}
+.admin-overview__section-heading span {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+/* ================================================================
+   规模指标区：大数字卡 + 图标 + 比例条
+   ================================================================ */
+.admin-overview__metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 14px;
+}
+.admin-overview__metric {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px 18px;
+  min-height: 144px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: var(--color-bg-surface);
+  transition: box-shadow 150ms ease;
+}
+.admin-overview__metric:hover {
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+}
+.admin-overview__metric-icon {
+  width: 32px;
+  height: 32px;
+  color: var(--color-brand-700);
+  opacity: 0.75;
+}
+.admin-overview__metric-icon svg {
+  width: 100%;
+  height: 100%;
+}
+.admin-overview__metric-label {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.admin-overview__metric-value {
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+.admin-overview__metric-note,
+.admin-overview__metric small {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  margin-top: auto;
+}
+
+/* 比例条（ratio track + fill） */
+.admin-overview__metric-ratio {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: auto;
+}
+.admin-overview__metric-ratio small {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+}
+.admin-overview__ratio-track {
+  display: block;
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-text-secondary) 12%, transparent);
+  overflow: hidden;
+}
+.admin-overview__ratio-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-brand-600);
+  transition: width 300ms ease;
+}
+
+/* ================================================================
+   环形分布图（donut）
+   ================================================================ */
+.admin-overview__donuts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+.admin-overview__donut {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px 12px;
+  min-height: 260px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: var(--color-bg-surface);
+}
+.admin-overview__donut svg {
+  width: 175px;
+  height: 175px;
+  transform: rotate(-90deg);
+}
+.admin-overview__donut-track {
+  fill: none;
+  stroke: color-mix(in srgb, var(--color-text-secondary) 12%, transparent);
+  stroke-width: 3.5;
+}
+.admin-overview__donut-value {
+  fill: none;
+  stroke: var(--color-brand-600);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  transition: stroke-dasharray 400ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-overview__donut-value {
+    transition: none;
+  }
+}
+.admin-overview__donut-center {
+  position: absolute;
+  inset: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.admin-overview__donut-center strong {
+  font-size: 26px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  color: var(--color-text-primary);
+}
+.admin-overview__donut-center span {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+/* ================================================================
+   待处理区：左「优先处理」+ 右「各队列明细」
+   ================================================================ */
+.admin-overview__work {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+/* 左栏 — 优先处理面板 */
+.admin-overview__priority {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 20px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: var(--color-bg-surface);
+}
+.admin-overview__priority-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.admin-overview__priority-heading h3 {
+  margin: 0;
+  font-size: 15px;
+}
+.admin-overview__priority-heading span {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+/* 堆叠条（stacked bar） */
+.admin-overview__stack {
+  display: flex;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.admin-overview__stack-seg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 4px;
+  border-radius: 999px;
+  text-decoration: none;
+  transition: opacity 120ms ease;
+}
+.admin-overview__stack-seg:hover {
+  opacity: 0.8;
+}
+.admin-overview__stack-seg span {
+  font-size: 0;
+  white-space: nowrap;
+}
+.admin-overview__stack-seg--reviews {
+  background: var(--color-brand-600);
+}
+.admin-overview__stack-seg--imports {
+  background: var(--color-error, #b43f35);
+}
+.admin-overview__stack-seg--operations {
+  background: var(--color-error, #b43f35);
+  opacity: 0.7;
+}
+.admin-overview__stack-seg--publishing {
+  background: var(--color-warning, #9a6813);
+}
+
+/* 优先处理列表（全部队列合并） */
+.admin-overview__priority-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.admin-overview__priority-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  color: var(--color-text-primary);
+  font-size: 14px;
+  text-decoration: none;
+  transition: background-color 120ms ease;
+}
+.admin-overview__priority-item:hover {
+  background: color-mix(in srgb, var(--color-brand-600) 10%, transparent);
+}
+.admin-overview__priority-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--color-brand-700);
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+.admin-overview__priority-icon svg {
+  width: 100%;
+  height: 100%;
+}
+.admin-overview__priority-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-overview__priority-meta {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+.admin-overview__priority-item time {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+/* 右栏 — 各队列明细 */
+.admin-overview__queues {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.admin-overview__queue {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 14px;
+  min-height: 130px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: var(--color-bg-surface);
+}
+.admin-overview__queue-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.admin-overview__queue-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--color-brand-700);
+  opacity: 0.65;
+  flex-shrink: 0;
+}
+.admin-overview__queue-icon svg {
+  width: 100%;
+  height: 100%;
+}
+.admin-overview__queue-heading h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.admin-overview__queue-heading strong {
+  margin-left: auto;
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.admin-overview__queue-heading a {
+  color: var(--color-brand-600);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.admin-overview__queue-heading a:hover {
+  text-decoration: underline;
+}
+
+.admin-overview__empty {
+  margin: 0;
+  padding: 8px 0;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  text-align: center;
+}
+.admin-overview__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.admin-overview__list li {
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--color-brand-050) 12%, transparent);
+}
+.admin-overview__list a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  text-decoration: none;
+  transition: background-color 120ms ease;
+}
+.admin-overview__list a:hover {
+  background: color-mix(in srgb, var(--color-brand-600) 10%, transparent);
+}
+.admin-overview__item-marker {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-brand-600);
+  flex-shrink: 0;
+}
+.admin-overview__item-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-overview__item-meta {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+.admin-overview__list time {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+/* ================================================================
+   Responsive — 768px
+   ================================================================ */
+@media (max-width: 768px) {
+  .admin-overview__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .admin-overview__header-actions {
+    justify-content: space-between;
+  }
+  .admin-overview__work {
+    grid-template-columns: 1fr;
+  }
+  .admin-overview__donuts {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  }
+}
+
+/* ================================================================
+   Responsive — 390px（移动端）
+   ================================================================ */
+@media (max-width: 480px) {
+  .admin-overview {
+    padding: 12px 0 32px;
+  }
+  .admin-overview__header h1 {
+    font-size: 22px;
+  }
+  .admin-overview__badges {
+    gap: 6px;
+  }
+  .admin-overview__badge {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+  .admin-overview__metrics {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .admin-overview__metric-value {
+    font-size: 28px;
+  }
+  .admin-overview__metric {
+    padding: 14px 16px;
+  }
+  .admin-overview__donuts {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .admin-overview__donut {
+    padding: 18px;
+  }
+  .admin-overview__donut svg {
+    width: 84px;
+    height: 84px;
+  }
+  .admin-overview__donut-center strong {
+    font-size: 18px;
+  }
+  .admin-overview__priority {
+    padding: 14px 16px;
+  }
+  .admin-overview__queues {
+    gap: 10px;
+  }
+  .admin-overview__queue {
+    padding: 12px 14px;
+  }
+  .admin-overview__priority-item {
+    padding: 8px 10px;
+  }
+}
+
+/* ================================================================
+   Dark theme overrides
+   ================================================================ */
+html[data-theme="dark"] .admin-overview__metric:hover {
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--color-text-primary) 14%, transparent);
+}
+html[data-theme="dark"] .admin-overview__stack-seg--operations {
+  opacity: 0.6;
+}

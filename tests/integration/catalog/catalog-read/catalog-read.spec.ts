@@ -344,6 +344,8 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")("learner c
   it("未登录拒绝；admin 访问 learner API 只得到 learner 结果；learner 不能访问 admin draft API", async () => {
     const anon = await app.inject({ method: "GET", url: "/api/v1/catalog/courses" });
     expect(anon.statusCode).toBe(401);
+    const adminAnon = await app.inject({ method: "GET", url: "/api/v1/admin/courses" });
+    expect(adminAnon.statusCode).toBe(401);
 
     // admin 作为登录用户访问 learner API → 只得到 learner 只读结果（不含草稿标题）。
     const { courseId } = await createPublishedCourse();
@@ -355,5 +357,55 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")("learner c
     // learner 不能访问 admin draft API。
     const draftAccess = await learner.req("GET", `/api/v1/admin/courses/${courseId}/draft`, {});
     expect(draftAccess.statusCode).toBe(403);
+  });
+
+  it("管理员课程列表支持服务端游标分页和大小写不敏感搜索", async () => {
+    const marker = uniq("admin-page");
+    const ids: string[] = [];
+    for (const suffix of ["one", "two", "three"]) {
+      const res = await admin.req("POST", "/api/v1/admin/courses", {
+        payload: {
+          slug: `${marker}-${suffix}`,
+          title: `${marker} ${suffix}`,
+          level: "a1",
+        },
+      });
+      expect(res.statusCode).toBe(201);
+      ids.push((body(res) as { courseId: string }).courseId);
+    }
+
+    const first = await admin.req("GET", `/api/v1/admin/courses?limit=2&q=${marker}`, {});
+    expect(first.statusCode).toBe(200);
+    const firstBody = body(first) as {
+      items: { id: string; slug: string; updatedAt: string }[];
+      nextCursor: string | null;
+      hasMore: boolean;
+    };
+    expect(firstBody.items).toHaveLength(2);
+    expect(firstBody.hasMore).toBe(true);
+    expect(firstBody.nextCursor).toBeTruthy();
+    expect(firstBody.items.every((item) => item.slug.startsWith(marker))).toBe(true);
+    expect(firstBody.items.every((item) => !("passwordHash" in item))).toBe(true);
+
+    const second = await admin.req(
+      "GET",
+      `/api/v1/admin/courses?limit=2&q=${marker.toUpperCase()}&cursor=${encodeURIComponent(firstBody.nextCursor ?? "")}`,
+      {},
+    );
+    expect(second.statusCode).toBe(200);
+    const secondBody = body(second) as {
+      items: { id: string; slug: string; updatedAt: string }[];
+      hasMore: boolean;
+    };
+    expect(secondBody.items).toHaveLength(1);
+    expect(secondBody.hasMore).toBe(false);
+    const firstIds = new Set(firstBody.items.map((item) => item.id));
+    expect(secondBody.items.some((item) => firstIds.has(item.id))).toBe(false);
+    expect(ids).toEqual(
+      expect.arrayContaining([...firstBody.items, ...secondBody.items].map((i) => i.id)),
+    );
+
+    expect((await admin.req("GET", "/api/v1/admin/courses?limit=0", {})).statusCode).toBe(422);
+    expect((await admin.req("GET", "/api/v1/admin/courses?limit=51", {})).statusCode).toBe(422);
   });
 });

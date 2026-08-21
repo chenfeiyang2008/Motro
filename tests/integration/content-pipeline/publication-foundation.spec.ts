@@ -183,7 +183,7 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")(
       it("0001..0036 migrated; provenance bridge columns present", async () => {
         const all = await db.query("SELECT version FROM schema_migrations ORDER BY version");
         const max = Math.max(...all.rows.map((r) => r.version as number));
-        expect(max).toBe(42);
+        expect(max).toBe(46);
         for (let v = 1; v <= 37; v++) {
           expect(all.rows.map((r) => r.version as number)).toContain(v);
         }

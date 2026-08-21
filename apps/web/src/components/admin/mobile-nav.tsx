@@ -6,16 +6,29 @@
 // - 菜单与桌面侧栏共用同一组导航项，确保手机端入口一致。
 import { useEffect, useRef, useState } from "react";
 
+import { AccountMenu } from "../account-menu";
 import { ADMIN_ICONS } from "./icons";
 import { AdminNavList } from "./nav-list";
 import type { AdminNavItem } from "./nav";
+import type { PublicUser } from "@/lib/auth";
 
 interface Props {
   groups: Array<{ label: string; items: AdminNavItem[] }>;
   pathname: string;
+  user: PublicUser;
+  onLogout: () => void;
+  logoutBusy: boolean;
+  logoutError: string | null;
 }
 
-export function AdminMobileNav({ groups, pathname }: Props) {
+export function AdminMobileNav({
+  groups,
+  pathname,
+  user,
+  onLogout,
+  logoutBusy,
+  logoutError,
+}: Props) {
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -90,6 +103,14 @@ export function AdminMobileNav({ groups, pathname }: Props) {
           </button>
         </div>
         <AdminNavList groups={groups} pathname={pathname} onNavigate={closeAndRestoreFocus} />
+        <div className="admin-mobile-nav__account">
+          <AccountMenu user={user} onLogout={onLogout} busy={logoutBusy} />
+          {logoutError && (
+            <p className="app-logout-error admin-logout-error" role="alert">
+              {logoutError}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

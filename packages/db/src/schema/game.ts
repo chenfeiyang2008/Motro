@@ -202,6 +202,7 @@ export const challengeAttemptItems = pgTable(
     lexicalEntryId: uuid("lexical_entry_id").notNull(),
     englishSpelling: text("english_spelling").notNull(),
     meaning: text("meaning").notNull(),
+    choiceOptions: text("choice_options").array(),
     serverAnswer: text("server_answer").notNull(),
     scoreEligible: boolean("score_eligible").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

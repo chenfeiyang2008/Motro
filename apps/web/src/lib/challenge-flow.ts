@@ -18,6 +18,7 @@ export interface ChallengeItemFlow {
   questionType: ChallengeQuestionType;
   englishSpelling: string;
   meaning: string;
+  choices: string[];
 }
 
 export interface VerdictFlow {

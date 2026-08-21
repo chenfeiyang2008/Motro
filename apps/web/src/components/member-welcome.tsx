@@ -7,6 +7,7 @@
 // - pointer-events: none，不抢焦点、不阻挡 Tab/Esc/读屏。
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import "./member-welcome.css";
 import { MemberCrownBadge } from "./member-crown-badge";
 
@@ -38,19 +39,31 @@ interface MemberWelcomeProps {
 }
 
 export function MemberWelcome({ status, justLoggedIn, displayName }: MemberWelcomeProps) {
-  // 用 React 定时器完全卸载组件，确保所有 DOM（包括 ::after/::before 伪元素）消失。
-  // 完整动画序列 ~1.8s（sweep→card flip→shine→flash）；卡面展示到 ~3.1s 后淡出，
-  // ~3.7s 后 React unmount（遮罩、卡片、扫光一并消失，无残留）。
+  // 进场前先提交稳定的预备帧，再在下一绘制帧开启 CSS 动画。
+  // 这样动画不会与挂载、样式注入或 Strict Mode 的 effect 重放抢同一个 transform。
   const [visible, setVisible] = useState(false);
+  const [entered, setEntered] = useState(false);
   const [leaving, setLeaving] = useState(false);
+
   useEffect(() => {
     if (!justLoggedIn || status !== "member") return;
+
     setVisible(true);
-    // 停留 2100ms（完整序列 ≈ 1.2s 入场 + 2.1s 展示 + 0.78s 飞出）。
-    const leaveTimer = setTimeout(() => setLeaving(true), 2100);
-    // 离场：卡片飞出 800ms 后彻底 unmount（遮罩保持不透明直到 unmount）。
-    const unmountTimer = setTimeout(() => setVisible(false), 2900);
+    setEntered(false);
+    setLeaving(false);
+
+    // 双 rAF 确保浏览器已画出 .member-card-stage 的预备姿态，避免首帧跳到终态。
+    let enteredFrame: number | undefined;
+    const enterFrame = requestAnimationFrame(() => {
+      enteredFrame = requestAnimationFrame(() => setEntered(true));
+    });
+    const leaveTimer = setTimeout(() => setLeaving(true), 2600);
+    // 离场为 320ms；稍后卸载以完整呈现向上飞出的尾段。
+    const unmountTimer = setTimeout(() => setVisible(false), 2980);
+
     return () => {
+      cancelAnimationFrame(enterFrame);
+      if (enteredFrame !== undefined) cancelAnimationFrame(enteredFrame);
       clearTimeout(leaveTimer);
       clearTimeout(unmountTimer);
     };
@@ -61,39 +74,42 @@ export function MemberWelcome({ status, justLoggedIn, displayName }: MemberWelco
   const name = (displayName ?? "").trim();
   const shortName = name.length > 10 ? `${name.slice(0, 10)}…` : name || "欢迎回来";
 
-  return (
+  // 欢迎层必须脱离 PageTransition 的 DOM 子树：祖先动画中的 transform 会让
+  // position: fixed 临时改以页面内容为 containing block，动画结束时再跳回视口。
+  return createPortal(
     <div
-      className={`member-welcome-layer${leaving ? " member-welcome-layer--leaving" : ""}`}
+      className={`member-welcome-layer${entered ? " member-welcome-layer--entered" : ""}${leaving ? " member-welcome-layer--leaving" : ""}`}
       role="status"
       aria-live="polite"
     >
-      {/* 金闪扫光条 */}
-      <div className="member-sweep" aria-hidden="true" />
-      {/* 3D 尊贵卡 */}
-      <div className="member-card">
-        <div className="member-card__shine" aria-hidden="true" />
-        <div className="member-card__edge" aria-hidden="true" />
-        {/* 右下四分之一处的淡品牌 M logo（尊贵水印） */}
-        <div className="member-card__watermark" aria-hidden="true">
-          M
-        </div>
+      <div className="member-card-stage">
+        {/* 3D 尊贵卡 */}
+        <div className="member-card">
+          <div className="member-card__shine" aria-hidden="true" />
+          <div className="member-card__edge" aria-hidden="true" />
+          {/* 右下四分之一处的淡品牌 M logo（尊贵水印） */}
+          <div className="member-card__watermark" aria-hidden="true">
+            M
+          </div>
 
-        <div className="member-card__top">
-          <MemberCrownBadge status={status} size="welcome" />
-          <span className="member-card__brand">MOTRO</span>
-        </div>
+          <div className="member-card__top">
+            <MemberCrownBadge status={status} size="welcome" />
+            <span className="member-card__brand">MOTRO</span>
+          </div>
 
-        <div className="member-card__body">
-          <span className="member-card__id-flash">{shortName}</span>
-          <h2 className="member-card__title">尊享会员已就绪</h2>
-          <p className="member-card__sub">今日学习不限时</p>
-        </div>
+          <div className="member-card__body">
+            <span className="member-card__id-flash">{shortName}</span>
+            <h2 className="member-card__title">尊享会员已就绪</h2>
+            <p className="member-card__sub">今日学习不限时</p>
+          </div>
 
-        <div className="member-card__footer">
-          <span className="member-card__chip">GOLD</span>
-          <span className="member-card__no">#{Math.abs(name.length || 8)}</span>
+          <div className="member-card__footer">
+            <span className="member-card__chip">GOLD</span>
+            <span className="member-card__no">#{Math.abs(name.length || 8)}</span>
+          </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

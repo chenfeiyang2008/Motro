@@ -19,11 +19,28 @@ set -euo pipefail
 
 PROJECT=${PROJECT:-motro-intranet}
 ENV_FILE=${ENV_FILE:-intranet.env}
-API_HEALTH=${API_HEALTH:-http://127.0.0.1:3000/api/v1/health}
-WEB_URL=${WEB_URL:-http://127.0.0.1:3001}
+# 与 compose/intranet/verify.override.yml 中的端口保持一致（isolated fresh-volume 栈）。
+API_VERIFY_PORT=${API_VERIFY_PORT:-3002}
+WEB_VERIFY_PORT=${WEB_VERIFY_PORT:-3003}
+API_HEALTH=${API_HEALTH:-http://127.0.0.1:${API_VERIFY_PORT}/api/v1/health}
+WEB_URL=${WEB_URL:-http://127.0.0.1:${WEB_VERIFY_PORT}}
 # 允许部署者覆盖 compose 参数（端口等在 intranet.env）。
 
-COMPOSE=(docker compose -f compose/intranet.yml --env-file "${ENV_FILE}")
+# 把 intranet.env 导出到当前 shell，使后续 psql -U ${POSTGRES_USER} -d ${POSTGRES_DB}
+# 能正确取到库名/用户名（docker --env-file 只喂给 compose 插值，不影响本脚本进程）。
+if [ -f "${ENV_FILE}" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  . "${ENV_FILE}"
+  set +a
+fi
+
+# 优先追加 verify.override.yml（isolated fresh-volume 栈）；缺失时退化为单一 intranet.yml。
+COMPOSE=(docker compose -f compose/intranet.yml)
+if [ -f compose/intranet/verify.override.yml ]; then
+  COMPOSE+=(-f compose/intranet/verify.override.yml)
+fi
+COMPOSE+=(--env-file "${ENV_FILE}")
 
 step() { printf '\n==> %s\n' "$*"; }
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }

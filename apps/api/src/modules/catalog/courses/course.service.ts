@@ -55,13 +55,60 @@ import type {
 export const CATALOG_DEFAULT_LIMIT = 24;
 export const CATALOG_MAX_LIMIT = 50;
 
+export const ADMIN_COURSE_DEFAULT_LIMIT = 50;
+export const ADMIN_COURSE_MAX_LIMIT = 50;
+
 export interface CatalogCursor {
   releaseNumber: number;
   courseId: string;
 }
 
 const CURSOR_PREFIX = "motro.catalog.course.v1";
+const ADMIN_CURSOR_PREFIX = "motro.admin.course.v1";
 const UUID_HEX_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export interface AdminCourseCursor {
+  updatedAt: string;
+  courseId: string;
+  query: string;
+}
+
+/** 管理端课程列表游标：绑定搜索词，避免把一个筛选条件下的游标误用于另一个筛选条件。 */
+export function encodeAdminCourseCursor(cursor: AdminCourseCursor): string {
+  return Buffer.from(
+    `${ADMIN_CURSOR_PREFIX}.${JSON.stringify({
+      u: cursor.updatedAt,
+      c: cursor.courseId,
+      q: cursor.query,
+    })}`,
+    "utf8",
+  ).toString("base64url");
+}
+
+export function decodeAdminCourseCursor(encoded: string): AdminCourseCursor | null {
+  let decoded: string;
+  try {
+    decoded = Buffer.from(encoded, "base64url").toString("utf8");
+  } catch {
+    return null;
+  }
+  if (!decoded.startsWith(`${ADMIN_CURSOR_PREFIX}.`)) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(decoded.slice(ADMIN_CURSOR_PREFIX.length + 1));
+  } catch {
+    return null;
+  }
+  const value = parsed as { u?: unknown; c?: unknown; q?: unknown };
+  if (typeof value.u !== "string" || Number.isNaN(Date.parse(value.u))) return null;
+  if (typeof value.c !== "string" || !UUID_HEX_RE.test(value.c)) return null;
+  if (typeof value.q !== "string" || value.q.length > 200) return null;
+  return { updatedAt: new Date(value.u).toISOString(), courseId: value.c, query: value.q };
+}
+
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
 
 /** 把排序边界编码为不透明游标（base64url JSON，带版本前缀）。 */
 export function encodeCatalogCursor(cursor: CatalogCursor): string {
@@ -472,7 +519,52 @@ function collectEligibilityIssues(
 export class CourseService {
   constructor(@Inject(POOL) private readonly pool: Pool) {}
 
-  async listCourses(): Promise<CourseListItemDto[]> {
+  async listCourses(opts: { limit?: number; cursor?: string; q?: string } = {}): Promise<{
+    items: CourseListItemDto[];
+    nextCursor: string | null;
+    hasMore: boolean;
+  }> {
+    const limit = Math.min(
+      Math.max(opts.limit ?? ADMIN_COURSE_DEFAULT_LIMIT, 1),
+      ADMIN_COURSE_MAX_LIMIT,
+    );
+    // Normalize only the cursor/search binding; PostgreSQL ILIKE remains the
+    // case-insensitive matcher for the actual title and slug predicates.
+    const query = opts.q?.trim().toLocaleLowerCase() ?? "";
+    let cursor: AdminCourseCursor | null = null;
+    if (opts.cursor !== undefined) {
+      cursor = decodeAdminCourseCursor(opts.cursor);
+      if (!cursor || cursor.query !== query) {
+        throw new UnprocessableEntityException({
+          message: "课程列表分页游标无效",
+          fieldErrors: [
+            { path: "cursor", code: "invalid", message: "游标无效或与当前搜索条件不匹配" },
+          ],
+        });
+      }
+    }
+
+    const values: unknown[] = [];
+    const conditions: string[] = [];
+    if (query.length > 0) {
+      values.push(`%${escapeLikePattern(query)}%`);
+      const parameter = `$${values.length}`;
+      conditions.push(
+        `(c.slug ILIKE ${parameter} ESCAPE '\\' OR COALESCE(d.title, c.title) ILIKE ${parameter} ESCAPE '\\')`,
+      );
+    }
+    if (cursor) {
+      values.push(cursor.updatedAt, cursor.courseId);
+      const updatedAtParameter = `$${values.length - 1}`;
+      const courseIdParameter = `$${values.length}`;
+      conditions.push(
+        `(COALESCE(d.updated_at, c.updated_at) < ${updatedAtParameter}::timestamptz
+          OR (COALESCE(d.updated_at, c.updated_at) = ${updatedAtParameter}::timestamptz
+              AND c.id < ${courseIdParameter}::uuid))`,
+      );
+    }
+    values.push(limit + 1);
+    const limitParameter = `$${values.length}`;
     const result = await this.pool.query<DraftListRow>(
       `SELECT c.id, c.slug, c.title, c.level, c.description, c.visibility, c.status,
               c.created_at, c.updated_at,
@@ -480,9 +572,14 @@ export class CourseService {
               d.level AS draft_level, d.description AS draft_description, d.updated_at AS draft_updated_at
        FROM courses c
        LEFT JOIN course_drafts d ON d.course_id = c.id AND d.status = 'active'
-       ORDER BY c.created_at ASC, c.id ASC`,
+       ${conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : ""}
+       ORDER BY COALESCE(d.updated_at, c.updated_at) DESC, c.id DESC
+       LIMIT ${limitParameter}`,
+      values,
     );
-    return result.rows.map((r) => ({
+    const hasMore = result.rows.length > limit;
+    const rows = hasMore ? result.rows.slice(0, limit) : result.rows;
+    const items = rows.map((r) => ({
       id: r.id,
       slug: r.slug,
       title: r.draft_title ?? r.title,
@@ -494,6 +591,19 @@ export class CourseService {
       draftVersion: r.draft_version,
       updatedAt: (r.draft_updated_at ?? r.updated_at).toISOString(),
     }));
+    const last = rows.at(-1);
+    return {
+      items,
+      nextCursor:
+        hasMore && last
+          ? encodeAdminCourseCursor({
+              updatedAt: (last.draft_updated_at ?? last.updated_at).toISOString(),
+              courseId: last.id,
+              query,
+            })
+          : null,
+      hasMore,
+    };
   }
 
   /** 学习者目录列表：只读可见课程的 current release，不读草稿；支持 keyset 游标分页。 */

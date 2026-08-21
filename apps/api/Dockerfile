@@ -25,7 +25,10 @@ RUN pnpm build
 
 FROM node:22-alpine AS runtime
 WORKDIR /app
-ENV NODE_ENV=development
+# 默认生产运行时姿态：NODE_ENV 由部署 compose 显式覆盖（生产 → production）。
+# 生产下 loadConfig 会强制要求 SESSION_KEY / CSRF_KEY / POSTGRES_PASSWORD 等真实密钥，
+# 防止以开发凭据误启动（与 worker 镜像一致）。
+ENV NODE_ENV=production
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages ./packages
 COPY --from=build /app/apps/api ./apps/api

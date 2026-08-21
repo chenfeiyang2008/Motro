@@ -376,6 +376,33 @@ export class CreateCourseResultDto {
 export class CourseListResponseDto {
   @ApiProperty({ type: [CourseListItemDto] })
   items!: CourseListItemDto[];
+
+  @ApiProperty({ type: String, nullable: true, description: "下一页不透明游标；最后一页为 null" })
+  nextCursor!: string | null;
+
+  @ApiProperty({ description: "是否还有后续页" })
+  hasMore!: boolean;
+}
+
+export class ListAdminCoursesQueryDto {
+  @ApiPropertyOptional({ description: "每页条目数，默认 50，最大 50", default: 50 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  limit?: number;
+
+  @ApiPropertyOptional({ description: "不透明分页游标（由上一页返回），首页不传" })
+  @IsOptional()
+  @IsString()
+  cursor?: string;
+
+  @ApiPropertyOptional({ description: "按课程标题或 slug 搜索" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  q?: string;
 }
 
 export class DraftVersionConflictErrorDto {

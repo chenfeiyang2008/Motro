@@ -42,19 +42,28 @@ export class MotivationController {
   @ApiOperation({ summary: "管理员激励文案列表" })
   @ApiQuery({ name: "status", required: false, enum: ["enabled", "disabled"] })
   @ApiQuery({ name: "category", required: false })
+  @ApiQuery({ name: "q", required: false, description: "文案内容搜索（模糊匹配）" })
   @ApiQuery({ name: "cursor", required: false })
   @ApiQuery({ name: "limit", required: false })
   @ApiOkResponse({ type: AdminMotivationListDto })
   list(
     @Query("status") status?: string,
     @Query("category") category?: string,
+    @Query("q") q?: string,
     @Query("cursor") cursor?: string,
     @Query("limit") limit?: string,
   ): Promise<AdminMotivationListDto> {
     const parsed = limit === undefined ? undefined : Number(limit);
-    const opts: { status?: string; category?: string; cursor?: string; limit?: number } = {};
+    const opts: {
+      status?: string;
+      category?: string;
+      q?: string;
+      cursor?: string;
+      limit?: number;
+    } = {};
     if (status) opts.status = status;
     if (category) opts.category = category;
+    if (q) opts.q = q;
     if (cursor) opts.cursor = cursor;
     if (parsed !== undefined && Number.isFinite(parsed)) opts.limit = parsed;
     return this.service.list(opts);

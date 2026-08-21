@@ -29,7 +29,8 @@ free -h
 # 只读 SQL（进入 db 容器）
 docker compose -f compose/intranet.yml exec db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c \
   "SELECT version, name FROM schema_migrations ORDER BY version;"
-# 当前迁移最高版本应等于部署目标（见部署检查清单：当前到 0045）。
+# 当前迁移最高版本必须动态等于源码 db/migrations/ 目录最高版本（勿依赖固定值）。
+# 对比：ls db/migrations/ | sort -V | tail -1
 # 连接数：
 docker compose ... exec db psql -c "SELECT count(*) FROM pg_stat_activity;"
 # 告警建议：连接数接近 max_connections 的 80%；迁移版本与预期不一致

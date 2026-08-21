@@ -204,8 +204,7 @@ function requiredInProduction<T>(
   fallback: T,
   isProduction: boolean,
 ): T | undefined {
-  const normalized =
-    typeof value === "string" && value.trim().length === 0 ? undefined : value;
+  const normalized = typeof value === "string" && value.trim().length === 0 ? undefined : value;
   return normalized ?? (isProduction ? undefined : fallback);
 }
 

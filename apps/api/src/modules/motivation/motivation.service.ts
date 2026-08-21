@@ -22,6 +22,9 @@ interface CopyRow {
   is_enabled: boolean;
   created_at: Date;
   updated_at: Date;
+  /** 全微秒精度的 updated_at（ISO 字符串）。pg 的 JS Date 只有毫秒精度，
+   *  直接用它做 cursor 会让「同一毫秒内批量写入」的下一页丢失行（T25 修复）。 */
+  updated_at_us?: string;
 }
 
 function toAdmin(row: CopyRow): AdminMotivationCopyDto {
@@ -45,10 +48,14 @@ function toLearner(row: CopyRow): {
   return { id: row.id, text: row.copy_text, category: row.category, attribution: row.attribution };
 }
 
-function encodeCursor(row: { updatedAt: Date; id: string }): string {
-  return Buffer.from(
-    JSON.stringify({ updatedAt: row.updatedAt.toISOString(), id: row.id }),
-  ).toString("base64url");
+/**
+ * 编码 cursor。updatedAt 使用全微秒 ISO 字符串（来自 SQL to_char(...,'...US...Z')），
+ * 保证「同一毫秒内批量写入」的多行可用 (updated_at, id) 正确推进（T25 修复）。
+ */
+function encodeCursor(row: { updatedAt: string; id: string }): string {
+  return Buffer.from(JSON.stringify({ updatedAt: row.updatedAt, id: row.id })).toString(
+    "base64url",
+  );
 }
 
 function decodeCursor(cursor: string): { updatedAt: string; id: string } {
@@ -80,6 +87,7 @@ export class MotivationService {
   async list(opts: {
     status?: string;
     category?: string;
+    q?: string;
     cursor?: string;
     limit?: number;
   }): Promise<AdminMotivationListDto> {
@@ -96,6 +104,10 @@ export class MotivationService {
       params.push(opts.category);
       where.push(`category = $${params.length}`);
     }
+    if (opts.q && opts.q.trim()) {
+      params.push(`%${opts.q.trim()}%`);
+      where.push(`copy_text ILIKE $${params.length}`);
+    }
     if (opts.cursor) {
       const cursor = decodeCursor(opts.cursor);
       params.push(cursor.updatedAt, cursor.id);
@@ -106,7 +118,8 @@ export class MotivationService {
     const limit = Math.min(Math.max(opts.limit ?? 30, 1), 100);
     params.push(limit + 1);
     const result = await this.pool.query<CopyRow>(
-      `SELECT id, copy_text, category, attribution, is_enabled, created_at, updated_at
+      `SELECT id, copy_text, category, attribution, is_enabled, created_at, updated_at,
+              to_char(updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS updated_at_us
        FROM home_motivation_copies
        ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
        ORDER BY updated_at DESC, id DESC LIMIT $${params.length}`,
@@ -120,7 +133,12 @@ export class MotivationService {
       items,
       hasMore,
       nextCursor:
-        hasMore && last ? encodeCursor({ updatedAt: last.updated_at, id: last.id }) : null,
+        hasMore && last
+          ? encodeCursor({
+              updatedAt: last.updated_at_us ?? last.updated_at.toISOString(),
+              id: last.id,
+            })
+          : null,
     };
   }
 

@@ -8,11 +8,12 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { fetchMe } from "@/lib/auth";
+import { fetchMe, logout, type PublicUser } from "@/lib/auth";
 
 import { AdminMobileNav } from "@/components/admin/mobile-nav";
 import { ADMIN_NAV_GROUPS } from "@/components/admin/nav";
 import { AdminSidebar } from "@/components/admin/sidebar";
+import { PageTransition } from "@/components/page-transition";
 
 type AuthState = "loading" | "admin" | "forbidden";
 
@@ -20,6 +21,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const router = useRouter();
   const [auth, setAuth] = useState<AuthState>("loading");
+  const [adminUser, setAdminUser] = useState<PublicUser | null>(null);
+  const [logoutBusy, setLogoutBusy] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,6 +45,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         setAuth("forbidden");
         return;
       }
+      setAdminUser(res.user);
       setAuth("admin");
     }
     void check();
@@ -64,17 +69,46 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
+  async function onLogout() {
+    setLogoutBusy(true);
+    setLogoutError(null);
+    const res = await logout();
+    setLogoutBusy(false);
+    if (!res.ok) {
+      setLogoutError(res.message ?? "退出失败，请重试。");
+      return;
+    }
+    router.replace("/login");
+  }
+
   return (
     <div className="admin-shell">
       {/* 桌面固定侧栏（>=1024px 显示；窄屏隐藏） */}
-      <AdminSidebar pathname={pathname} />
+      {adminUser && (
+        <AdminSidebar
+          pathname={pathname}
+          user={adminUser}
+          onLogout={onLogout}
+          logoutBusy={logoutBusy}
+          logoutError={logoutError}
+        />
+      )}
 
       {/* 窄屏折叠菜单（<1024px 显示） */}
-      <AdminMobileNav groups={ADMIN_NAV_GROUPS} pathname={pathname} />
+      {adminUser && (
+        <AdminMobileNav
+          groups={ADMIN_NAV_GROUPS}
+          pathname={pathname}
+          user={adminUser}
+          onLogout={onLogout}
+          logoutBusy={logoutBusy}
+          logoutError={logoutError}
+        />
+      )}
 
       <div className="admin-content">
         {/* 内容区由子页面提供自己的 h1 / section landmark */}
-        {children}
+        <PageTransition>{children}</PageTransition>
       </div>
     </div>
   );

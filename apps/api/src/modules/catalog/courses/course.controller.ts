@@ -14,6 +14,7 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   Req,
   Res,
   UseGuards,
@@ -32,6 +33,7 @@ import { SessionGuard, type AuthenticatedRequest } from "../../../auth/session.g
 import {
   CourseDraftDetailDto,
   CourseListResponseDto,
+  ListAdminCoursesQueryDto,
   CourseValidationResultDto,
   CreateCourseDto,
   CreateCourseResultDto,
@@ -67,9 +69,12 @@ export class CourseController {
   @ApiBearerAuth()
   @ApiOperation({ summary: "课程列表（草稿版本、可见状态）" })
   @ApiOkResponse({ type: CourseListResponseDto })
-  async list() {
-    const items = await this.courseService.listCourses();
-    return { items };
+  async list(@Query() query: ListAdminCoursesQueryDto) {
+    return this.courseService.listCourses({
+      ...(query.limit === undefined ? {} : { limit: query.limit }),
+      ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
+      ...(query.q === undefined ? {} : { q: query.q }),
+    });
   }
 
   @Post()

@@ -103,51 +103,20 @@ function DockIcon({ name, active }: { name: DockItem["icon"]; active?: boolean }
 }
 
 export function LiquidDock({ pathname }: { pathname: string }) {
-  const dockRef = useRef<HTMLDivElement>(null);
-  const frameRef = useRef<number | null>(null);
   const navigationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
   const livePathname = usePathname() ?? pathname;
   const [visualActiveIndex, setVisualActiveIndex] = useState(() =>
     Math.max(
       DOCK_ITEMS.findIndex(
-        (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),
+        (item) => livePathname === item.href || livePathname.startsWith(`${item.href}/`),
       ),
       0,
     ),
   );
 
-  useEffect(() => {
-    const dock = dockRef.current;
-    if (!dock) return;
-
-    const settle = () => {
-      dock.style.setProperty("--dock-light-x", "50%");
-      dock.style.setProperty("--dock-light-y", "-25%");
-    };
-
-    const onPointerMove = (event: PointerEvent) => {
-      const bounds = dock.getBoundingClientRect();
-      const x = Math.max(0, Math.min(100, ((event.clientX - bounds.left) / bounds.width) * 100));
-      const y = Math.max(-35, Math.min(125, ((event.clientY - bounds.top) / bounds.height) * 100));
-      if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
-      frameRef.current = requestAnimationFrame(() => {
-        dock.style.setProperty("--dock-light-x", `${x}%`);
-        dock.style.setProperty("--dock-light-y", `${y}%`);
-      });
-    };
-
-    dock.addEventListener("pointermove", onPointerMove);
-    dock.addEventListener("pointerleave", settle);
-    return () => {
-      dock.removeEventListener("pointermove", onPointerMove);
-      dock.removeEventListener("pointerleave", settle);
-      if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
-    };
-  }, []);
-
   const activeIndex = DOCK_ITEMS.findIndex(
-    (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),
+    (item) => livePathname === item.href || livePathname.startsWith(`${item.href}/`),
   );
   const resolvedActiveIndex = Math.max(activeIndex, 0);
 
@@ -179,37 +148,40 @@ export function LiquidDock({ pathname }: { pathname: string }) {
     }, 96);
   };
 
+  const dockContent = (
+    <>
+      {/* 折射由外层 Glass 处理；导航内容保持稳定，确保快速阅读与准确触控。 */}
+      <span className="liquid-dock__caustic" aria-hidden="true" />
+      <div className="liquid-dock__content" data-active-index={visualActiveIndex}>
+        <span className="liquid-dock__active-indicator" aria-hidden="true" />
+        {DOCK_ITEMS.map((item, index) => {
+          const routeActive =
+            livePathname === item.href || livePathname.startsWith(`${item.href}/`);
+          const visualActive = visualActiveIndex === index;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={routeActive ? "page" : undefined}
+              data-dock-active={visualActive ? "true" : undefined}
+              onClick={(event) => {
+                event.preventDefault();
+                requestNavigation(item.href, index);
+              }}
+            >
+              <DockIcon name={item.icon} active={visualActive} />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </>
+  );
+
   return (
     <nav className="learner-dock" aria-label="学习者导航">
-      <div
-        ref={dockRef}
-        className="liquid-dock"
-        data-active-index={visualActiveIndex}
-        data-liquid-glass="true"
-      >
-        <span className="liquid-dock__caustic" aria-hidden="true" />
-        <div className="liquid-dock__content">
-          <span className="liquid-dock__active-indicator" aria-hidden="true" />
-          {DOCK_ITEMS.map((item, index) => {
-            const routeActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-            const visualActive = visualActiveIndex === index;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={routeActive ? "page" : undefined}
-                data-dock-active={visualActive ? "true" : undefined}
-                onClick={(event) => {
-                  event.preventDefault();
-                  requestNavigation(item.href, index);
-                }}
-              >
-                <DockIcon name={item.icon} active={visualActive} />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </div>
+      <div className="liquid-dock-stage">
+        <div className="liquid-dock">{dockContent}</div>
       </div>
     </nav>
   );

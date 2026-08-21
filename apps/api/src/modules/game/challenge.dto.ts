@@ -15,6 +15,8 @@ export class ChallengeItemDto {
   englishSpelling!: string;
   @ApiProperty({ description: "冻结的中文释义（学习面）" })
   meaning!: string;
+  @ApiProperty({ type: [String], description: "选择题冻结的选项；拼写题为空数组" })
+  choices!: string[];
 }
 
 export class ChallengeCurrentDto {

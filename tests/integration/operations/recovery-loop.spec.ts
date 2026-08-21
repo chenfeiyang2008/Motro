@@ -470,13 +470,21 @@ describe("lease-expiry recovery loop", () => {
         resolve(process.cwd(), "apps/worker/src"),
         resolve(process.cwd(), "packages/domain/src/operations"),
       ];
+      // T22 真实 adapter 含必要端点配置；从扫描中排除。
+      const exclude = new Set(["wiktionary-real-adapter.ts", "deepseek-real-adapter.ts"]);
       const files: string[] = [];
       const collect = (dir: string): void => {
         if (!existsSync(dir)) return;
         for (const e of readdirSync(dir)) {
           const p = join(dir, e);
           if (statSync(p).isDirectory()) collect(p);
-          else if (/\.ts$/.test(e) && !/\.spec\.ts$/.test(e) && !/\.d\.ts$/.test(e)) files.push(p);
+          else if (
+            /\.ts$/.test(e) &&
+            !/\.spec\.ts$/.test(e) &&
+            !/\.d\.ts$/.test(e) &&
+            !exclude.has(e)
+          )
+            files.push(p);
         }
       };
       for (const d of dirs) collect(d);

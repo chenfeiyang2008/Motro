@@ -73,15 +73,27 @@ export async function createIsolatedAdmin(
   }
 
   // 登录该隔离管理员，写本项目专属 storageState。
+  // 冷启动（尤其 WebKit 首启）页面加载/跳转可能偏慢；对登录导航做有限重试，
+  // 避免把「慢」误判为「失败」。每次重试是真实登录（新上下文），不伪造成功。
   const context = await browser.newContext();
   try {
     const page = await context.newPage();
-    await page.goto(`${WEB}/login`);
-    await page.getByRole("heading", { name: "登录 Motro" }).waitFor();
-    await page.getByLabel("用户名").fill(username);
-    await page.getByLabel("密码").fill(ADMIN_PASS);
-    await page.getByRole("button", { name: "登录", exact: true }).click();
-    await page.waitForURL(/\/change-password|\/app/, { timeout: 30000 });
+    let ok = false;
+    for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
+      await page.goto(`${WEB}/login`);
+      try {
+        await page.getByRole("heading", { name: "登录 Motro" }).waitFor({ timeout: 15000 });
+        await page.getByLabel("用户名").fill(username);
+        await page.getByLabel("密码").fill(ADMIN_PASS);
+        await page.getByRole("button", { name: "登录", exact: true }).click();
+        await page.waitForURL(/\/change-password|\/app/, { timeout: 30000 });
+        ok = true;
+      } catch (err) {
+        if (attempt === 3) throw err;
+        console.warn(`[auth-setup] 登录 ${username} 第 ${attempt} 次超时，重试…`);
+        await page.goto(`${WEB}/login`).catch(() => {});
+      }
+    }
     if (page.url().includes("change-password")) {
       await page.getByLabel(/当前密码/).fill(ADMIN_PASS);
       await page.getByLabel(/^新密码/).fill(`${ADMIN_PASS}${ADMIN_PASS}`);

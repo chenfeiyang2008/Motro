@@ -59,15 +59,6 @@ export default function ProtectedAppPage() {
     return (
       <AdminLayout>
         <AdminHomePage />
-        <AccountMenu user={user} onLogout={onLogout} busy={busy} />
-        {logoutError && (
-          <p className="app-logout-error" role="alert">
-            {logoutError}
-          </p>
-        )}
-        <button type="button" className="primary app-logout" onClick={onLogout} disabled={busy}>
-          {busy ? "登出中…" : "登出"}
-        </button>
       </AdminLayout>
     );
   }
@@ -81,9 +72,6 @@ export default function ProtectedAppPage() {
           {logoutError}
         </p>
       )}
-      <button type="button" className="primary app-logout" onClick={onLogout} disabled={busy}>
-        {busy ? "登出中…" : "登出"}
-      </button>
     </LearnerLayout>
   );
 }

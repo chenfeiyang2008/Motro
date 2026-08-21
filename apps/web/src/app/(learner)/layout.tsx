@@ -9,6 +9,7 @@ import { usePathname } from "next/navigation";
 
 import { MotroLogo } from "../../components/motro-logo";
 import { LearnerRankBadge } from "../../components/learner-rank-badge";
+import { PageTransition } from "../../components/page-transition";
 import { LiquidDock } from "./liquid-dock";
 
 const NAV_ITEMS = [
@@ -116,7 +117,9 @@ export default function LearnerLayout({ children }: { children: React.ReactNode 
   return (
     <div className={`learner-layout${isFocused ? " learner-layout--focused" : ""}`}>
       {!isFocused && chrome}
-      <div className="learner-content">{children}</div>
+      <div className="learner-content">
+        <PageTransition>{children}</PageTransition>
+      </div>
     </div>
   );
 }

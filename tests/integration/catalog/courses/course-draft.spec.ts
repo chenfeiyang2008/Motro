@@ -253,10 +253,62 @@ describe.skipIf(!dbAvailable && process.env.MOTRO_REQUIRE_DB !== "1")("admin cou
     const { courseId } = await createCourse();
     const res = await admin.req("GET", "/api/v1/admin/courses", {});
     expect(res.statusCode).toBe(200);
-    const list = body(res) as { items: { id: string; draftVersion: number | null }[] };
+    const list = body(res) as {
+      items: { id: string; draftVersion: number | null }[];
+      nextCursor: string | null;
+      hasMore: boolean;
+    };
     const item = list.items.find((c) => c.id === courseId);
     expect(item).toBeTruthy();
     expect(item?.draftVersion).toBe(1);
+    expect(typeof list.hasMore).toBe("boolean");
+    expect(list.nextCursor === null || typeof list.nextCursor === "string").toBe(true);
+  });
+
+  it("管理员课程列表支持稳定游标分页、标题/slug 搜索与参数校验", async () => {
+    const marker = uniq("paged");
+    const created = await Promise.all(
+      ["alpha", "bravo", "charlie"].map((suffix) =>
+        createCourse({
+          slug: `${marker}-${suffix}`,
+          title: `${marker} ${suffix}`,
+        }),
+      ),
+    );
+
+    const first = await admin.req("GET", `/api/v1/admin/courses?limit=2&q=${marker}`, {});
+    expect(first.statusCode).toBe(200);
+    const firstBody = body(first) as {
+      items: { id: string; slug: string }[];
+      nextCursor: string | null;
+      hasMore: boolean;
+    };
+    expect(firstBody.items).toHaveLength(2);
+    expect(firstBody.hasMore).toBe(true);
+    expect(firstBody.nextCursor).toBeTruthy();
+    expect(firstBody.items.every((item) => item.slug.startsWith(marker))).toBe(true);
+
+    const second = await admin.req(
+      "GET",
+      `/api/v1/admin/courses?limit=2&q=${marker.toUpperCase()}&cursor=${encodeURIComponent(firstBody.nextCursor ?? "")}`,
+      {},
+    );
+    // 游标绑定规范化后的搜索词，大小写变化仍属于同一个搜索条件。
+    expect(second.statusCode).toBe(200);
+    const secondBody = body(second) as {
+      items: { id: string; slug: string }[];
+      hasMore: boolean;
+    };
+    expect(secondBody.items).toHaveLength(1);
+    expect(secondBody.hasMore).toBe(false);
+    const firstIds = new Set(firstBody.items.map((item) => item.id));
+    expect(secondBody.items.some((item) => firstIds.has(item.id))).toBe(false);
+    expect(created.map(({ courseId }) => courseId)).toEqual(
+      expect.arrayContaining([...firstBody.items, ...secondBody.items].map((item) => item.id)),
+    );
+
+    const invalidLimit = await admin.req("GET", "/api/v1/admin/courses?limit=51", {});
+    expect(invalidLimit.statusCode).toBe(422);
   });
 
   it("单元新增、编辑、删除与版本递增；删除后重排连续", async () => {

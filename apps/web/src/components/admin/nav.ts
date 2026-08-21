@@ -27,7 +27,10 @@ export const ADMIN_NAV_GROUPS: Array<{ label: string; items: AdminNavItem[] }> =
   },
   {
     label: "账号",
-    items: [{ href: "/admin/users", label: "用户管理", icon: "users" }],
+    items: [
+      { href: "/admin/users", label: "用户管理", icon: "users" },
+      { href: "/admin/memberships", label: "会员管理", icon: "crown" },
+    ],
   },
 ];
 

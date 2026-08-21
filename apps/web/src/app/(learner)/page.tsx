@@ -13,17 +13,28 @@ import {
   getStudyProgress,
   getStudyToday,
   getHomeMotivation,
+  getDailyUsage,
+  type DailyUsageSummary,
   type HomeMotivationCopy,
   listCatalogCourses,
   type StudyProgress,
   type StudySessionDetail,
   type StudyToday,
 } from "@/lib/api";
+import { MemberCrownBadge } from "@/components/member-crown-badge";
+import { MemberWelcome, consumeJustLoggedInSignal } from "@/components/member-welcome";
+import { fetchMe } from "@/lib/auth";
 
 type LoadState =
   | { phase: "loading" }
   | { phase: "error"; code: string; message: string }
-  | { phase: "ready"; today: StudyToday; progress: StudyProgress | null; courseTitle: string };
+  | {
+      phase: "ready";
+      today: StudyToday;
+      progress: StudyProgress | null;
+      courseTitle: string;
+      usage: DailyUsageSummary | null;
+    };
 
 export default function LearnerDashboardPage() {
   const router = useRouter();
@@ -32,6 +43,27 @@ export default function LearnerDashboardPage() {
   const [actionError, setActionError] = useState("");
   const [activeSession, setActiveSession] = useState<StudySessionDetail | null>(null);
   const [motivation, setMotivation] = useState<HomeMotivationCopy | null>(null);
+  const [justLoggedIn, setJustLoggedIn] = useState(false);
+  const [isMember, setIsMember] = useState(false);
+  const [displayName, setDisplayName] = useState("");
+
+  useEffect(() => {
+    // 一次性消费"刚登录"信号（会员欢迎只在登录跳转后的首次渲染播放）。
+    setJustLoggedIn(consumeJustLoggedInSignal());
+  }, []);
+
+  useEffect(() => {
+    // 独立拉取会员状态（不依赖 dashboard ready；即使无主课程也正确显示会员欢迎）。
+    void getDailyUsage().then((res) => {
+      if (res.ok && res.data?.membershipStatus === "member") setIsMember(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    void fetchMe().then((res) => {
+      if (res.ok && res.user) setDisplayName(res.user.displayName);
+    });
+  }, []);
 
   useEffect(() => {
     void getHomeMotivation().then((res) => {
@@ -41,22 +73,24 @@ export default function LearnerDashboardPage() {
 
   async function load(): Promise<void> {
     setState({ phase: "loading" });
-    const [todayRes, progressRes, catalogRes, activeRes] = await Promise.all([
+    const [todayRes, progressRes, catalogRes, activeRes, usageRes] = await Promise.all([
       getStudyToday(),
       getStudyProgress(),
       listCatalogCourses(),
       getActiveStudySession(),
+      getDailyUsage(),
     ]);
     if (
       todayRes.status === 401 ||
       catalogRes.status === 401 ||
       progressRes.status === 401 ||
-      activeRes.status === 401
+      activeRes.status === 401 ||
+      usageRes.status === 401
     ) {
       router.replace("/login");
       return;
     }
-    if (todayRes.status === 403 || catalogRes.status === 403) {
+    if (todayRes.status === 403 || catalogRes.status === 403 || usageRes.status === 403) {
       router.replace("/change-password");
       return;
     }
@@ -81,7 +115,13 @@ export default function LearnerDashboardPage() {
     // active 会话是真实已存在的数据；404（无 active）是正常状态，不算错误。
     if (activeRes.ok && activeRes.data) setActiveSession(activeRes.data);
     else setActiveSession(null);
-    setState({ phase: "ready", today, progress, courseTitle });
+    setState({
+      phase: "ready",
+      today,
+      progress,
+      courseTitle,
+      usage: usageRes.ok && usageRes.data ? usageRes.data : null,
+    });
   }
 
   useEffect(() => {
@@ -118,6 +158,11 @@ export default function LearnerDashboardPage() {
 
   return (
     <section className="learner-dashboard">
+      <MemberWelcome
+        status={isMember ? "member" : undefined}
+        justLoggedIn={justLoggedIn}
+        displayName={displayName}
+      />
       <h1>学习仪表盘</h1>
       <p className="dash-sub">看看今天有哪些内容，然后在课程之间专注推进。</p>
       {motivation && (
@@ -161,12 +206,27 @@ export default function LearnerDashboardPage() {
 
       {state.phase === "ready" && (
         <>
-          <div className="dash-grid">
+          <div className="dash-grid" style={{ "--dash-delay": "0ms" } as React.CSSProperties}>
             <div className="dash-panel dash-panel--primary glass-surface glass-surface--regular">
               <h3>今日学习</h3>
               <p className="dash-meta">
                 {state.courseTitle || "主课程"} · 每日预算 {state.today.dailyBudgetMinutes} 分钟
               </p>
+              {state.usage && (
+                <p
+                  className={`dash-usage${state.usage.membershipStatus === "member" ? " dash-usage--member" : ""}`}
+                  data-testid="daily-usage"
+                >
+                  {state.usage.membershipStatus === "member" ? (
+                    <>
+                      <MemberCrownBadge status={state.usage.membershipStatus} size="compact" />
+                      <span>今日学习不限时</span>
+                    </>
+                  ) : (
+                    `今日剩余 ${state.usage.remainingMinutes ?? 0} 分钟 · 明日重置`
+                  )}
+                </p>
+              )}
               {courseUnitText(state.progress)}
 
               {!state.today.noWork ? (
@@ -243,7 +303,7 @@ export default function LearnerDashboardPage() {
             </div>
           </div>
 
-          <div className="dash-section">
+          <div className="dash-section" style={{ "--dash-delay": "100ms" } as React.CSSProperties}>
             <h2>我的课程</h2>
             <CourseProgressList progress={state.progress} courseTitle={state.courseTitle} />
           </div>

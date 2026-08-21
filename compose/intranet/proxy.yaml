@@ -1,0 +1,40 @@
+# Motro 内网反向代理服务（Caddy）——配合 compose/intranet.yml 使用。
+# ---------------------------------------------------------------------------
+# 作为额外 -f 覆盖文件与 compose/intranet.yml 一起 compose：
+#   docker compose -f compose/intranet.yml -f compose/intranet/proxy.yaml \
+#     --env-file intranet.env up -d --build
+#
+# 浏览器唯一入口；终结 TLS；路由 /api/v1/* → api、其余 → web；加安全响应头、
+# 请求体限制与超时。内部服务端口不对外。
+#
+# 所有值均为占位符，由部署者在 intranet.env 提供。证书/密钥以只读卷挂载到
+# 容器内与 Caddyfile 中 ${TLS_CERT_FILE}/${TLS_KEY_FILE} 相同的绝对路径。
+# ---------------------------------------------------------------------------
+services:
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    networks: [intranet-net]
+    environment:
+      # 透传给 Caddyfile 模板引擎（${VAR} 占位符在此解析）。
+      INTRA_HOST_NAME: ${INTRA_HOST_NAME:?INTRA_HOST_NAME 必须设置（内网主机名/私有 CA 域）}
+      TLS_CERT_FILE: ${TLS_CERT_FILE:?TLS_CERT_FILE 必须设置（证书绝对路径）}
+      TLS_KEY_FILE: ${TLS_KEY_FILE:?TLS_KEY_FILE 必须设置（私钥绝对路径）}
+      PROXY_BIND_ADDR: ${PROXY_BIND_ADDR:-127.0.0.1}
+    # Caddy 默认在 443 提供 HTTPS（auto_https off + 显式 tls 段）。
+    ports:
+      - "${PROXY_BIND_ADDR:-127.0.0.1}:${PROXY_BIND_PORT:-8443}:443"
+    volumes:
+      - ./proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # 证书/密钥：挂载到与 Caddyfile 中 ${TLS_CERT_FILE}/${TLS_KEY_FILE} 一致的绝对路径。
+      - ${TLS_CERT_FILE}:${TLS_CERT_FILE}:ro
+      - ${TLS_KEY_FILE}:${TLS_KEY_FILE}:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - web
+      - api
+
+volumes:
+  caddy-data:
+  caddy-config:

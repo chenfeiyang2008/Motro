@@ -65,6 +65,15 @@ export function IconUsers(props: IconProps) {
   );
 }
 
+export function IconCrown(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="m4 7 4.2 4L12 6l3.8 5L20 7l-1.2 11H5.2L4 7Z" />
+      <path d="M5.2 21h13.6" />
+    </svg>
+  );
+}
+
 export function IconReviews(props: IconProps) {
   return (
     <svg {...base} {...props}>
@@ -120,6 +129,7 @@ export const ADMIN_ICONS = {
   motivation: IconMotivation,
   operations: IconOperations,
   users: IconUsers,
+  crown: IconCrown,
   dashboard: IconDashboard,
   menu: IconMenu,
   close: IconClose,

@@ -21,6 +21,7 @@ function item(overrides: Partial<ChallengeItemFlow> = {}): ChallengeItemFlow {
     questionType: "choice",
     englishSpelling: "run",
     meaning: "跑",
+    choices: ["跑", "走", "跳", "看"],
     ...overrides,
   };
 }

@@ -120,12 +120,14 @@ test.describe("admin user management", () => {
     opts: { username?: string; role?: "learner" | "admin" } = {},
   ): Promise<{ username: string; otpText: string }> {
     await page.getByRole("button", { name: "添加用户" }).click();
-    await expect(page.getByRole("dialog", { name: "添加用户" })).toBeVisible();
+    const dialog = page.getByRole("dialog", { name: "添加用户" });
+    await expect(dialog).toBeVisible();
     const username = opts.username ?? `e2e-usr-${randomUUID().slice(0, 8)}`;
-    await page.getByLabel("登录用户名").fill(username);
-    await page.getByLabel("显示名").fill(`用户 ${username}`);
+    await dialog.getByLabel("登录用户名").fill(username);
+    // 「显示名」「角色」同时出现在列表筛选与创建表单，限定到 dialog 避免严格模式歧义。
+    await dialog.getByLabel("显示名", { exact: true }).fill(`用户 ${username}`);
     if (opts.role === "admin") {
-      await page.getByLabel("角色").selectOption("admin");
+      await dialog.getByLabel("角色", { exact: true }).selectOption("admin");
     }
     await page.getByRole("button", { name: "创建", exact: true }).click();
     const otpDialog = page.getByRole("dialog", { name: /一次性密码/ });
@@ -184,8 +186,10 @@ test.describe("admin user management", () => {
 
     // 用同一用户名再次创建 → 409 关联反馈，不显示 OTP。
     await adminPage.getByRole("button", { name: "添加用户" }).click();
-    await adminPage.getByLabel("登录用户名").fill(existing.username);
-    await adminPage.getByLabel("显示名").fill("重复用户");
+    const dialog = adminPage.getByRole("dialog", { name: "添加用户" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByLabel("登录用户名").fill(existing.username);
+    await dialog.getByLabel("显示名", { exact: true }).fill("重复用户");
     const submit = adminPage.getByRole("button", { name: "创建", exact: true });
     await submit.click();
     await expect(adminPage.getByText(/已存在|用户名已存在/i)).toBeVisible({ timeout: 15000 });
@@ -197,8 +201,10 @@ test.describe("admin user management", () => {
     const username = `e2e-idem-${randomUUID().slice(0, 8)}`;
     // 打开表单并填写完整（保持字段不变，客户端会复用同一 Idempotency-Key）。
     await adminPage.getByRole("button", { name: "添加用户" }).click();
-    await adminPage.getByLabel("登录用户名").fill(username);
-    await adminPage.getByLabel("显示名").fill(`用户 ${username}`);
+    const dialog = adminPage.getByRole("dialog", { name: "添加用户" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByLabel("登录用户名").fill(username);
+    await dialog.getByLabel("显示名", { exact: true }).fill(`用户 ${username}`);
 
     // 同步 dispatch 两次 click：在 React 把 creating 置为 disabled 之前同时触发两次提交，
     // 两次都携带同一意图键 → 服务端幂等重放，只创建一个用户。
@@ -218,26 +224,23 @@ test.describe("admin user management", () => {
     await expect(rows).toHaveCount(1);
   });
 
-  test("列表显示能力边界说明，前端搜索框可过滤可见行", async ({ adminPage }) => {
+  test("列表搜索框可按用户名过滤可见行（服务端搜索）", async ({ adminPage }) => {
     await gotoUsers(adminPage);
     // 等待列表加载（隔离管理员自身通常出现，或为空）。
     await expect(adminPage.locator(".admin-users")).toBeVisible();
 
-    // 能力边界说明可见。
-    await expect(adminPage.getByText(/当前后端不支持服务端搜索与分页/)).toBeVisible();
-
-    // 若有至少一个用户行，则搜索框可过滤。
+    // 服务端搜索：输入关键词后点「搜索」触发后端筛选。
     const filterInput = adminPage.getByLabel("搜索用户名/显示名");
-    const rowCount = await adminPage.getByTestId("user-row").count();
-    if (rowCount > 0) {
-      await expect(filterInput).toBeVisible();
-      // 输入一个不存在的关键词 → 过滤后无可见行。
-      await filterInput.fill("__definitely_non_existent_user__");
-      await expect(adminPage.getByTestId("user-row")).toHaveCount(0);
-      // 清空 → 恢复。
-      await filterInput.fill("");
-      await expect(adminPage.getByTestId("user-row").first()).toBeVisible();
-    }
+    await expect(filterInput).toBeVisible();
+    const searchBtn = adminPage.getByRole("button", { name: "搜索" });
+    // 输入一个不存在的关键词 → 无可见行。
+    await filterInput.fill("__definitely_non_existent_user__");
+    await searchBtn.click();
+    await expect(adminPage.getByTestId("user-row")).toHaveCount(0);
+    // 清空 → 恢复。
+    await filterInput.fill("");
+    await searchBtn.click();
+    await expect(adminPage.getByTestId("user-row").first()).toBeVisible();
   });
 
   test("重置其他用户密码并进入一次性密码层；停用后状态更新且停用按钮消失", async ({
@@ -285,6 +288,30 @@ test.describe("admin user management", () => {
     await expect(selfRow).toBeVisible();
     await expect(selfRow.getByText("当前账号", { exact: true })).toBeVisible();
     await expect(selfRow.getByRole("button", { name: "停用" })).toHaveCount(0);
+  });
+
+  test("编辑弹窗以视口居中，长列表中不会只显示遮罩", async ({ adminPage }) => {
+    await gotoUsers(adminPage);
+    const editButton = adminPage.getByTestId("user-row").first().getByRole("button", {
+      name: "编辑",
+    });
+    await expect(editButton).toBeVisible();
+    await editButton.click();
+
+    const dialog = adminPage.getByRole("dialog", { name: /^编辑 / });
+    await expect(dialog).toBeVisible();
+    const [dialogBox, viewport] = await Promise.all([
+      dialog.boundingBox(),
+      adminPage.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight })),
+    ]);
+    expect(dialogBox).not.toBeNull();
+    expect(dialogBox!.x).toBeGreaterThanOrEqual(0);
+    expect(dialogBox!.y).toBeGreaterThanOrEqual(0);
+    expect(dialogBox!.x + dialogBox!.width).toBeLessThanOrEqual(viewport.width);
+    expect(dialogBox!.y + dialogBox!.height).toBeLessThanOrEqual(viewport.height);
+
+    await adminPage.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
   });
 
   test("learner 访问 /admin/users 被拒（无权限页）", async ({ adminPage, page }) => {
