@@ -216,7 +216,12 @@ summary {
 
 .auth-form button,
 button.primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   min-height: 44px;
+  padding: 0 18px;
   font-size: 16px;
   border-radius: 8px;
   border: none;
@@ -1089,6 +1094,31 @@ button.secondary {
   background: #ffffff;
   color: #182230;
   cursor: pointer;
+}
+
+/* 轻量文字按钮：编辑/停用等行内操作。带边框、与主/次按钮同高对齐。 */
+button.text-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+button.text-button:hover:not(:disabled) {
+  border-color: var(--color-brand-600);
+  color: var(--color-brand-600);
+}
+button.text-button:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .lexicon-form {
@@ -7208,6 +7238,45 @@ html[data-theme="dark"] .operations-filter input {
   border: 1px solid var(--color-border-subtle);
   border-left: 3px solid var(--color-brand-600);
   background: color-mix(in srgb, var(--color-bg-surface) 72%, transparent);
+}
+.admin-motivation-batch__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.admin-motivation-batch__toggle:hover {
+  color: var(--color-brand-600);
+}
+.admin-motivation-batch__title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+.admin-motivation-batch__sub {
+  color: var(--color-text-secondary);
+  font-size: 0.78rem;
+  font-weight: 400;
+}
+.admin-motivation-batch.is-open {
+  padding-bottom: 1.1rem;
+}
+.admin-motivation-batch.is-open .admin-motivation-batch__toggle {
+  margin-bottom: 0.85rem;
+  border-bottom: 1px solid var(--color-border-subtle);
+  padding-bottom: 0.85rem;
 }
 .admin-motivation-batch h2 {
   margin: 0;
