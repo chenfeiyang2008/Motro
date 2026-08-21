@@ -100,6 +100,50 @@ test.describe("learner dock & type (no-API shell)", () => {
     expect(lum).toBeLessThan(0.5);
   });
 
+  test("[mobile] 个人资料入口在路由往返后保持可见且不被主题按钮遮挡", async ({ page }) => {
+    await page.route("**/api/v1/**", (route) => route.fulfill({ status: 0 }));
+
+    for (const width of [320, 390]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.goto("/");
+      const profile = page.locator(".learner-topbar-profile");
+      await expect(profile).toBeVisible();
+
+      const assertProfileGeometry = async () => {
+        const geometry = await page.evaluate(() => {
+          const profile = document.querySelector(".learner-topbar-profile")?.getBoundingClientRect();
+          const theme = document.querySelector(".theme-toggle--global")?.getBoundingClientRect();
+          return {
+            profileRight: profile?.right ?? 0,
+            themeLeft: theme?.left ?? 0,
+            profileWidth: profile?.width ?? 0,
+          };
+        });
+        expect(geometry.profileWidth).toBeGreaterThanOrEqual(44);
+        expect(
+          geometry.profileRight + 4,
+          `个人入口不应进入主题按钮区域（${width}px）`,
+        ).toBeLessThanOrEqual(geometry.themeLeft);
+      };
+
+      await assertProfileGeometry();
+      await profile.click();
+      await expect(page).toHaveURL(/\/profile$/);
+      await expect(profile).toBeVisible();
+      await assertProfileGeometry();
+
+      await page.locator('.liquid-dock a[href="/courses"]').click();
+      await expect(page).toHaveURL(/\/courses$/);
+      await expect(profile).toBeVisible();
+      await assertProfileGeometry();
+
+      await page.locator('.liquid-dock a[href="/"]').click();
+      await expect(page).toHaveURL(/\/$/);
+      await expect(profile).toBeVisible();
+      await assertProfileGeometry();
+    }
+  });
+
   test("无横向溢出：320 / 390 / 768 / 1440（Dock/侧栏在外壳页）", async ({ page }) => {
     for (const path of [
       "**/api/v1/study/today",

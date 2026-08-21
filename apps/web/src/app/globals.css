@@ -1997,7 +1997,7 @@ button.secondary.danger {
     10px 0 24px rgba(0, 0, 0, 0.16);
 }
 
-/* 移动端顶栏只承载品牌与主题切换；它和 Dock 同属玻璃材质，但没有夸张的追光。 */
+/* 移动端顶栏承载品牌与个人入口；主题切换仍由全局按钮提供，避免遮挡入口。 */
 .learner-topbar {
   display: none;
 }
@@ -2085,11 +2085,33 @@ button.secondary.danger {
 
 .learner-topbar-profile {
   display: none;
-  margin-left: auto;
-  color: var(--color-text-secondary);
-  font-size: 14px;
-  font-weight: 600;
+  color: var(--color-text-primary);
   text-decoration: none;
+}
+
+.learner-topbar-profile__avatar {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--color-text-primary) 18%, var(--color-border));
+  border-radius: 10px;
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-bg-surface) 72%, transparent);
+}
+
+.learner-topbar-profile__avatar svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.learner-topbar-profile__label {
+  white-space: nowrap;
 }
 
 .learner-chrome .learner-nav {
@@ -2179,9 +2201,47 @@ button.secondary.danger {
 
   .learner-topbar-profile {
     display: inline-flex;
+    gap: 7px;
+    margin: 0 56px 0 auto;
     min-height: 44px;
     align-items: center;
-    padding: 0 8px;
+    padding: 5px 10px 5px 6px;
+    border: 1px solid color-mix(in srgb, var(--color-text-primary) 14%, var(--color-border));
+    border-radius: 999px;
+    color: var(--color-text-primary);
+    background: color-mix(in srgb, var(--glass-clear-bg) 74%, transparent);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.46),
+      0 2px 8px rgba(24, 34, 48, 0.08);
+    font-size: 13px;
+    font-weight: 650;
+    line-height: 18px;
+    transition:
+      border-color 160ms ease,
+      color 160ms ease,
+      background-color 160ms ease,
+      transform 160ms ease;
+  }
+
+  .learner-topbar-profile:hover {
+    border-color: color-mix(in srgb, var(--color-brand-600) 50%, var(--color-border));
+    background: color-mix(in srgb, var(--color-brand-050) 74%, var(--glass-clear-bg));
+  }
+
+  .learner-topbar-profile:active {
+    transform: translateY(1px) scale(0.98);
+  }
+
+  .learner-topbar-profile[aria-current="page"] {
+    border-color: color-mix(in srgb, var(--color-brand-600) 54%, var(--color-border));
+    color: var(--color-brand-900);
+    background: color-mix(in srgb, var(--color-brand-050) 88%, var(--glass-clear-bg));
+  }
+
+  .learner-topbar-profile[aria-current="page"] .learner-topbar-profile__avatar {
+    border-color: color-mix(in srgb, var(--color-brand-600) 58%, var(--color-border));
+    color: var(--color-brand-800);
+    background: color-mix(in srgb, var(--color-brand-600) 12%, var(--color-bg-surface));
   }
 
   .learner-topbar::before {

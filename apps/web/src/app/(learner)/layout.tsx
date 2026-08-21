@@ -71,8 +71,18 @@ export default function LearnerLayout({ children }: { children: React.ReactNode 
           </span>
           <span className="learner-brand-name">Motro</span>
         </Link>
-        <Link className="learner-topbar-profile" href="/profile">
-          个人
+        <Link
+          className="learner-topbar-profile"
+          href="/profile"
+          aria-current={
+            pathname === "/profile" || pathname.startsWith("/profile/") ? "page" : undefined
+          }
+          aria-label="打开个人资料"
+        >
+          <span className="learner-topbar-profile__avatar" aria-hidden="true">
+            {NAV_ICON.profile}
+          </span>
+          <span className="learner-topbar-profile__label">个人资料</span>
         </Link>
       </div>
       <LiquidDock pathname={pathname} />
